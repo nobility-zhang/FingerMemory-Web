@@ -9,3 +9,5 @@
 * [图书列表页](图书列表页.md)
 * [个人主页](个人主页.md)
 
+使用Bootstrap4的组件方便向移动端靠拢，并采用figma进行原型图的设计，该项目地址：https://www.figma.com/file/xbesBtXrSIyRsNdja7IfHE/fm?node-id=0%3A1
+
