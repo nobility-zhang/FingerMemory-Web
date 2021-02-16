@@ -15,3 +15,7 @@
 CREATE DATABASE `fm` CHARACTER SET 'utf8';
 ```
 
+ER图如下：
+
+![ER图](README/ER图.svg)
+
