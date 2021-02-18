@@ -6,46 +6,126 @@
     random-search="随机推荐"
     type="book"
     ></search>
-    <b-row>
-      <b-tabs content-class="mt-3">
-        <b-tab title="分类1" active>
-          <b-card no-body class="overflow-hidden" style="max-width: 540px;">
-            <b-row no-gutters>
-              <b-col md="6">
-                <b-card-img src="https://picsum.photos/400/400/?image=20" class="rounded-0"></b-card-img>
-              </b-col>
-              <b-col md="6">
-                <b-card-body title="图书名">
-                  <b-card-text>
-                    图书描述图书描述图书描述图书描述图书描述图书描述图书描述
-                    图书描述图书描述图书描述图书描述图书描述图书描述图书描述
-                    图书描述图书描述图书描述图书描述图书描述图书描述
-                  </b-card-text>
-                      <b-link href="#" class="card-link">作者名</b-link>
-                </b-card-body>
-              </b-col>
-            </b-row>
-          </b-card>
-        </b-tab>
-        <b-tab title="分类2">
-          <p>I'm the second tab</p>
-        </b-tab>
-        <b-tab title="分类3">
-          <p>I'm a disabled tab!</p>
-        </b-tab>
-      </b-tabs>
-    </b-row>
-    <b-row align-h="center">
-      <div class="mt-3">
-        <b-pagination v-model="currentPage" :total-rows="rows"></b-pagination>
-      </div>
-    </b-row>
+    <tap-list
+    type="book"
+    :list="list"
+    >
+    </tap-list>
   </b-container>
 </template>
 <script>
 import search from '@/components/search.vue';
+import tapList from '@/components/tapList.vue';
 
 export default {
-  components: { search },
+  data() {
+    return {
+      list: {
+        '分 类 1': [
+          {
+            id: 1,
+            coveruUrl: 'https://picsum.photos/400/400?image=20',
+            name: '图书名1',
+            description: '图书描述1',
+            author: '图书作者1',
+          },
+          {
+            id: 2,
+            coveruUrl: 'https://picsum.photos/400/400?image=21',
+            name: '图书名2',
+            description: '图书描述2',
+            author: '图书作者2',
+          },
+          {
+            id: 3,
+            coveruUrl: 'https://picsum.photos/400/400?image=31',
+            name: '图书名3',
+            description: '图书描述3',
+            author: '图书作者3',
+          },
+          {
+            id: 4,
+            coveruUrl: 'https://picsum.photos/400/400?image=41',
+            name: '图书名4',
+            description: '图书描述4',
+            author: '图书作者4',
+          },
+          {
+            id: 5,
+            coveruUrl: 'https://picsum.photos/400/400?image=51',
+            name: '图书名5',
+            description: '图书描述5',
+            author: '图书作者5',
+          },
+          {
+            id: 6,
+            coveruUrl: 'https://picsum.photos/400/400?image=61',
+            name: '图书名6',
+            description: '图书描述6',
+            author: '图书作者6',
+          },
+          {
+            id: 7,
+            coveruUrl: 'https://picsum.photos/400/400?image=71',
+            name: '图书名7',
+            description: '图书描述7',
+            author: '图书作者7',
+          },
+        ],
+        '分 类 2': [
+          {
+            id: 1,
+            coveruUrl: 'https://picsum.photos/400/400?image=20',
+            name: '图书名1',
+            description: '图书描述1',
+            author: '图书作者1',
+          },
+          {
+            id: 2,
+            coveruUrl: 'https://picsum.photos/400/400?image=21',
+            name: '图书名2',
+            description: '图书描述2',
+            author: '图书作者2',
+          },
+          {
+            id: 3,
+            coveruUrl: 'https://picsum.photos/400/400?image=31',
+            name: '图书名3',
+            description: '图书描述3',
+            author: '图书作者3',
+          },
+          {
+            id: 4,
+            coveruUrl: 'https://picsum.photos/400/400?image=41',
+            name: '图书名4',
+            description: '图书描述4',
+            author: '图书作者4',
+          },
+          {
+            id: 5,
+            coveruUrl: 'https://picsum.photos/400/400?image=51',
+            name: '图书名5',
+            description: '图书描述5',
+            author: '图书作者5',
+          },
+          {
+            id: 6,
+            coveruUrl: 'https://picsum.photos/400/400?image=61',
+            name: '图书名6',
+            description: '图书描述6',
+            author: '图书作者6',
+          },
+          {
+            id: 7,
+            coveruUrl: 'https://picsum.photos/400/400?image=71',
+            name: '图书名7',
+            description: '图书描述7',
+            author: '图书作者7',
+          },
+        ],
+      },
+    };
+  },
+  components: { search, tapList },
 };
 </script>

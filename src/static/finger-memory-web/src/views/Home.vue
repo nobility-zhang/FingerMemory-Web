@@ -23,3 +23,12 @@
     </b-jumbotron>
   </div>
 </template>
+<script>
+// import tapList from '@/components/tapList.vue';
+
+export default {
+  components: {
+    // tapList,
+  },
+};
+</script>
