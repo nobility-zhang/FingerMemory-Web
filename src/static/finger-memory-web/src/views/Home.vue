@@ -1,5 +1,6 @@
 <template>
   <div>
+    <core type="multipleChoice"></core>
     <b-jumbotron bg-variant="light" text-variant="dark" border-variant="dark">
       <template v-slot:header>FingerMemory-Web</template>
       <template v-slot:lead>
@@ -24,11 +25,11 @@
   </div>
 </template>
 <script>
-// import tapList from '@/components/tapList.vue';
+import core from '@/components/core.vue';
 
 export default {
   components: {
-    // tapList,
+    core,
   },
 };
 </script>
