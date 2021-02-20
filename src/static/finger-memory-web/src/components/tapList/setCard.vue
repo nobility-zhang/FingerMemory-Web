@@ -11,9 +11,9 @@
               <span>进度</span>
             </b-col>
             <b-col md="8" class="pt-1 pr-0 pl-0">
-              <b-progress max="100">
-                <b-progress-bar value="77"
-                :label="`${((77 / 100) * 100).toFixed(2)}%`">
+              <b-progress :max="cardImpl.max">
+                <b-progress-bar :value="cardImpl.accomplish"
+                :label="`${((cardImpl.accomplish / cardImpl.max) * 100).toFixed(2)}%`">
                 </b-progress-bar>
               </b-progress>
             </b-col>

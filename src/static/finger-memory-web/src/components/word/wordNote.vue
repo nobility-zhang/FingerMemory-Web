@@ -42,15 +42,21 @@
 </template>
 <script>
 export default {
+  props: ['note'],
   data() {
     return {
       write: false,
-      text: '',
+      text: this.note,
     };
   },
   methods: {
     update() {
       this.write = !this.write;
+    },
+  },
+  watch: {
+    note() {
+      this.text = this.note;
     },
   },
 };

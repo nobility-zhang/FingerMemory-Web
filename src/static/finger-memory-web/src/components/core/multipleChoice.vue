@@ -2,10 +2,10 @@
   <div class="card border border-info">
     <div class="card-header text-center bg-info text-white">单选题</div>
     <div class="card-body text-left text-dark">
-      <h6 class="card-title"><strong>问题：</strong>{{issue}}</h6>
+      <h6 class="card-title"><strong>问题：</strong>{{multipleChoice.issue}}</h6>
       <b-link v-b-toggle.collapse>查看译文</b-link>
       <b-collapse id="collapse">
-        <p class="card-text"><strong>译文：</strong>{{translated}}</p>
+        <p class="card-text"><strong>译文：</strong>{{multipleChoice.translated}}</p>
       </b-collapse>
       <b-form-group>
         <b-form-radio
@@ -23,21 +23,18 @@
       </b-form-group>
     </div>
     <div class="card-footer text-dark">估分：{{score}}</div>
-    <bingo :resolve="resolveImpl" :bingoId="bingoIdImpl"></bingo>
+    <bingo :resolve="multipleChoice.resolve" :bingoId="bingoIdImpl"></bingo>
   </div>
 </template>
 <script>
 import bingo from '@/components/core/bingo.vue';
 
 export default {
-  props: ['issue', 'translated', 'options', 'resolve', 'bingoId'],
+  props: ['multipleChoice', 'bingoId'],
   data() {
     return {
       bingoIdImpl: this.bingoId,
-      issueImpl: this.issue,
-      translatedImpl: this.translated,
-      resolveImpl: this.resolve,
-      optionsImpl: this.stateNull(this.options),
+      optionsImpl: this.stateNull(this.multipleChoice.options),
       score: 100,
       selected: '',
     };
@@ -53,8 +50,8 @@ export default {
       return optionsCopy;
     },
     judge(index) {
-      this.optionsImpl[index].reight = this.options[index].reight;
-      if (!this.options[index].reight) {
+      this.optionsImpl[index].reight = this.multipleChoice.options[index].reight;
+      if (!this.multipleChoice.options[index].reight) {
         this.score = this.score - this.oneScore > 0 ? this.score - this.oneScore : this.score;
       } else {
         this.$root.$bvToast.show(`toast-${this.bingoIdImpl}`);
@@ -63,7 +60,7 @@ export default {
   },
   computed: {
     oneScore() {
-      return (1 / this.options.length) * 100;
+      return (1 / this.multipleChoice.options.length) * 100;
     },
   },
   filters: {

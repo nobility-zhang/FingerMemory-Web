@@ -2,7 +2,7 @@
   <b-card header="联想词">
     <b-list-group>
       <b-list-group-item
-      v-for="associate in associatesImpl"
+      v-for="associate in associates"
       :key="associate.id"
       :href="associate.url"
       class="flex-column align-items-start">
@@ -21,10 +21,5 @@
 <script>
 export default {
   props: ['associates'],
-  data() {
-    return {
-      associatesImpl: this.associates,
-    };
-  },
 };
 </script>

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <core type="multipleChoice"></core>
+    <core></core>
     <b-jumbotron bg-variant="light" text-variant="dark" border-variant="dark">
       <template v-slot:header>FingerMemory-Web</template>
       <template v-slot:lead>

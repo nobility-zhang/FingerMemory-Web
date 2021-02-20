@@ -2,14 +2,14 @@
   <b-row>
     <b-tabs content-class="mt-3" class="w-100">
       <b-tab
-        v-for="(value, key, index) in listImpl"
-        :key="key"
+        v-for="(value, key, index) in list"
+        :key="index"
         :title="key"
         :active="index == 0"
       >
         <list-card-framework
         :cardList="value"
-        :type="typeImpl">
+        :type="type">
         </list-card-framework>
       </b-tab>
       <slot></slot>
@@ -21,12 +21,6 @@ import listCardFramework from '@/components/tapList/listCardFramework.vue';
 
 export default {
   props: ['type', 'list'],
-  data() {
-    return {
-      listImpl: this.list,
-      typeImpl: this.type,
-    };
-  },
   components: {
     listCardFramework,
   },

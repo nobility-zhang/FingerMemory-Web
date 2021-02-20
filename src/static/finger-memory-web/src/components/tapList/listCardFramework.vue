@@ -1,11 +1,11 @@
 <template>
   <div>
-    <b-row v-if="(typeImpl == 'book')">
+    <b-row v-if="(type == 'book')">
       <b-col md="4" v-for="item in cardListImpl" :key="item.id">
         <book-card :card="item" class="mt-3"></book-card>
       </b-col>
     </b-row>
-    <b-row v-if="(typeImpl == 'set')">
+    <b-row v-if="(type == 'set')">
       <b-col md="6" v-for="item in cardListImpl" :key="item.id">
         <set-card :card="item" class="mt-3"></set-card>
       </b-col>
@@ -27,7 +27,6 @@ export default {
   props: ['cardList', 'type'],
   data() {
     return {
-      typeImpl: this.type,
       currentPage: 1,
       perPage: 6,
       cardListImpl: [...this.cardList].splice(0, 6),

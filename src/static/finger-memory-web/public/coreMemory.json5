@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1,
+    "word": "@word",
+    "translation": "@cword",
+  },
+  {
+    "id": 2,
+    "word": "@word",
+    "translation": "@cword",
+  },
+  {
+    "id": 3,
+    "word": "@word",
+    "translation": "@cword",
+  },
+  {
+    "id": 4,
+    "word": "@word",
+    "translation": "@cword",
+  },
+  {
+    "id": 5,
+    "word": "@word",
+    "translation": "@cword",
+  }
+]

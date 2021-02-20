@@ -2,8 +2,8 @@
   <div class="card border border-info">
     <div class="card-header text-center bg-info text-white">记忆卡片</div>
     <div class="card-body text-center text-dark">
-      <h2 class="card-title">{{ word }}</h2>
-      <b-link href="#" > <strong>{{ translation }}</strong> </b-link>
+      <h2 class="card-title">{{ memory.word }}</h2>
+      <b-link href="#" > <strong>{{ memory.translation }}</strong> </b-link>
       <b-form-input
       @keyup.enter="enterHandler"
       ref="myInput"
@@ -21,10 +21,9 @@
 </template>
 <script>
 export default {
+  props: ['memory'],
   data() {
     return {
-      word: 'word',
-      translation: '单词',
       value: '',
       state: null,
       message: 'Hello! 开始吧',
@@ -33,7 +32,7 @@ export default {
   },
   methods: {
     enterHandler() {
-      if (this.value === this.word) {
+      if (this.value === this.memory.word) {
         this.state = true;
         this.toggleClass('text-success');
         this.message = 'Nice! 下一个！';

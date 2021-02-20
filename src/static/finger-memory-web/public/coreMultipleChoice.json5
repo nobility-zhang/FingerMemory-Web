@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "issue": "@paragraph(1, 3)",
+    "translated": "@cparagraph(1, 3)",
+    "resolve": "@cparagraph(2, 5)",
+    "options": [
+        { "value": "@paragraph(1)", "reight": true },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+      ],
+  },
+  {
+    "id": 2,
+    "issue": "@paragraph(1, 3)",
+    "translated": "@cparagraph(1, 3)",
+    "resolve": "@cparagraph(2, 5)",
+    "options": [
+        { "value": "@paragraph(1)", "reight": true },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+      ],
+  },
+  {
+    "id": 3,
+    "issue": "@paragraph(1, 3)",
+    "translated": "@cparagraph(1, 3)",
+    "resolve": "@cparagraph(2, 5)",
+    "options": [
+        { "value": "@paragraph(1)", "reight": true },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+      ],
+  },
+  {
+    "id": 4,
+    "issue": "@paragraph(1, 3)",
+    "translated": "@cparagraph(1, 3)",
+    "resolve": "@cparagraph(2, 5)",
+    "options": [
+        { "value": "@paragraph(1)", "reight": true },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+        { "value": "@paragraph(1)", "reight": false },
+      ],
+  },
+]
