@@ -58,7 +58,7 @@
 
       <div class="d-flex justify-content-center">
         <span>已有账号？</span>
-        <b-link href="/log-in">返回登入</b-link>
+        <b-link href="#/log-in">返回登入</b-link>
       </div>
     </b-form>
   </div>

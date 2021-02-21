@@ -3,6 +3,7 @@
 [FingerMemory-Web](https://github.com/nobility-zhang/FingerMemory-Web)是一套用于帮助Coder快速记忆单词的 Web App，与其他单词记忆App不同的是，该软件的设计是自底向上学习模式。单词记忆的核心是先使用肌肉记忆记住，随后慢慢理解，是喜欢使用键盘码字的人的福音。不仅易上手，还拥有插件机制，便于扩展，不同的Coder可以来进行定制化。
 
 官网：http://nobility-zhang.github.io/FingerMemory-Web
+项目dome：http://nobility.work/finger-memory
 
 ## 特色功能
 

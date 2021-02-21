@@ -1,8 +1,8 @@
 <template>
   <div>
-    <core></core>
-    <b-jumbotron bg-variant="light" text-variant="dark" border-variant="dark">
-      <template v-slot:header>FingerMemory-Web</template>
+    <core class="mb-3 shadow-lg border border-light"></core>
+    <b-jumbotron bg-variant="light" text-variant="success" border-variant="success">
+      <!-- <template v-slot:header>FingerMemory-Web</template> -->
       <template v-slot:lead>
         <ul>
           <li>类似玩游戏的方式记忆单词</li>

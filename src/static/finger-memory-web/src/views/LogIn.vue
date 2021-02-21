@@ -49,7 +49,7 @@
 
       <div class="d-flex justify-content-center">
         <span>还没有账号？</span>
-        <b-link href="/sign-up">只需5秒，快速注册</b-link>
+        <b-link href="#/sign-up">只需5秒，快速注册</b-link>
       </div>
     </b-form>
   </div>
