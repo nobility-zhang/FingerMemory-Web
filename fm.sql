@@ -22,7 +22,7 @@ CREATE TABLE `fm`.`fm_books`  (
 );
 
 CREATE TABLE `fm`.`fm_book_categorys`  (
-  `category_id` int NOT NULL COMMENT '分类ID',
+  `category_id` int NOT NULL AUTO_INCREMENT COMMENT '分类ID',
   `category_name` varchar(20) NOT NULL COMMENT '分类名',
   PRIMARY KEY (`category_id`),
   UNIQUE INDEX `category_name_index`(`category_name`) COMMENT '分类名唯一索引'
@@ -45,15 +45,15 @@ CREATE TABLE `fm`.`fm_words`  (
 );
 
 CREATE TABLE `fm`.`fm_word_categorys`  (
-  `category_id` int NOT NULL COMMENT '分类ID',
+  `category_id` int NOT NULL AUTO_INCREMENT COMMENT '分类ID',
   `category_name` varchar(20) NOT NULL COMMENT '分类名',
   PRIMARY KEY (`category_id`),
   UNIQUE INDEX `category_name_index`(`category_name`) COMMENT '分类名唯一索引'
 );
 
 CREATE TABLE `fm`.`fm_notes`  (
-  `note_id` int NOT NULL COMMENT '笔记ID',
-  `word_id` int NOT NULL COMMENT '单词笔记ID',
+  `note_id` int NOT NULL AUTO_INCREMENT COMMENT '笔记ID',
+  `word_id` int NOT NULL COMMENT '单词ID',
   `note_author` int NOT NULL COMMENT '笔记作者ID',
   `note_baidescription` varchar(50) NULL COMMENT '笔记内容',
   `note_create_date` timestamp NULL COMMENT '笔记创建时间',
