@@ -1,7 +1,7 @@
 CREATE TABLE `fm`.`fm_users`  (
   `user_id` int NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `user_name` varchar(20) NOT NULL COMMENT '用户名',
-  `user_email` varchar(20) NOT NULL COMMENT '用户邮箱',
+  `user_email` varchar(50) NOT NULL COMMENT '用户邮箱',
   `user_password` varchar(50) NOT NULL COMMENT '用户密码',
   `user_create_date` timestamp NOT NULL COMMENT '创建时间',
   `user_avatar_url` varchar(255) NULL COMMENT '用户头像URL',

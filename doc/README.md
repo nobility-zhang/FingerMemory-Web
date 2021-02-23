@@ -4,6 +4,8 @@
 
 官网：http://nobility-zhang.github.io/FingerMemory-Web
 
+项目dome：http://nobility.work/finger-memory
+
 ## 特色功能
 
 - 类似玩游戏的方式记忆单词
