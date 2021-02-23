@@ -1,4 +1,4 @@
-package work.nobility.fingermemoryweb.model;
+package work.nobility.fingermemoryweb.model.join;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
