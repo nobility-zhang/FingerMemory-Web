@@ -12,7 +12,9 @@ spring:
       maxActive: 10
       minIdle: 2
       maxWait: 3000
+  redis:
+    url: redis://localhost:6379
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
-
