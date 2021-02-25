@@ -21,12 +21,12 @@ public class UserMapperTests {
 
     userMapper.insertOneUser(user1);
 
-    User user2 = userMapper.selectUserById((int) user1.getUserId());
+    User user2 = userMapper.selectUserById( user1.getUserId());
     user2.setUserCreateDate(null);
 
     assertEquals(user1, user2);
 
-    userMapper.deleteUserById((int) user1.getUserId());
+    userMapper.deleteUserById( user1.getUserId());
   }
 
   @Test
@@ -42,11 +42,11 @@ public class UserMapperTests {
     user1.setUserPassword("123");
     userMapper.updateUser(user1);
 
-    User user2 = userMapper.selectUserById((int) user1.getUserId());
+    User user2 = userMapper.selectUserById( user1.getUserId());
     user2.setUserCreateDate(null);
 
     assertEquals(user1, user2);
 
-    userMapper.deleteUserById((int) user1.getUserId());
+    userMapper.deleteUserById( user1.getUserId());
   }
 }

@@ -8,9 +8,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Lexicon {
-  private long lexiconId;
+  private Long lexiconId;
   private String lexiconName;
-  private long lexiconAuthor;
+  private Long lexiconAuthor;
   private String lexiconBaidescription;
   private java.sql.Timestamp lexiconCreateDate;
   private String lexiconCoverUrl;

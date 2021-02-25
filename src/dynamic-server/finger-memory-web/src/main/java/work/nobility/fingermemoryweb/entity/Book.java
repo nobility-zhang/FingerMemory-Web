@@ -8,10 +8,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Book {
-  private long bookId;
+  private Long bookId;
   private String bookName;
-  private long bookAuthor;
-  private long bookCategory;
+  private Long bookAuthor;
+  private Long bookCategory;
   private String bookBaidescription;
   private String bookCoverUrl;
   private java.sql.Timestamp bookCreateDate;

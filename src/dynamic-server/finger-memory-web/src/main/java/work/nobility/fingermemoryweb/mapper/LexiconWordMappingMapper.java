@@ -19,10 +19,10 @@ public interface LexiconWordMappingMapper {
                                    @Param("after")LexiconWordMapping lexiconWordMappingAfter);
 
   @Select("select * from fm_lexicon_word_mapping where lexicon_id = #{id}")
-  List<LexiconWordMapping> selectLexiconWordMappingListByLexiconId(Integer id);
+  List<LexiconWordMapping> selectLexiconWordMappingListByLexiconId(Long id);
 
   @Select("select * from fm_lexicon_word_mapping where word_id = #{id}")
-  List<LexiconWordMapping> selectLexiconWordMappingListByWordId(Integer id);
+  List<LexiconWordMapping> selectLexiconWordMappingListByWordId(Long id);
 
   @Delete("delete from fm_lexicon_word_mapping where lexicon_id = #{lexiconId} and word_id = #{wordId}")
   Integer deleteLexiconWordMapping(LexiconWordMapping lexiconWordMapping);

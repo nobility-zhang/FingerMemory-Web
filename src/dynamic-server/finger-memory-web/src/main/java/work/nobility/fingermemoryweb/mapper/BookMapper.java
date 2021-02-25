@@ -10,7 +10,7 @@ public interface BookMapper {
       "value(#{bookName}, #{bookAuthor}, #{bookCategory}, #{bookBaidescription}, #{bookCoverUrl}, current_timestamp)")
   @SelectKey(
       keyProperty = "bookId",
-      resultType = Integer.class,
+      resultType = Long.class,
       before = false,
       statement = "select last_insert_id()"
   )
@@ -26,8 +26,8 @@ public interface BookMapper {
   Integer updateBook(Book book);
 
   @Select("select * from fm_books where book_id = #{id}")
-  Book selectBookById(Integer id);
+  Book selectBookById(Long id);
 
   @Delete("delete from fm_books where book_id = #{id}")
-  Integer deleteBookById(Integer id);
+  Integer deleteBookById(Long id);
 }

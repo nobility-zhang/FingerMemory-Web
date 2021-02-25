@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserLexicon {
-  private long userId;
-  private long lexiconId;
+  private Long userId;
+  private Long lexiconId;
 }

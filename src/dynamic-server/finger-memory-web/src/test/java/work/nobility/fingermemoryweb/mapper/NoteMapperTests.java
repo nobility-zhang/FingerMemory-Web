@@ -48,15 +48,15 @@ public class NoteMapperTests {
 
     noteMapper.insertOneNote(note1);
 
-    Note note2 = noteMapper.selectNoteById((int) note1.getNoteId());
+    Note note2 = noteMapper.selectNoteById(note1.getNoteId());
     note2.setNoteCreateDate(null);
 
     assertEquals(note1, note2);
 
-    noteMapper.deleteNoteById((int) note1.getNoteId());
-    wordMapper.deleteWordById((int) word.getWordId());
-    wordCategoryMapper.deleteWordCategoryById((int) wordCategory.getCategoryId());
-    userMapper.deleteUserById((int) user.getUserId());
+    noteMapper.deleteNoteById(note1.getNoteId());
+    wordMapper.deleteWordById(word.getWordId());
+    wordCategoryMapper.deleteWordCategoryById(wordCategory.getCategoryId());
+    userMapper.deleteUserById(user.getUserId());
   }
 
   @Test
@@ -88,14 +88,14 @@ public class NoteMapperTests {
     note1.setNoteBaidescription("笔记内容");
     noteMapper.updateNote(note1);
 
-    Note note2 = noteMapper.selectNoteById((int) note1.getNoteId());
+    Note note2 = noteMapper.selectNoteById(note1.getNoteId());
     note2.setNoteCreateDate(null);
 
     assertEquals(note1, note2);
 
-    noteMapper.deleteNoteById((int) note1.getNoteId());
-    wordMapper.deleteWordById((int) word.getWordId());
-    wordCategoryMapper.deleteWordCategoryById((int) wordCategory.getCategoryId());
-    userMapper.deleteUserById((int) user.getUserId());
+    noteMapper.deleteNoteById(note1.getNoteId());
+    wordMapper.deleteWordById(word.getWordId());
+    wordCategoryMapper.deleteWordCategoryById(wordCategory.getCategoryId());
+    userMapper.deleteUserById(user.getUserId());
   }
 }

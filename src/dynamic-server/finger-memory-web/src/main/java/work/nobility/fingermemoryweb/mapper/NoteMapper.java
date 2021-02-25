@@ -9,7 +9,7 @@ public interface NoteMapper {
       "value(#{wordId}, #{noteAuthor}, #{noteBaidescription}, current_timestamp, #{noteTag})")
   @SelectKey(
       keyProperty = "noteId",
-      resultType = Integer.class,
+      resultType = Long.class,
       before = false,
       statement = "select last_insert_id()"
   )
@@ -23,8 +23,8 @@ public interface NoteMapper {
   Integer updateNote(Note note);
 
   @Select("select * from fm_notes where note_id = #{id}")
-  Note selectNoteById(Integer id);
+  Note selectNoteById(Long id);
 
   @Delete("delete from fm_notes where note_id = #{id}")
-  Integer deleteNoteById(Integer id);
+  Integer deleteNoteById(Long id);
 }

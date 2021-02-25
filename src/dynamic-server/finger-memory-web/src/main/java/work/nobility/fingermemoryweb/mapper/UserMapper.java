@@ -10,7 +10,7 @@ public interface UserMapper {
       "value(#{userName}, #{userEmail}, #{userPassword}, current_timestamp, #{userAvatarUrl})")
   @SelectKey(
       keyProperty = "userId",
-      resultType = Integer.class,
+      resultType = Long.class,
       before = false,
       statement = "select last_insert_id()"
   )
@@ -25,8 +25,8 @@ public interface UserMapper {
   Integer updateUser(User user);
 
   @Select("select * from fm_users where user_id = #{id}")
-  User selectUserById(Integer id);
+  User selectUserById(Long id);
 
   @Delete("delete from fm_users where user_id = #{id}")
-  Integer deleteUserById(Integer id);
+  Integer deleteUserById(Long id);
 }

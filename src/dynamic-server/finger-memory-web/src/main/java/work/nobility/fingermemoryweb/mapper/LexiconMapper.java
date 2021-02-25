@@ -9,7 +9,7 @@ public interface LexiconMapper {
       "value(#{lexiconName}, #{lexiconAuthor}, #{lexiconBaidescription}, current_timestamp, #{lexiconCoverUrl})")
   @SelectKey(
       keyProperty = "lexiconId",
-      resultType = Integer.class,
+      resultType = Long.class,
       before = false,
       statement = "select last_insert_id()"
   )
@@ -24,8 +24,8 @@ public interface LexiconMapper {
   Integer updateLexicon(Lexicon lexicon);
 
   @Select("select * from fm_lexicons where lexicon_id = #{id}")
-  Lexicon selectLexiconById(Integer id);
+  Lexicon selectLexiconById(Long id);
 
   @Delete("delete from fm_lexicons where lexicon_id = #{id}")
-  Integer deleteLexiconById(Integer id);
+  Integer deleteLexiconById(Long id);
 }

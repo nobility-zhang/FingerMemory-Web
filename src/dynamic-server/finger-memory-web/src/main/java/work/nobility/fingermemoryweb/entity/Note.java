@@ -8,9 +8,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Note {
-  private long noteId;
-  private long wordId;
-  private long noteAuthor;
+  private Long noteId;
+  private Long wordId;
+  private Long noteAuthor;
   private String noteBaidescription;
   private java.sql.Timestamp noteCreateDate;
   private String noteTag;

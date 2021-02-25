@@ -9,7 +9,7 @@ public interface WordCategoryMapper {
       "value(#{categoryName})")
   @SelectKey(
       keyProperty = "categoryId",
-      resultType = Integer.class,
+      resultType = Long.class,
       before = false,
       statement = "select last_insert_id()"
   )
@@ -21,8 +21,8 @@ public interface WordCategoryMapper {
   Integer updateWordCategory(WordCategory wordCategory);
 
   @Select("select * from fm_word_categorys where category_id = #{id}")
-  WordCategory selectWordCategoryById(Integer id);
+  WordCategory selectWordCategoryById(Long id);
 
   @Delete("delete from fm_word_categorys where category_id = #{id}")
-  Integer deleteWordCategoryById(Integer id);
+  Integer deleteWordCategoryById(Long id);
 }

@@ -31,11 +31,11 @@ public class WordMapperTests {
 
     wordMapper.insertOneWord(word1);
 
-    Word word2 = wordMapper.selectWordById((int) word1.getWordId());
+    Word word2 = wordMapper.selectWordById( word1.getWordId());
 
     assertEquals(word1, word2);
-    wordMapper.deleteWordById((int) word1.getWordId());
-    wordCategoryMapper.deleteWordCategoryById((int) wordCategory.getCategoryId());
+    wordMapper.deleteWordById( word1.getWordId());
+    wordCategoryMapper.deleteWordCategoryById( wordCategory.getCategoryId());
   }
 
   @Test
@@ -56,10 +56,10 @@ public class WordMapperTests {
     word1.setWordBaidescription("单词描述update");
     wordMapper.updateWord(word1);
 
-    Word word2 = wordMapper.selectWordById((int) word1.getWordId());
+    Word word2 = wordMapper.selectWordById( word1.getWordId());
 
     assertEquals(word1, word2);
-    wordMapper.deleteWordById((int) word1.getWordId());
-    wordCategoryMapper.deleteWordCategoryById((int) wordCategory.getCategoryId());
+    wordMapper.deleteWordById( word1.getWordId());
+    wordCategoryMapper.deleteWordCategoryById(wordCategory.getCategoryId());
   }
 }

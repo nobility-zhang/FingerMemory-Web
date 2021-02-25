@@ -53,19 +53,19 @@ public class UserBookMappingMapperTests {
     userBookMappingMapper.insertOneUserBookMapping(userBookMapping1);
 
     UserBookMapping userBookMapping2 = userBookMappingMapper
-        .selectUserBookMappingListByBookId((int) book.getBookId())
+        .selectUserBookMappingListByBookId(book.getBookId())
         .get(0);
     assertEquals(userBookMapping1, userBookMapping2);
     UserBookMapping userBookMapping3 = userBookMappingMapper
-        .selectUserBookMappingListByUserId((int) user2.getUserId())
+        .selectUserBookMappingListByUserId(user2.getUserId())
         .get(0);
     assertEquals(userBookMapping1, userBookMapping3);
 
     userBookMappingMapper.deleteUserBookMapping(userBookMapping1);
-    bookMapper.deleteBookById((int) book.getBookId());
-    bookCategoryMapper.deleteBookCategoryById((int) bookCategory.getCategoryId());
-    userMapper.deleteUserById((int) user1.getUserId());
-    userMapper.deleteUserById((int) user2.getUserId());
+    bookMapper.deleteBookById(book.getBookId());
+    bookCategoryMapper.deleteBookCategoryById(bookCategory.getCategoryId());
+    userMapper.deleteUserById(user1.getUserId());
+    userMapper.deleteUserById(user2.getUserId());
   }
 
   @Test
@@ -109,18 +109,18 @@ public class UserBookMappingMapperTests {
     userBookMapping2.setBookId(book1.getBookId());
     userBookMapping2.setUserId(user2.getUserId());
 
-    userBookMappingMapper.updateUserBookMapping(userBookMapping1,userBookMapping2);
+    userBookMappingMapper.updateUserBookMapping(userBookMapping1, userBookMapping2);
 
     UserBookMapping userBookMapping3 = userBookMappingMapper
-        .selectUserBookMappingListByBookId((int) book1.getBookId())
+        .selectUserBookMappingListByBookId(book1.getBookId())
         .get(0);
     assertEquals(userBookMapping3, userBookMapping3);
 
     userBookMappingMapper.deleteUserBookMapping(userBookMapping1);
-    bookMapper.deleteBookById((int) book1.getBookId());
-    bookMapper.deleteBookById((int) book2.getBookId());
-    bookCategoryMapper.deleteBookCategoryById((int) bookCategory.getCategoryId());
-    userMapper.deleteUserById((int) user1.getUserId());
-    userMapper.deleteUserById((int) user2.getUserId());
+    bookMapper.deleteBookById(book1.getBookId());
+    bookMapper.deleteBookById(book2.getBookId());
+    bookCategoryMapper.deleteBookCategoryById(bookCategory.getCategoryId());
+    userMapper.deleteUserById(user1.getUserId());
+    userMapper.deleteUserById(user2.getUserId());
   }
 }

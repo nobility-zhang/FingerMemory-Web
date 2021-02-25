@@ -20,10 +20,10 @@ public interface UserBookMappingMapper {
                                 @Param("after") UserBookMapping userBookMappingAfter);
 
   @Select("select * from fm_user_book_mapping where user_id = #{id}")
-  List<UserBookMapping> selectUserBookMappingListByUserId(Integer id);
+  List<UserBookMapping> selectUserBookMappingListByUserId(Long id);
 
   @Select("select * from fm_user_book_mapping where book_id = #{id}")
-  List<UserBookMapping> selectUserBookMappingListByBookId(Integer id);
+  List<UserBookMapping> selectUserBookMappingListByBookId(Long id);
 
   @Delete("delete from fm_user_book_mapping where user_id = #{userId} and book_id = #{bookId}")
   Integer deleteUserBookMapping(UserBookMapping userBookMapping);

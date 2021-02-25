@@ -19,10 +19,10 @@ public interface UserLexiconMapper {
                                    @Param("after")UserLexicon userLexiconAfter);
 
   @Select("select * from fm_user_lexicons where user_id = #{id}")
-  List<UserLexicon> selectLexiconWordMappingListByUserId(Integer id);
+  List<UserLexicon> selectLexiconWordMappingListByUserId(Long id);
 
   @Select("select * from fm_user_lexicons where lexicon_id = #{id}")
-  List<UserLexicon> selectLexiconWordMappingListByLexiconId(Integer id);
+  List<UserLexicon> selectLexiconWordMappingListByLexiconId(Long id);
 
   @Delete("delete from fm_user_lexicons where user_id = #{userId} and lexicon_id = #{lexiconId}")
   Integer deleteLexiconWordMappingByUserId(UserLexicon userLexicon);

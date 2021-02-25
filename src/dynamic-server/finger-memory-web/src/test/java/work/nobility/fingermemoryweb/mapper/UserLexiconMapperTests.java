@@ -49,18 +49,18 @@ public class UserLexiconMapperTests {
     userLexiconMapper.insertOneLexiconWordMapping(userLexicon1);
 
     UserLexicon userLexicon2 = userLexiconMapper
-        .selectLexiconWordMappingListByUserId((int) user2.getUserId())
+        .selectLexiconWordMappingListByUserId(user2.getUserId())
         .get(0);
     assertEquals(userLexicon1, userLexicon2);
     UserLexicon userLexicon3 = userLexiconMapper
-        .selectLexiconWordMappingListByLexiconId((int) lexicon.getLexiconId())
+        .selectLexiconWordMappingListByLexiconId(lexicon.getLexiconId())
         .get(0);
     assertEquals(userLexicon1, userLexicon3);
 
     userLexiconMapper.deleteLexiconWordMappingByUserId(userLexicon1);
-    lexiconMapper.deleteLexiconById((int) lexicon.getLexiconId());
-    userMapper.deleteUserById((int) user1.getUserId());
-    userMapper.deleteUserById((int) user2.getUserId());
+    lexiconMapper.deleteLexiconById(lexicon.getLexiconId());
+    userMapper.deleteUserById(user1.getUserId());
+    userMapper.deleteUserById(user2.getUserId());
   }
 
   @Test
@@ -102,17 +102,17 @@ public class UserLexiconMapperTests {
     userLexiconMapper.updateLexiconWordMapping(userLexicon1, userLexicon2);
 
     UserLexicon userLexicon3 = userLexiconMapper
-        .selectLexiconWordMappingListByUserId((int) user2.getUserId())
+        .selectLexiconWordMappingListByUserId(user2.getUserId())
         .get(0);
     assertEquals(userLexicon2, userLexicon3);
     List<UserLexicon> userLexicons = userLexiconMapper
-        .selectLexiconWordMappingListByLexiconId((int) lexicon1.getLexiconId());
+        .selectLexiconWordMappingListByLexiconId(lexicon1.getLexiconId());
     assertEquals(0, userLexicons.size());
 
     userLexiconMapper.deleteLexiconWordMappingByUserId(userLexicon2);
-    lexiconMapper.deleteLexiconById((int) lexicon1.getLexiconId());
-    lexiconMapper.deleteLexiconById((int) lexicon2.getLexiconId());
-    userMapper.deleteUserById((int) user1.getUserId());
-    userMapper.deleteUserById((int) user2.getUserId());
+    lexiconMapper.deleteLexiconById(lexicon1.getLexiconId());
+    lexiconMapper.deleteLexiconById(lexicon2.getLexiconId());
+    userMapper.deleteUserById(user1.getUserId());
+    userMapper.deleteUserById(user2.getUserId());
   }
 }

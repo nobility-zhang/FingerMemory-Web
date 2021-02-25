@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LexiconWordMapping {
-  private long lexiconId;
-  private long wordId;
+  private Long lexiconId;
+  private Long wordId;
 }

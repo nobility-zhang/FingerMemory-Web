@@ -17,6 +17,7 @@ public class BookMapperTests {
   UserMapper userMapper;
   @Autowired
   BookCategoryMapper bookCategoryMapper;
+
   @Test
   public void insertOneBookTest() {
     User user = new User();
@@ -39,14 +40,15 @@ public class BookMapperTests {
 
     bookMapper.insertOneBook(book1);
 
-    Book book2 = bookMapper.selectBookById((int) book1.getBookId());
+    Book book2 = bookMapper.selectBookById(book1.getBookId());
     book2.setBookCreateDate(null);
 
     assertEquals(book1, book2);
-    bookMapper.deleteBookById((int) book1.getBookId());
-    bookCategoryMapper.deleteBookCategoryById((int) bookCategory.getCategoryId());
-    userMapper.deleteUserById((int) user.getUserId());
+    bookMapper.deleteBookById(book1.getBookId());
+    bookCategoryMapper.deleteBookCategoryById(bookCategory.getCategoryId());
+    userMapper.deleteUserById(user.getUserId());
   }
+
   @Test
   public void updateBookTest() {
     User user = new User();
@@ -73,12 +75,12 @@ public class BookMapperTests {
     book1.setBookName("update图书名");
     bookMapper.updateBook(book1);
 
-    Book book2 = bookMapper.selectBookById((int) book1.getBookId());
+    Book book2 = bookMapper.selectBookById(book1.getBookId());
     book2.setBookCreateDate(null);
 
     assertEquals(book1, book2);
-    bookMapper.deleteBookById((int) book1.getBookId());
-    bookCategoryMapper.deleteBookCategoryById((int) bookCategory.getCategoryId());
-    userMapper.deleteUserById((int) user.getUserId());
+    bookMapper.deleteBookById(book1.getBookId());
+    bookCategoryMapper.deleteBookCategoryById(bookCategory.getCategoryId());
+    userMapper.deleteUserById(user.getUserId());
   }
 }

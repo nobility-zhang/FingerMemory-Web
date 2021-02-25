@@ -19,11 +19,11 @@ public class BookCategoryMapperTests {
 
     bookCategoryMapper.insertOneBookCategory(bookCategory1);
 
-    BookCategory bookCategory2 = bookCategoryMapper.selectBookCategoryById((int) bookCategory1.getCategoryId());
+    BookCategory bookCategory2 = bookCategoryMapper.selectBookCategoryById(bookCategory1.getCategoryId());
 
     assertEquals(bookCategory1, bookCategory2);
 
-    bookCategoryMapper.deleteBookCategoryById((int) bookCategory1.getCategoryId());
+    bookCategoryMapper.deleteBookCategoryById(bookCategory1.getCategoryId());
   }
 
   @Test
@@ -36,10 +36,10 @@ public class BookCategoryMapperTests {
     bookCategory1.setCategoryName("分类名update");
     bookCategoryMapper.updateBookCategory(bookCategory1);
 
-    BookCategory bookCategory2 = bookCategoryMapper.selectBookCategoryById((int) bookCategory1.getCategoryId());
+    BookCategory bookCategory2 = bookCategoryMapper.selectBookCategoryById(bookCategory1.getCategoryId());
 
     assertEquals(bookCategory1, bookCategory2);
 
-    bookCategoryMapper.deleteBookCategoryById((int) bookCategory1.getCategoryId());
+    bookCategoryMapper.deleteBookCategoryById(bookCategory1.getCategoryId());
   }
 }

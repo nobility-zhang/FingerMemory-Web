@@ -9,7 +9,7 @@ public interface WordMapper {
       "value(#{wordEnglish}, #{wordTranslate}, #{wordBaidescription}, #{wordCoverUrl}, #{wordCategory})")
   @SelectKey(
       keyProperty = "wordId",
-      resultType = Integer.class,
+      resultType = Long.class,
       before = false,
       statement = "select last_insert_id()"
   )
@@ -24,8 +24,8 @@ public interface WordMapper {
   Integer updateWord(Word word);
 
   @Select("select * from fm_words where word_id = #{id}")
-  Word selectWordById(Integer id);
+  Word selectWordById(Long id);
 
   @Delete("delete from fm_words where word_id = #{id}")
-  Integer deleteWordById(Integer id);
+  Integer deleteWordById(Long id);
 }

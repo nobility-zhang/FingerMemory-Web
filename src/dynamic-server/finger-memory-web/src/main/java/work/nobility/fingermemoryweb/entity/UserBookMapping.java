@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserBookMapping {
-  private long userId;
-  private long bookId;
+  private Long userId;
+  private Long bookId;
 }

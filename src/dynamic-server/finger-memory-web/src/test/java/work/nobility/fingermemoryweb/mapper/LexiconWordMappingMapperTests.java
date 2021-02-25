@@ -57,19 +57,19 @@ public class LexiconWordMappingMapperTests {
     lexiconWordMappingMapper.insertOneLexiconWordMapping(lexiconWordMapping1);
 
     LexiconWordMapping lexiconWordMapping2 = lexiconWordMappingMapper
-        .selectLexiconWordMappingListByWordId((int) word.getWordId())
+        .selectLexiconWordMappingListByWordId(word.getWordId())
         .get(0);
     assertEquals(lexiconWordMapping1, lexiconWordMapping2);
     LexiconWordMapping lexiconWordMapping3 = lexiconWordMappingMapper
-        .selectLexiconWordMappingListByLexiconId((int) lexicon.getLexiconId())
+        .selectLexiconWordMappingListByLexiconId(lexicon.getLexiconId())
         .get(0);
     assertEquals(lexiconWordMapping1, lexiconWordMapping3);
 
     lexiconWordMappingMapper.deleteLexiconWordMapping(lexiconWordMapping1);
-    wordMapper.deleteWordById((int) word.getWordId());
-    wordCategoryMapper.deleteWordCategoryById((int) wordCategory.getCategoryId());
-    lexiconMapper.deleteLexiconById((int) lexicon.getLexiconId());
-    userMapper.deleteUserById((int) user.getUserId());
+    wordMapper.deleteWordById(word.getWordId());
+    wordCategoryMapper.deleteWordCategoryById(wordCategory.getCategoryId());
+    lexiconMapper.deleteLexiconById(lexicon.getLexiconId());
+    userMapper.deleteUserById(user.getUserId());
   }
 
   @Test
@@ -126,19 +126,19 @@ public class LexiconWordMappingMapperTests {
     lexiconWordMappingMapper.updateLexiconWordMapping(lexiconWordMapping1, lexiconWordMapping2);
 
     LexiconWordMapping lexiconWordMapping3 = lexiconWordMappingMapper
-        .selectLexiconWordMappingListByWordId((int) word2.getWordId())
+        .selectLexiconWordMappingListByWordId(word2.getWordId())
         .get(0);
     assertEquals(lexiconWordMapping2, lexiconWordMapping3);
     List<LexiconWordMapping> lexiconWordMappings = lexiconWordMappingMapper
-        .selectLexiconWordMappingListByWordId((int) word1.getWordId());
-    assertEquals(0,lexiconWordMappings.size());
+        .selectLexiconWordMappingListByWordId(word1.getWordId());
+    assertEquals(0, lexiconWordMappings.size());
 
     lexiconWordMappingMapper.deleteLexiconWordMapping(lexiconWordMapping1);
-    wordMapper.deleteWordById((int) word1.getWordId());
-    wordMapper.deleteWordById((int) word2.getWordId());
-    wordCategoryMapper.deleteWordCategoryById((int) wordCategory.getCategoryId());
-    lexiconMapper.deleteLexiconById((int) lexicon1.getLexiconId());
-    lexiconMapper.deleteLexiconById((int) lexicon2.getLexiconId());
-    userMapper.deleteUserById((int) user.getUserId());
+    wordMapper.deleteWordById(word1.getWordId());
+    wordMapper.deleteWordById(word2.getWordId());
+    wordCategoryMapper.deleteWordCategoryById(wordCategory.getCategoryId());
+    lexiconMapper.deleteLexiconById(lexicon1.getLexiconId());
+    lexiconMapper.deleteLexiconById(lexicon2.getLexiconId());
+    userMapper.deleteUserById(user.getUserId());
   }
 }

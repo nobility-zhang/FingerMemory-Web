@@ -8,10 +8,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Word {
-  private long wordId;
+  private Long wordId;
   private String wordEnglish;
   private String wordTranslate;
   private String wordBaidescription;
   private String wordCoverUrl;
-  private long wordCategory;
+  private Long wordCategory;
 }
