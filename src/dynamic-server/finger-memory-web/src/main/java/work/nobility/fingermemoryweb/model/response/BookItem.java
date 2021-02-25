@@ -7,9 +7,10 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserInfo {
+public class BookItem {
   private Integer id;
-  private String userName;
-  private String userEmail;
-  private String userAvatarUrl;
+  private String coverUrl;
+  private String name;
+  private String description;
+  private String author;
 }

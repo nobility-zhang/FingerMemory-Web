@@ -2,6 +2,8 @@ package work.nobility.fingermemoryweb.mapper;
 import org.apache.ibatis.annotations.*;
 import work.nobility.fingermemoryweb.entity.Note;
 
+import java.util.List;
+
 @Mapper
 public interface NoteMapper {
   @Insert("insert into " +
@@ -27,4 +29,11 @@ public interface NoteMapper {
 
   @Delete("delete from fm_notes where note_id = #{id}")
   Integer deleteNoteById(Long id);
+
+  @Select("select * from fm_notes where word_id = #{wordId} and note_author = #{noteAuthorId}")
+  List<Note> selectNoteByWordIdAndNoteAuthorId(@Param("wordId") Long wordId,
+                                               @Param("wordId") Long noteAuthorId);
+
+  @Select("select * from fm_notes where word_id = #{id} order by rand() limit 0,1")
+  Note selectNoteByWordIdRandomNoteAuthorId(Long id);
 }

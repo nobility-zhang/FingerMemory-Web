@@ -1,4 +1,5 @@
 package work.nobility.fingermemoryweb.mapper;
+
 import org.apache.ibatis.annotations.*;
 import work.nobility.fingermemoryweb.entity.WordCategory;
 
@@ -25,4 +26,7 @@ public interface WordCategoryMapper {
 
   @Delete("delete from fm_word_categorys where category_id = #{id}")
   Integer deleteWordCategoryById(Long id);
+
+  @Select("select * from fm_word_categorys where category_name = #{name}")
+  WordCategory selectWordCategoryByName(String name);
 }

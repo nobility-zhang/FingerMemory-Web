@@ -7,9 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserInfo {
+public class WordItem {
   private Integer id;
-  private String userName;
-  private String userEmail;
-  private String userAvatarUrl;
+  private String english;
+  private String translation;
 }

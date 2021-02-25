@@ -29,4 +29,9 @@ public interface UserMapper {
 
   @Delete("delete from fm_users where user_id = #{id}")
   Integer deleteUserById(Long id);
+
+  @Select("select * from fm_users where " +
+      "( user_name = #{account} or user_email = #{account} ) " +
+      "and user_password = #{password}")
+  User selectUserByAuth(@Param("account") String account, @Param("password") String password);
 }

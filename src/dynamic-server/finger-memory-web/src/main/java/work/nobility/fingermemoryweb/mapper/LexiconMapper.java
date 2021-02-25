@@ -1,6 +1,10 @@
 package work.nobility.fingermemoryweb.mapper;
+
 import org.apache.ibatis.annotations.*;
 import work.nobility.fingermemoryweb.entity.Lexicon;
+import work.nobility.fingermemoryweb.entity.Word;
+
+import java.util.List;
 
 @Mapper
 public interface LexiconMapper {
@@ -28,4 +32,21 @@ public interface LexiconMapper {
 
   @Delete("delete from fm_lexicons where lexicon_id = #{id}")
   Integer deleteLexiconById(Long id);
+
+  @Select("select * from fm_lexicons where lexicon_author = #{id}")
+  List<Lexicon> selectLexiconByAuthorId(Long id);
+
+  @Select("select lexicon_id, lexicon_author, lexicon_name, lexicon_baidescription, lexicon_create_date, lexicon_cover_url " +
+      "from fm_users as users " +
+      "left join fm_user_lexicons as user_lexicons using(user_id) " +
+      "left join fm_lexicons as lexicons using(lexicon_id) " +
+      "where user_id = #{id} ")
+  List<Lexicon> selectLexiconByUserLexicon(Long id);
+
+  @Select("select word_id,word_english,word_category,word_cover_url,word_translate,word_baidescription " +
+      "from fm_words as words " +
+      "left join fm_lexicon_word_mapping as lexicon_word_mapping using(word_id) " +
+      "left join fm_lexicons as lexicons using(lexicon_id) " +
+      "where lexicon_id = #{id}")
+  List<Word> selectLexiconByLexiconWord(Long id);
 }

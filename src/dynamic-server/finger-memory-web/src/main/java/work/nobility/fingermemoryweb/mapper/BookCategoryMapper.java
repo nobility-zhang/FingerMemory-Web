@@ -1,6 +1,9 @@
 package work.nobility.fingermemoryweb.mapper;
+
 import org.apache.ibatis.annotations.*;
 import work.nobility.fingermemoryweb.entity.BookCategory;
+
+import java.util.List;
 
 @Mapper
 public interface BookCategoryMapper {
@@ -25,4 +28,10 @@ public interface BookCategoryMapper {
 
   @Delete("delete from fm_book_categorys where category_id = #{id}")
   Integer deleteBookCategoryById(Long id);
+
+  @Select("select * from fm_book_categorys where category_name = #{name}")
+  BookCategory selectBookCategoryByName(String name);
+
+  @Select("select * from fm_book_categorys")
+  List<BookCategory> selectAll();
 }

@@ -15,7 +15,12 @@ public class SpringMvcConfigurer implements WebMvcConfigurer {
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
     registry.addInterceptor(new LoginInterceptor(redisHttpSession))
-        .addPathPatterns("/me")
+        .addPathPatterns(
+            "/me",
+            "/me-lexicon",
+            "/me-collecting-lexicon",
+            "/me-collecting-book"
+        )
         .excludePathPatterns();
   }
 }
