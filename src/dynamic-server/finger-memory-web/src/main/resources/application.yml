@@ -18,3 +18,7 @@ spring:
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
+
+fm:
+  session:
+    max-age: 30

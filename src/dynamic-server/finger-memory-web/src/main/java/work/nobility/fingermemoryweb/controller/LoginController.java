@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import work.nobility.fingermemoryweb.common.ApiRestResponse;
 import work.nobility.fingermemoryweb.common.Constant;
+import work.nobility.fingermemoryweb.configuration.SessionUtilsConfig;
 import work.nobility.fingermemoryweb.entity.User;
 import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.model.request.UserLoginAuthentication;
@@ -21,7 +22,7 @@ import javax.servlet.http.HttpSession;
 @RestController
 public class LoginController {
   @Autowired
-  private RedisHttpSession redisHttpSession;
+  private SessionUtilsConfig sessionUtilsConfig;
   @Autowired
   private LoginService loginService;
 
@@ -33,6 +34,7 @@ public class LoginController {
         userLoginAuthentication.getPassword()
     );
 
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     redisHttpSession.setAttribute(Constant.UID, userInfo);
     return ApiRestResponse.success(userInfo);
@@ -40,6 +42,8 @@ public class LoginController {
 
   @PostMapping("/logout")
   public ApiRestResponse<Object> logout(HttpSession session) {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
+    redisHttpSession.setSession(session);
     redisHttpSession.removeAttribute(Constant.UID);
     redisHttpSession.deleteSession(session);
     return ApiRestResponse.success();

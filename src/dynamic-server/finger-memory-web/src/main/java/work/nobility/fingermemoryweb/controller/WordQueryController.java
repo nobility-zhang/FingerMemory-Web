@@ -5,8 +5,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import work.nobility.fingermemoryweb.common.ApiRestResponse;
 import work.nobility.fingermemoryweb.common.Constant;
+import work.nobility.fingermemoryweb.configuration.SessionUtilsConfig;
 import work.nobility.fingermemoryweb.entity.LexiconWordMapping;
-import work.nobility.fingermemoryweb.entity.Word;
 import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.model.request.SearchWordInfo;
 import work.nobility.fingermemoryweb.model.request.WordInfo;
@@ -24,7 +24,7 @@ public class WordQueryController {
   @Autowired
   private WordQueryService wordQueryService;
   @Autowired
-  private RedisHttpSession redisHttpSession;
+  private SessionUtilsConfig sessionUtilsConfig;
 
   @GetMapping("/word-card")
   public ApiRestResponse<List<WordCard>> wordCard(SearchWordInfo searchWordInfo) {
@@ -47,6 +47,7 @@ public class WordQueryController {
   @PostMapping("/word")
   public ApiRestResponse<Object> addWord(@ApiParam("无需传id") @RequestBody WordInfo wordInfo,
                                          HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     wordQueryService.addWord(wordInfo, userInfo);
@@ -56,6 +57,7 @@ public class WordQueryController {
   @PutMapping("/word")
   public ApiRestResponse<Object> updateWord(@RequestBody WordInfo wordInfo,
                                             HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     wordQueryService.updateWord(wordInfo, userInfo);
@@ -65,6 +67,7 @@ public class WordQueryController {
   @DeleteMapping("/word")
   public ApiRestResponse<Object> deleteWord(@ApiParam("只接收id") @RequestBody WordInfo wordInfo,
                                             HttpSession session) {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     wordQueryService.deleteWord(wordInfo.getId(), userInfo);
@@ -74,6 +77,7 @@ public class WordQueryController {
   @PostMapping("/collecting-word")
   public ApiRestResponse<Object> collectingWord(@RequestBody LexiconWordMapping lexiconWordMapping,
                                                 HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     wordQueryService.collectingWord(lexiconWordMapping, userInfo);
@@ -83,6 +87,7 @@ public class WordQueryController {
   @DeleteMapping("/collecting-word")
   public ApiRestResponse<Object> cancelCollectingLexicon(@RequestBody LexiconWordMapping lexiconWordMapping,
                                                          HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     wordQueryService.cancelCollectingLexicon(lexiconWordMapping, userInfo);

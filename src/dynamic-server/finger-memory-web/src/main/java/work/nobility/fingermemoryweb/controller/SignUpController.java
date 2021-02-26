@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import work.nobility.fingermemoryweb.common.ApiRestResponse;
 import work.nobility.fingermemoryweb.common.Constant;
+import work.nobility.fingermemoryweb.configuration.SessionUtilsConfig;
 import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.model.request.ChangePasswordInfo;
 import work.nobility.fingermemoryweb.model.request.UserRegisterInfo;
@@ -21,7 +22,7 @@ public class SignUpController {
   @Autowired
   SignUpService signUpService;
   @Autowired
-  private RedisHttpSession redisHttpSession;
+  private SessionUtilsConfig sessionUtilsConfig;
 
   @PostMapping("/sign-up")
   public ApiRestResponse<Object> signUp(@RequestBody UserRegisterInfo userRegisterInfo)
@@ -33,6 +34,7 @@ public class SignUpController {
   @PostMapping("/change-password")
   public ApiRestResponse<Object> changePassword(@RequestBody ChangePasswordInfo changePasswordInfo,
                                                 HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     signUpService.changePassword(changePasswordInfo, userInfo.getId());

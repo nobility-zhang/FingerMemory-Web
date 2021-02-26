@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import work.nobility.fingermemoryweb.common.ApiRestResponse;
 import work.nobility.fingermemoryweb.common.Constant;
+import work.nobility.fingermemoryweb.configuration.SessionUtilsConfig;
 import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.model.request.LexiconInfo;
 import work.nobility.fingermemoryweb.model.request.SearchLexiconInfo;
@@ -21,7 +22,7 @@ public class LexiconController {
   @Autowired
   LexiconService lexiconService;
   @Autowired
-  private RedisHttpSession redisHttpSession;
+  private SessionUtilsConfig sessionUtilsConfig;
 
   @GetMapping("/lexicon-list")
   public ApiRestResponse<List<LexiconItem>> lexiconList(SearchLexiconInfo searchLexiconInfo) {
@@ -32,6 +33,7 @@ public class LexiconController {
   @PostMapping("/lexicon")
   public ApiRestResponse<Object> addLexicon(@ApiParam("无需传id") @RequestBody LexiconInfo lexiconInfo,
                                             HttpSession session) {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -42,6 +44,7 @@ public class LexiconController {
   @PutMapping("/lexicon")
   public ApiRestResponse<Object> updateLexicon(@RequestBody LexiconInfo lexiconInfo,
                                                HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -52,6 +55,7 @@ public class LexiconController {
   @DeleteMapping("/lexicon")
   public ApiRestResponse<Object> deleteLexicon(@ApiParam("只接收id") @RequestBody LexiconInfo lexiconInfo,
                                                HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -62,6 +66,7 @@ public class LexiconController {
   @PostMapping("/collecting-lexicon")
   public ApiRestResponse<Object> collectingLexicon(@ApiParam("只接收id") @RequestBody LexiconInfo lexiconInfo,
                                                    HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -72,6 +77,7 @@ public class LexiconController {
   @DeleteMapping("/collecting-lexicon")
   public ApiRestResponse<Object> cancelCollectingLexicon(@ApiParam("只接收id") @RequestBody LexiconInfo lexiconInfo,
                                                          HttpSession session) {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();

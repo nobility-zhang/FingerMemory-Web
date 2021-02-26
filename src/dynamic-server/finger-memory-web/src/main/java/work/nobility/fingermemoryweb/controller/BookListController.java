@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import work.nobility.fingermemoryweb.common.ApiRestResponse;
 import work.nobility.fingermemoryweb.common.Constant;
+import work.nobility.fingermemoryweb.configuration.SessionUtilsConfig;
 import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.model.request.BookInfo;
 import work.nobility.fingermemoryweb.model.request.SearchBookInfo;
@@ -22,7 +23,7 @@ public class BookListController {
   @Autowired
   private BookListService bookListService;
   @Autowired
-  private RedisHttpSession redisHttpSession;
+  private SessionUtilsConfig sessionUtilsConfig;
 
   @GetMapping("/book-list")
   public ApiRestResponse<List<BookItem>> bookList(SearchBookInfo searchBookInfo) throws GlobalException {
@@ -39,6 +40,7 @@ public class BookListController {
   @PostMapping("/book")
   public ApiRestResponse<Object> addBook(@ApiParam("无需传id") @RequestBody BookInfo bookInfo,
                                          HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -49,6 +51,7 @@ public class BookListController {
   @PutMapping("/book")
   public ApiRestResponse<Object> updateBook(@RequestBody BookInfo bookInfo,
                                             HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -59,6 +62,7 @@ public class BookListController {
   @DeleteMapping("/book")
   public ApiRestResponse<Object> deleteBook(@ApiParam("只接收id") @RequestBody BookInfo bookInfo,
                                             HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -69,6 +73,7 @@ public class BookListController {
   @PostMapping("/collecting-book")
   public ApiRestResponse<Object> collectingBook(@ApiParam("只接收id") @RequestBody BookInfo bookInfo,
                                                 HttpSession session) throws GlobalException {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();
@@ -79,6 +84,7 @@ public class BookListController {
   @DeleteMapping("/collecting-book")
   public ApiRestResponse<Object> cancelCollectingBook(@ApiParam("只接收id") @RequestBody BookInfo bookInfo,
                                                       HttpSession session) {
+    RedisHttpSession redisHttpSession = sessionUtilsConfig.getRedisHttpSessionBean();
     redisHttpSession.setSession(session);
     UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
     Integer authorId = userInfo.getId();

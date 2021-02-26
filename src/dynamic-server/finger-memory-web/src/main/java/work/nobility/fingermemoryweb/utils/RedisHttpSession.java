@@ -2,24 +2,21 @@ package work.nobility.fingermemoryweb.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpSession;
 import java.util.concurrent.TimeUnit;
 
 
-@Component
 public class RedisHttpSession {
   private HttpSession session;
+  private Integer mexAge;
 
   private final StringRedisTemplate stringRedisTemplate;
   private final HashOperations<String, String, String> hashOperations;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  @Autowired
   public RedisHttpSession(StringRedisTemplate stringRedisTemplate) {
     this.stringRedisTemplate = stringRedisTemplate;
     this.hashOperations = this.stringRedisTemplate.opsForHash();
@@ -58,10 +55,14 @@ public class RedisHttpSession {
       return;
     }
     hashOperations.put(session.getId(), name, jsonString);
-    stringRedisTemplate.expire(session.getId(), 3600, TimeUnit.SECONDS);
+    stringRedisTemplate.expire(session.getId(), this.mexAge, TimeUnit.SECONDS);
   }
 
   public void removeAttribute(String name) {
     hashOperations.delete(session.getId(), name);
+  }
+
+  public void setMaxAge(Integer mexAge) {
+    this.mexAge = mexAge;
   }
 }
