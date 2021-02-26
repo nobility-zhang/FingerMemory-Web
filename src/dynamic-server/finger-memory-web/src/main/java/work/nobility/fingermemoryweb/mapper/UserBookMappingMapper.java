@@ -27,4 +27,7 @@ public interface UserBookMappingMapper {
 
   @Delete("delete from fm_user_book_mapping where user_id = #{userId} and book_id = #{bookId}")
   Integer deleteUserBookMapping(UserBookMapping userBookMapping);
+
+  @Select("select * from fm_user_book_mapping where user_id = #{userId} and book_id = #{bookId}")
+  UserBookMapping selectUserBookMApping(UserBookMapping userBookMapping);
 }

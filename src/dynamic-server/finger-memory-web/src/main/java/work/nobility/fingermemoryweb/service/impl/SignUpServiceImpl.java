@@ -6,6 +6,7 @@ import work.nobility.fingermemoryweb.entity.User;
 import work.nobility.fingermemoryweb.exception.ExceptionEnum;
 import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.mapper.UserMapper;
+import work.nobility.fingermemoryweb.model.request.ChangePasswordInfo;
 import work.nobility.fingermemoryweb.model.request.UserRegisterInfo;
 import work.nobility.fingermemoryweb.service.SignUpService;
 
@@ -25,6 +26,17 @@ public class SignUpServiceImpl implements SignUpService {
       userMapper.insertOneUser(user);
     } catch (Exception e) {
       throw new GlobalException(ExceptionEnum.Username_Or_Email_Already_Exists);
+    }
+  }
+
+  @Override
+  public void changePassword(ChangePasswordInfo changePasswordInfo, Integer id) throws GlobalException {
+    User user = userMapper.selectUserById(id.longValue());
+    if (user.getUserPassword().equals(changePasswordInfo.getOriginalPassword())) {
+      user.setUserPassword(changePasswordInfo.getNewPassword());
+      userMapper.updateUser(user);
+    } else {
+      throw new GlobalException(ExceptionEnum.Original_Password_Error);
     }
   }
 }

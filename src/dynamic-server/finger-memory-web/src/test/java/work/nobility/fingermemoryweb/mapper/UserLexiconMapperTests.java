@@ -57,7 +57,7 @@ public class UserLexiconMapperTests {
         .get(0);
     assertEquals(userLexicon1, userLexicon3);
 
-    userLexiconMapper.deleteLexiconWordMappingByUserId(userLexicon1);
+    userLexiconMapper.deleteLexiconWordMapping(userLexicon1);
     lexiconMapper.deleteLexiconById(lexicon.getLexiconId());
     userMapper.deleteUserById(user1.getUserId());
     userMapper.deleteUserById(user2.getUserId());
@@ -109,7 +109,7 @@ public class UserLexiconMapperTests {
         .selectLexiconWordMappingListByLexiconId(lexicon1.getLexiconId());
     assertEquals(0, userLexicons.size());
 
-    userLexiconMapper.deleteLexiconWordMappingByUserId(userLexicon2);
+    userLexiconMapper.deleteLexiconWordMapping(userLexicon2);
     lexiconMapper.deleteLexiconById(lexicon1.getLexiconId());
     lexiconMapper.deleteLexiconById(lexicon2.getLexiconId());
     userMapper.deleteUserById(user1.getUserId());

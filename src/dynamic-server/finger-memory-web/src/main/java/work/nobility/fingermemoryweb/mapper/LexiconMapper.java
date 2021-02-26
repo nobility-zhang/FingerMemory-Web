@@ -49,4 +49,22 @@ public interface LexiconMapper {
       "left join fm_lexicons as lexicons using(lexicon_id) " +
       "where lexicon_id = #{id}")
   List<Word> selectLexiconByLexiconWord(Long id);
+
+  @Select(
+      "<script>" +
+          "select * from fm_lexicons" +
+          "<where>" +
+          "<if test='name != null'> and lexicon_name = #{name}</if>" +
+          "<if test='authorId != null'> and lexicon_author = #{authorId}</if>" +
+          "<if test='prefix != null'> and lexicon_name like concat( #{prefix}, '%' )</if>" +
+          "<if test='suffix != null'> and lexicon_name like concat( '%', #{suffix} )</if>" +
+          "<if test='contain != null'> and lexicon_name like concat( '%', #{contain}, '%')</if>" +
+          "</where>" +
+          "</script>"
+  )
+  List<Lexicon> selectLexicon(@Param("name") String name,
+                              @Param("authorId") Long authorId,
+                              @Param("prefix") String prefix,
+                              @Param("suffix") String suffix,
+                              @Param("contain") String contain);
 }

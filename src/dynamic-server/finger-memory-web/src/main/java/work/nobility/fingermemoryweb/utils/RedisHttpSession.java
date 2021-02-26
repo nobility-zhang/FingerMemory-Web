@@ -58,7 +58,7 @@ public class RedisHttpSession {
       return;
     }
     hashOperations.put(session.getId(), name, jsonString);
-    stringRedisTemplate.expire(session.getId(), 30, TimeUnit.SECONDS);
+    stringRedisTemplate.expire(session.getId(), 3600, TimeUnit.SECONDS);
   }
 
   public void removeAttribute(String name) {

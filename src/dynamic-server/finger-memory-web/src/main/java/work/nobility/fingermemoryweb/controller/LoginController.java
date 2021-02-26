@@ -44,9 +44,4 @@ public class LoginController {
     redisHttpSession.deleteSession(session);
     return ApiRestResponse.success();
   }
-
-  @GetMapping("/me")
-  public ApiRestResponse<String> test() {
-    return ApiRestResponse.success("me");
-  }
 }

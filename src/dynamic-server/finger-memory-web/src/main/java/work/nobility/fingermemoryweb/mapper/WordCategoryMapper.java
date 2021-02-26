@@ -3,6 +3,8 @@ package work.nobility.fingermemoryweb.mapper;
 import org.apache.ibatis.annotations.*;
 import work.nobility.fingermemoryweb.entity.WordCategory;
 
+import java.util.List;
+
 @Mapper
 public interface WordCategoryMapper {
   @Insert("insert into " +
@@ -29,4 +31,7 @@ public interface WordCategoryMapper {
 
   @Select("select * from fm_word_categorys where category_name = #{name}")
   WordCategory selectWordCategoryByName(String name);
+
+  @Select("select * from fm_word_categorys")
+  List<WordCategory> selectAll();
 }

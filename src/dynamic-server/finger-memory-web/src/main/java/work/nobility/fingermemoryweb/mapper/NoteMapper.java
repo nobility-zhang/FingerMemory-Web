@@ -21,7 +21,8 @@ public interface NoteMapper {
       "word_id = #{wordId}, " +
       "note_author = #{noteAuthor}, " +
       "note_baidescription = #{noteBaidescription}, " +
-      "note_tag = #{noteTag}")
+      "note_tag = #{noteTag} " +
+      "where note_id = #{noteId}")
   Integer updateNote(Note note);
 
   @Select("select * from fm_notes where note_id = #{id}")

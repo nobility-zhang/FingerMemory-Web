@@ -34,4 +34,7 @@ public interface UserMapper {
       "( user_name = #{account} or user_email = #{account} ) " +
       "and user_password = #{password}")
   User selectUserByAuth(@Param("account") String account, @Param("password") String password);
+
+  @Select("select * from fm_users where user_name = #{authorName}")
+  User selectUserByName(String authorName);
 }

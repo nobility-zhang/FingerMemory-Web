@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import work.nobility.fingermemoryweb.entity.Book;
 import work.nobility.fingermemoryweb.entity.Lexicon;
+import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.mapper.BookMapper;
 import work.nobility.fingermemoryweb.mapper.LexiconMapper;
 import work.nobility.fingermemoryweb.model.response.BookItem;
@@ -47,7 +48,7 @@ public class MeServiceImpl implements MeService {
   }
 
   @Override
-  public List<BookItem> meCollectingBook(UserInfo userInfo) {
+  public List<BookItem> meCollectingBook(UserInfo userInfo) throws GlobalException {
     List<Book> books = bookMapper.selectLexiconByUserLexicon(userInfo.getId().longValue());
     List<BookItem> bookItems = new ArrayList<>();
     for (Book book : books) {

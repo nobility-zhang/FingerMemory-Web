@@ -25,5 +25,8 @@ public interface UserLexiconMapper {
   List<UserLexicon> selectLexiconWordMappingListByLexiconId(Long id);
 
   @Delete("delete from fm_user_lexicons where user_id = #{userId} and lexicon_id = #{lexiconId}")
-  Integer deleteLexiconWordMappingByUserId(UserLexicon userLexicon);
+  Integer deleteLexiconWordMapping(UserLexicon userLexicon);
+
+  @Select("select * from fm_user_lexicons where user_id = #{userId} and lexicon_id = #{lexiconId}")
+  UserLexicon selectLexicon(UserLexicon userLexicon);
 }

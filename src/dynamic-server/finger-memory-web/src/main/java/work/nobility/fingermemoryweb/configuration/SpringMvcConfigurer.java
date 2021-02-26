@@ -16,10 +16,16 @@ public class SpringMvcConfigurer implements WebMvcConfigurer {
   public void addInterceptors(InterceptorRegistry registry) {
     registry.addInterceptor(new LoginInterceptor(redisHttpSession))
         .addPathPatterns(
-            "/me",
+            "/change-password",
             "/me-lexicon",
             "/me-collecting-lexicon",
-            "/me-collecting-book"
+            "/me-collecting-book",
+            "/book",
+            "/collecting-book",
+            "/lexicon",
+            "/collecting-lexicon",
+            "/word",
+            "/collecting-word"
         )
         .excludePathPatterns();
   }

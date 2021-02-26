@@ -1,23 +1,31 @@
 package work.nobility.fingermemoryweb.controller;
 
 
+import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import work.nobility.fingermemoryweb.common.ApiRestResponse;
+import work.nobility.fingermemoryweb.common.Constant;
+import work.nobility.fingermemoryweb.exception.GlobalException;
+import work.nobility.fingermemoryweb.model.request.BookInfo;
 import work.nobility.fingermemoryweb.model.request.SearchBookInfo;
 import work.nobility.fingermemoryweb.model.response.BookItem;
+import work.nobility.fingermemoryweb.model.response.UserInfo;
 import work.nobility.fingermemoryweb.service.BookListService;
+import work.nobility.fingermemoryweb.utils.RedisHttpSession;
 
+import javax.servlet.http.HttpSession;
 import java.util.List;
 
 @RestController
 public class BookListController {
   @Autowired
-  BookListService bookListService;
+  private BookListService bookListService;
+  @Autowired
+  private RedisHttpSession redisHttpSession;
 
   @GetMapping("/book-list")
-  public ApiRestResponse<List<BookItem>> bookList(SearchBookInfo searchBookInfo) {
+  public ApiRestResponse<List<BookItem>> bookList(SearchBookInfo searchBookInfo) throws GlobalException {
     List<BookItem> bookItems = bookListService.bookList(searchBookInfo);
     return ApiRestResponse.success(bookItems);
   }
@@ -26,5 +34,55 @@ public class BookListController {
   public ApiRestResponse<List<String>> bookCategory() {
     List<String> category = bookListService.bookCategory();
     return ApiRestResponse.success(category);
+  }
+
+  @PostMapping("/book")
+  public ApiRestResponse<Object> addBook(@ApiParam("无需传id") @RequestBody BookInfo bookInfo,
+                                         HttpSession session) throws GlobalException {
+    redisHttpSession.setSession(session);
+    UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
+    Integer authorId = userInfo.getId();
+    bookListService.addBook(bookInfo, authorId);
+    return ApiRestResponse.success();
+  }
+
+  @PutMapping("/book")
+  public ApiRestResponse<Object> updateBook(@RequestBody BookInfo bookInfo,
+                                            HttpSession session) throws GlobalException {
+    redisHttpSession.setSession(session);
+    UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
+    Integer authorId = userInfo.getId();
+    bookListService.updateBook(bookInfo, authorId);
+    return ApiRestResponse.success();
+  }
+
+  @DeleteMapping("/book")
+  public ApiRestResponse<Object> deleteBook(@ApiParam("只接收id") @RequestBody BookInfo bookInfo,
+                                            HttpSession session) throws GlobalException {
+    redisHttpSession.setSession(session);
+    UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
+    Integer authorId = userInfo.getId();
+    bookListService.deleteBook(bookInfo.getId(), authorId);
+    return ApiRestResponse.success();
+  }
+
+  @PostMapping("/collecting-book")
+  public ApiRestResponse<Object> collectingBook(@ApiParam("只接收id") @RequestBody BookInfo bookInfo,
+                                                HttpSession session) throws GlobalException {
+    redisHttpSession.setSession(session);
+    UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
+    Integer authorId = userInfo.getId();
+    bookListService.collectingBook(bookInfo.getId(), authorId);
+    return ApiRestResponse.success();
+  }
+
+  @DeleteMapping("/collecting-book")
+  public ApiRestResponse<Object> cancelCollectingBook(@ApiParam("只接收id") @RequestBody BookInfo bookInfo,
+                                                      HttpSession session) {
+    redisHttpSession.setSession(session);
+    UserInfo userInfo = redisHttpSession.getAttribute(Constant.UID, UserInfo.class);
+    Integer authorId = userInfo.getId();
+    bookListService.cancelCollectingBook(bookInfo.getId(), authorId);
+    return ApiRestResponse.success();
   }
 }

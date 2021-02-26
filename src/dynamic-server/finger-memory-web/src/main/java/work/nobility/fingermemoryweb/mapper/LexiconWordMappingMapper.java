@@ -1,4 +1,5 @@
 package work.nobility.fingermemoryweb.mapper;
+
 import org.apache.ibatis.annotations.*;
 import work.nobility.fingermemoryweb.entity.LexiconWordMapping;
 
@@ -15,8 +16,8 @@ public interface LexiconWordMappingMapper {
       "lexicon_id = #{after.lexiconId}, " +
       "word_id = #{after.wordId} " +
       "where lexicon_id = #{before.lexiconId} and word_id = #{before.wordId}")
-  Integer updateLexiconWordMapping(@Param("before")LexiconWordMapping lexiconWordMappingBefore,
-                                   @Param("after")LexiconWordMapping lexiconWordMappingAfter);
+  Integer updateLexiconWordMapping(@Param("before") LexiconWordMapping lexiconWordMappingBefore,
+                                   @Param("after") LexiconWordMapping lexiconWordMappingAfter);
 
   @Select("select * from fm_lexicon_word_mapping where lexicon_id = #{id}")
   List<LexiconWordMapping> selectLexiconWordMappingListByLexiconId(Long id);
@@ -26,4 +27,7 @@ public interface LexiconWordMappingMapper {
 
   @Delete("delete from fm_lexicon_word_mapping where lexicon_id = #{lexiconId} and word_id = #{wordId}")
   Integer deleteLexiconWordMapping(LexiconWordMapping lexiconWordMapping);
+
+  @Select("select * from fm_lexicon_word_mapping where lexicon_id = #{lexiconId} and word_id = #{wordId}")
+  LexiconWordMapping selectLexiconWordMappingList(LexiconWordMapping lexiconWordMapping);
 }

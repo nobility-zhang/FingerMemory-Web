@@ -1,5 +1,6 @@
 package work.nobility.fingermemoryweb.service;
 
+import work.nobility.fingermemoryweb.exception.GlobalException;
 import work.nobility.fingermemoryweb.model.response.BookItem;
 import work.nobility.fingermemoryweb.model.response.LexiconItem;
 import work.nobility.fingermemoryweb.model.response.UserInfo;
@@ -11,5 +12,5 @@ public interface MeService {
 
   List<LexiconItem> meCollectingLexicon(UserInfo userInfo);
 
-  List<BookItem> meCollectingBook(UserInfo userInfo);
+  List<BookItem> meCollectingBook(UserInfo userInfo) throws GlobalException;
 }

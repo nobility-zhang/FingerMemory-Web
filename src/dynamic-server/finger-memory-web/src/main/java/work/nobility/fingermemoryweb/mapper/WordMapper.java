@@ -23,7 +23,8 @@ public interface WordMapper {
       "word_translate = #{wordTranslate}, " +
       "word_baidescription = #{wordBaidescription}, " +
       "word_cover_url = #{wordCoverUrl}, " +
-      "word_category = #{wordCategory}")
+      "word_category = #{wordCategory} " +
+      "where word_id = #{wordId}")
   Integer updateWord(Word word);
 
   @Select("select * from fm_words where word_id = #{id}")
