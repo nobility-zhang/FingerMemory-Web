@@ -1,4 +1,24 @@
-module.exports = class Book {
+/**
+ *  @swagger
+ *  definitions:
+ *    BookContent:
+ *      properties:
+ *        id:
+ *          type: number
+ *        englishTitle:
+ *          type: string
+ *        translateTitle:
+ *          type: string
+ *        englishContent:
+ *          type: string
+ *        translateContent:
+ *          type: string
+ *        mark:
+ *          type: string
+ *        note:
+ *          type: string
+ */
+module.exports = class BookContent {
     constructor(id, englishTitle , translateTitle, englishContent, translateContent, mark, note) {
         this.id = id;
         this.englishTitle = englishTitle;

@@ -4,8 +4,12 @@ const json = require('koa-json')
 const onerror = require('koa-onerror')
 const bodyparser = require('koa-bodyparser')
 const logger = require('koa-logger')
+const { koaSwagger } = require('koa2-swagger-ui')
 
-const index = require('./routes/index')
+const swagger = require('./config/swaggerConfig')
+const bookContent = require('./routes/bookContent')
+const multipleChoice = require('./routes/multipleChoice')
+const upload = require('./routes/upload')
 
 // error handler
 onerror(app)
@@ -16,6 +20,13 @@ app.use(bodyparser({
 }))
 app.use(json())
 app.use(logger())
+app.use(require('koa-static')(__dirname + '/public'))
+app.use(koaSwagger({
+  routePrefix: '/swagger',
+  swaggerOptions: {
+    url: '/swagger.json',
+  },
+}))
 
 // logger
 app.use(async (ctx, next) => {
@@ -26,7 +37,10 @@ app.use(async (ctx, next) => {
 })
 
 // routes
-app.use(index.routes(), index.allowedMethods())
+app.use(swagger.routes(), swagger.allowedMethods())
+app.use(bookContent.routes(), bookContent.allowedMethods())
+app.use(multipleChoice.routes(), multipleChoice.allowedMethods())
+app.use(upload.routes(), bookContent.allowedMethods())
 
 // error-handling
 app.on('error', (err, ctx) => {

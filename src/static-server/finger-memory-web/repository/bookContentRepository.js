@@ -1,7 +1,7 @@
-const Book = require('../model/book.js');
+const BookContent = require('../model/bookContent.js');
 
-function bookById(id) {
-    return new Book(1, "Beauty", "美丽人生",
+function bookContentById(id) {
+    return new BookContent(1, "Beauty", "美丽人生",
     `
     There were a sensitivity and a beauty to her that have nothing to do with looks. She was one to be listened to, whose words were so easy to take to heart.
 
@@ -54,5 +54,5 @@ function bookById(id) {
     );
 }
 module.exports = {
-    bookById,
+    bookContentById,
 }
