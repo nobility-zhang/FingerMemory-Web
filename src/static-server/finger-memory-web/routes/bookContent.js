@@ -1,6 +1,8 @@
 const router = require('koa-router')()
 const { bookContentService } = require("../service/bookContentService.js")
 const ApiRestResponse = require("../common/apiRestResponse.js")
+const { Not_Login } = require("../error/error")
+const RedisHttpSession = require("../utils/redisHttpSession")
 /**
  * @swagger
  * /book-content:
@@ -44,7 +46,12 @@ router.get('/book-content', async (ctx, next) => {
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.post('/book-content', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success("增加")
+  const islogin = await RedisHttpSession.isLogin(ctx);
+  if (islogin) {
+    ctx.body = ApiRestResponse.success("增加")
+  } else {
+    ctx.body = ApiRestResponse.error(Not_Login)
+  }
 })
 /**
  * @swagger
@@ -67,7 +74,12 @@ router.post('/book-content', async (ctx, next) => {
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.put('/book-content', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success("修改")
+  const islogin = await RedisHttpSession.isLogin(ctx);
+  if (islogin) {
+    ctx.body = ApiRestResponse.success("修改")
+  } else {
+    ctx.body = ApiRestResponse.error(Not_Login)
+  }
 })
 /**
  * @swagger
@@ -90,6 +102,11 @@ router.put('/book-content', async (ctx, next) => {
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.delete('/book-content', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success("删除")
+  const islogin = await RedisHttpSession.isLogin(ctx);
+  if (islogin) {
+    ctx.body = ApiRestResponse.success("删除")
+  } else {
+    ctx.body = ApiRestResponse.error(Not_Login)
+  }
 })
 module.exports = router

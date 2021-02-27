@@ -13,6 +13,13 @@ const swaggerDefinition = {
         }
     }
 };
+const config = {
+    routePrefix: '/swagger-ui/index.html',
+    swaggerOptions: {
+        url: '/swagger.json',
+    },
+}
+router.Config = config
 const options = {
     swaggerDefinition,
     apis: [

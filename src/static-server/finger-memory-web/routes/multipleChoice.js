@@ -1,6 +1,8 @@
 const router = require('koa-router')()
 const { multipleChoiceService } = require("../service/multipleChoiceService.js");
 const ApiRestResponse = require("../common/apiRestResponse.js")
+const { Not_Login } = require("../error/error")
+const RedisHttpSession = require("../utils/redisHttpSession")
 /**
  * @swagger
  * /multiple-choice:
@@ -44,7 +46,12 @@ router.get('/multiple-choice', async (ctx, next) => {
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.post('/multiple-choice', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success("增加")
+  const isLogin = await RedisHttpSession.isLogin(ctx);
+  if(isLogin) {
+    ctx.body = ApiRestResponse.success("增加")
+  } else {
+    ctx.body = ApiRestResponse.error(Not_Login)
+  }
 })
 /**
  * @swagger
@@ -67,7 +74,12 @@ router.post('/multiple-choice', async (ctx, next) => {
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.put('/multiple-choice', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success("更新")
+  const isLogin = await RedisHttpSession.isLogin(ctx);
+  if(isLogin) {
+    ctx.body = ApiRestResponse.success("修改")
+  } else {
+    ctx.body = ApiRestResponse.error(Not_Login)
+  }
 })
 /**
  * @swagger
@@ -89,7 +101,12 @@ router.put('/multiple-choice', async (ctx, next) => {
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.delete('/multiple-choice', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success("删除")
+  const isLogin = await RedisHttpSession.isLogin(ctx);
+  if(isLogin) {
+    ctx.body = ApiRestResponse.success("删除")
+  } else {
+    ctx.body = ApiRestResponse.error(Not_Login)
+  }
 })
 
 module.exports = router
