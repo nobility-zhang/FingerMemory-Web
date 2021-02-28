@@ -6,7 +6,7 @@
  *        value:
  *          type: string
  *        reight:
- *          type: string
+ *          type: boolean
  */
 module.exports = class Option {
     constructor(value, reight) {

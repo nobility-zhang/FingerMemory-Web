@@ -1,7 +1,7 @@
 const router = require('koa-router')()
-const { multipleChoiceService } = require("../service/multipleChoiceService.js");
+const multipleChoiceService = require("../service/multipleChoiceService.js");
 const ApiRestResponse = require("../common/apiRestResponse.js")
-const { Not_Login } = require("../error/error")
+const { Not_Login, Update_Error} = require("../error/error")
 const RedisHttpSession = require("../utils/redisHttpSession")
 /**
  * @swagger
@@ -11,7 +11,7 @@ const RedisHttpSession = require("../utils/redisHttpSession")
  *     produces:
  *       - application/json
  *     parameters:
- *       - name: multipleChoiceId
+ *       - name: bookId
  *         in: query
  *         required: true
  *         schema: 
@@ -23,7 +23,9 @@ const RedisHttpSession = require("../utils/redisHttpSession")
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.get('/multiple-choice', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success(multipleChoiceService(ctx.query))
+  ctx.body = ApiRestResponse.success(
+    await multipleChoiceService.multipleChoiceByBookId(ctx.query.bookId)
+  )
 })
 /**
  * @swagger
@@ -37,7 +39,7 @@ router.get('/multiple-choice', async (ctx, next) => {
  *         in: body
  *         required: true
  *         schema: 
- *           type: MultipleChoiceService
+ *           type: MultipleChoice
  *           $ref: '#/definitions/MultipleChoice'
  *     responses:
  *       200:
@@ -48,7 +50,9 @@ router.get('/multiple-choice', async (ctx, next) => {
 router.post('/multiple-choice', async (ctx, next) => {
   const isLogin = await RedisHttpSession.isLogin(ctx);
   if(isLogin) {
-    ctx.body = ApiRestResponse.success("增加")
+    ctx.body = ApiRestResponse.success(
+      await multipleChoiceService.multipleChoiceInsertOne(ctx.request.body)
+    )
   } else {
     ctx.body = ApiRestResponse.error(Not_Login)
   }
@@ -65,7 +69,7 @@ router.post('/multiple-choice', async (ctx, next) => {
  *         in: body
  *         required: true
  *         schema: 
- *           type: MultipleChoiceService
+ *           type: MultipleChoice
  *           $ref: '#/definitions/MultipleChoice'
  *     responses:
  *       200:
@@ -76,7 +80,12 @@ router.post('/multiple-choice', async (ctx, next) => {
 router.put('/multiple-choice', async (ctx, next) => {
   const isLogin = await RedisHttpSession.isLogin(ctx);
   if(isLogin) {
-    ctx.body = ApiRestResponse.success("修改")
+    try {
+      await multipleChoiceService.multipleChoiceUpdate(ctx.request.body);
+      ctx.body = ApiRestResponse.success(null)
+    } catch (error) {
+      ctx.body = ApiRestResponse.error(Update_Error)
+    }
   } else {
     ctx.body = ApiRestResponse.error(Not_Login)
   }
@@ -89,11 +98,12 @@ router.put('/multiple-choice', async (ctx, next) => {
  *     produces:
  *       - application/json
  *     parameters:
- *       - name: multipleChoiceId
- *         in: query
+ *       - name: body
+ *         in: body
  *         required: true
  *         schema: 
- *           type: number
+ *           type: MultipleChoice
+ *           $ref: '#/definitions/MultipleChoice'
  *     responses:
  *       200:
  *         schema:
@@ -103,7 +113,10 @@ router.put('/multiple-choice', async (ctx, next) => {
 router.delete('/multiple-choice', async (ctx, next) => {
   const isLogin = await RedisHttpSession.isLogin(ctx);
   if(isLogin) {
-    ctx.body = ApiRestResponse.success("删除")
+    console.log(ctx.request.body);
+    ctx.body = ApiRestResponse.success(
+      await multipleChoiceService.multipleChoiceDelete(ctx.request.body)
+    )
   } else {
     ctx.body = ApiRestResponse.error(Not_Login)
   }

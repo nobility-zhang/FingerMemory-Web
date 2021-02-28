@@ -1,5 +1,5 @@
 const router = require('koa-router')()
-const { bookContentService } = require("../service/bookContentService.js")
+const bookContentService = require("../service/bookContentService.js")
 const ApiRestResponse = require("../common/apiRestResponse.js")
 const { Not_Login } = require("../error/error")
 const RedisHttpSession = require("../utils/redisHttpSession")
@@ -11,7 +11,7 @@ const RedisHttpSession = require("../utils/redisHttpSession")
  *     produces:
  *       - application/json
  *     parameters:
- *       - name: bookId
+ *       - name: id
  *         in: query
  *         required: true
  *         schema: 
@@ -23,7 +23,9 @@ const RedisHttpSession = require("../utils/redisHttpSession")
  *           $ref: '#/definitions/ApiRestResponse'
  */
 router.get('/book-content', async (ctx, next) => {
-  ctx.body = ApiRestResponse.success(bookContentService(ctx.query))
+  ctx.body = ApiRestResponse.success(
+   await bookContentService.bookContentById(ctx.query.id)
+  )
 })
 /**
  * @swagger
@@ -48,7 +50,13 @@ router.get('/book-content', async (ctx, next) => {
 router.post('/book-content', async (ctx, next) => {
   const islogin = await RedisHttpSession.isLogin(ctx);
   if (islogin) {
-    ctx.body = ApiRestResponse.success("增加")
+    try {
+      ctx.body = ApiRestResponse.success(
+        await bookContentService.bookContentInsertOne(ctx.request.body)
+      )
+    } catch (error) {
+      ctx.body = ApiRestResponse.error(error)
+    }
   } else {
     ctx.body = ApiRestResponse.error(Not_Login)
   }
@@ -76,7 +84,12 @@ router.post('/book-content', async (ctx, next) => {
 router.put('/book-content', async (ctx, next) => {
   const islogin = await RedisHttpSession.isLogin(ctx);
   if (islogin) {
-    ctx.body = ApiRestResponse.success("修改")
+    try {
+      await bookContentService.bookContentUpdate(ctx.request.body);
+      ctx.body = ApiRestResponse.success(null)
+    } catch (error) {
+      ctx.body = ApiRestResponse.error(error)
+    }
   } else {
     ctx.body = ApiRestResponse.error(Not_Login)
   }
@@ -104,7 +117,9 @@ router.put('/book-content', async (ctx, next) => {
 router.delete('/book-content', async (ctx, next) => {
   const islogin = await RedisHttpSession.isLogin(ctx);
   if (islogin) {
-    ctx.body = ApiRestResponse.success("删除")
+    ctx.body = ApiRestResponse.success(
+      await bookContentService.bookContentDeleteOne(ctx.request.body)
+    )
   } else {
     ctx.body = ApiRestResponse.error(Not_Login)
   }

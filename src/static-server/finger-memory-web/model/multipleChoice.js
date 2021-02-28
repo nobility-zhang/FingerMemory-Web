@@ -4,8 +4,12 @@
  *    MultipleChoice:
  *      properties:
  *        id:
+ *          type: string
+ *        bookId:
  *          type: number
  *        issue:
+ *          type: string
+ *        resolve:
  *          type: string
  *        translated:
  *          type: string
@@ -15,8 +19,9 @@
  *            $ref: '#/definitions/Option'
  */
 module.exports = class MultipleChoice {
-    constructor(id, issue , translated, resolve, options) {
+    constructor(id, bookId, issue , translated, resolve, options) {
         this.id = id;
+        this.bookId = bookId;
         this.issue = issue;
         this.translated = translated;
         this.resolve = resolve;
