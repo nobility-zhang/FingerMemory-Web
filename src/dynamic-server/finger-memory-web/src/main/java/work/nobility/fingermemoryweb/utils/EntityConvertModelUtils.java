@@ -26,6 +26,9 @@ public class EntityConvertModelUtils {
   private WordCategoryMapper wordCategoryMapper;
 
   public BookItem convertBookToBookItem(Book book) throws GlobalException {
+    if (book == null) {
+      return null;
+    }
     User user = userMapper.selectUserById(book.getBookAuthor());
     if (user == null) {
       throw new GlobalException(ExceptionEnum.User_Not_Exists);
@@ -40,6 +43,9 @@ public class EntityConvertModelUtils {
   }
 
   public LexiconItem convertLexiconToLexiconItem(Lexicon lexicon, UserInfo userInfo) {
+    if (lexicon == null) {
+      return null;
+    }
     LexiconItem lexiconItem = new LexiconItem();
     lexiconItem.setId((int) lexicon.getLexiconId().longValue());
     lexiconItem.setName(lexicon.getLexiconName());
@@ -50,6 +56,9 @@ public class EntityConvertModelUtils {
   }
 
   public LexiconItem convertLexiconToLexiconItem(Lexicon lexicon) {
+    if (lexicon == null) {
+      return null;
+    }
     User user = userMapper.selectUserById(lexicon.getLexiconAuthor());
     LexiconItem lexiconItem = new LexiconItem();
     lexiconItem.setId((int) lexicon.getLexiconId().longValue());
@@ -61,6 +70,9 @@ public class EntityConvertModelUtils {
   }
 
   public WordItem convertWordToWordItem(Word word) {
+    if (word == null) {
+      return null;
+    }
     WordItem wordItem = new WordItem();
     wordItem.setId((int) word.getWordId().longValue());
     wordItem.setEnglish(word.getWordEnglish());
@@ -69,6 +81,9 @@ public class EntityConvertModelUtils {
   }
 
   public WordCard convertWordToWordCard(Word word) {
+    if (word == null) {
+      return null;
+    }
     Note note = noteMapper.selectNoteByWordIdRandomNoteAuthorId(word.getWordId());
     WordCard wordCard = new WordCard();
     wordCard.setId((int) word.getWordId().longValue());
@@ -85,6 +100,9 @@ public class EntityConvertModelUtils {
   }
 
   public SimpleWordCard convertWordCardToSimpleWordCard(WordCard wordCard) {
+    if (wordCard == null) {
+      return null;
+    }
     SimpleWordCard simpleWordCard = new SimpleWordCard();
     simpleWordCard.setId((int) wordCard.getId().longValue());
     simpleWordCard.setEnglish(wordCard.getEnglish());
@@ -94,6 +112,9 @@ public class EntityConvertModelUtils {
   }
 
   public Book convertBookInfoToBook(BookInfo bookInfo, Long authorId) throws GlobalException {
+    if (bookInfo == null) {
+      return null;
+    }
     BookCategory bookCategory = bookCategoryMapper.selectBookCategoryByName(bookInfo.getCategory());
     if (bookCategory == null) {
       throw new GlobalException(ExceptionEnum.Category_Not_Exists);
@@ -108,6 +129,9 @@ public class EntityConvertModelUtils {
   }
 
   public Lexicon convertLexiconInfoToLexicon(LexiconInfo lexiconInfo, Long authorId) {
+    if (lexiconInfo == null) {
+      return null;
+    }
     Lexicon lexicon = new Lexicon();
     lexicon.setLexiconName(lexiconInfo.getName());
     lexicon.setLexiconBaidescription(lexiconInfo.getDescription());
@@ -117,6 +141,9 @@ public class EntityConvertModelUtils {
   }
 
   public Word convertWordInfoToWord(WordInfo wordInfo) throws GlobalException {
+    if (wordInfo == null) {
+      return null;
+    }
     String category = wordInfo.getCategory();
     WordCategory wordCategory = wordCategoryMapper.selectWordCategoryByName(category);
     if (wordCategory == null) {

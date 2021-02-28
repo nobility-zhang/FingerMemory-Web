@@ -6,10 +6,12 @@ const bodyparser = require('koa-bodyparser')
 const logger = require('koa-logger')
 const { koaSwagger } = require('koa2-swagger-ui')
 
+const {ORIGIN_URL} = require('./common/constant')
 const swagger = require('./config/swaggerConfig')
 const bookContent = require('./routes/bookContent')
 const multipleChoice = require('./routes/multipleChoice')
 const upload = require('./routes/upload')
+const cors = require('koa2-cors');
 
 // error handler
 onerror(app)
@@ -22,6 +24,13 @@ app.use(json())
 app.use(logger())
 app.use(require('koa-static')(__dirname + '/public'))
 app.use(koaSwagger(swagger.Config))
+app.use(cors({
+  origin: function (ctx) {
+      return ORIGIN_URL;
+  },
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'DELETE', 'PUT'],
+}))
 
 // logger
 app.use(async (ctx, next) => {

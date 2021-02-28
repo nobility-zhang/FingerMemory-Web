@@ -3,5 +3,6 @@ module.exports = {
     REDIS_HOST: 'localhost',
     REDIS_PROT: 6379,
     MONGO_HOST: 'localhost',
-    MONGO_PROT: 27017
+    MONGO_PROT: 27017,
+    ORIGIN_URL: 'http://localhost:5500'
 }
