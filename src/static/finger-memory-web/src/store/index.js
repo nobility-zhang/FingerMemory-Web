@@ -4,6 +4,7 @@ import bookList from './bookList';
 import me from './me';
 import wordQuery from './wordQuery';
 import home from './home';
+import login from './login';
 
 Vue.use(Vuex);
 
@@ -19,5 +20,6 @@ export default new Vuex.Store({
     me,
     wordQuery,
     home,
+    login,
   },
 });

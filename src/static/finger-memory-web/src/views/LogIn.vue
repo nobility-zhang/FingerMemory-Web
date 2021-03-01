@@ -9,8 +9,9 @@
       >
         <b-form-input
           id="username"
-          type="email"
+          type="text"
           placeholder="请输入用户名或邮箱地址"
+          v-model="account"
           required
         ></b-form-input>
       </b-form-group>
@@ -20,6 +21,7 @@
           type="password"
           id="password"
           placeholder="请输入密码"
+          v-model="password"
           required
         ></b-form-input>
       </b-form-group>
@@ -45,7 +47,7 @@
         </b-form-checkbox-group>
       </b-form-group>
 
-      <b-button type="submit" block variant="primary">登入</b-button>
+      <b-button type="submit" block variant="primary" @click="login">登入</b-button>
 
       <div class="d-flex justify-content-center">
         <span>还没有账号？</span>
@@ -54,3 +56,21 @@
     </b-form>
   </div>
 </template>
+<script>
+export default {
+  data() {
+    return {
+      password: '',
+      account: '',
+    };
+  },
+  methods: {
+    login() {
+      this.$store.dispatch('login/getUserInfo', {
+        account: this.account,
+        password: this.password,
+      });
+    },
+  },
+};
+</script>

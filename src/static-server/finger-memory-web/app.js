@@ -18,7 +18,10 @@ onerror(app)
 
 // middlewares
 app.use(bodyparser({
-  enableTypes:['json', 'form', 'text']
+  enableTypes:['json', 'form', 'text'],
+  jsonLimit: '10mb',
+  formLimit: '10mb',
+  textLimit: '10mb'
 }))
 app.use(json())
 app.use(logger())

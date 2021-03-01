@@ -44,7 +44,6 @@ async function multipleChoiceInsertOne({
     resolve,
     options
 }) {
-    console.log(bookId);
     new MultipleChoiceEntity({
         bookId,
         issue,
@@ -52,6 +51,13 @@ async function multipleChoiceInsertOne({
         resolve,
         options
     }).save()
+    console.log(new MultipleChoiceEntity({
+        bookId,
+        issue,
+        translated,
+        resolve,
+        options
+    }));
 }
 async function multipleChoiceUpdate({
     id,

@@ -11,7 +11,7 @@
         <b-form-radio
           v-for="(item, index) in optionsImpl"
           :key="item.value"
-          :state="item.reight"
+          :state="item.right"
           v-model="selected"
           @change="judge(index)"
           class="mt-3"
@@ -44,14 +44,14 @@ export default {
       const optionsCopy = [];
       options.forEach((item) => {
         const itemCopy = { ...item };
-        itemCopy.reight = null;
+        itemCopy.right = null;
         optionsCopy.push(itemCopy);
       });
       return optionsCopy;
     },
     judge(index) {
-      this.optionsImpl[index].reight = this.multipleChoice.options[index].reight;
-      if (!this.multipleChoice.options[index].reight) {
+      this.optionsImpl[index].right = this.multipleChoice.options[index].right;
+      if (!this.multipleChoice.options[index].right) {
         this.score = this.score - this.oneScore > 0 ? this.score - this.oneScore : this.score;
       } else {
         this.$root.$bvToast.show(`toast-${this.bingoIdImpl}`);

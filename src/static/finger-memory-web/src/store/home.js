@@ -110,18 +110,18 @@ export default {
     },
   },
   actions: {
-    getMultipleChoices(context) {
-      Vue.axios.get('/home/core-multiple-choice').then(({
-        data,
-      }) => {
-        context.commit('initMultipleChoices', data);
+    getMultipleChoices(context, payload) {
+      Vue.axiosNode.get('/multiple-choice', {
+        params: {
+          ...payload,
+        },
+      }).then(({ data }) => {
+        context.commit('initMultipleChoices', data.data);
       });
     },
     getMemorys(context) {
-      Vue.axios.get('/home/core-memory').then(({
-        data,
-      }) => {
-        context.commit('initMemorys', data);
+      Vue.axiosJava.get('/core-memory').then(({ data }) => {
+        context.commit('initMemorys', data.data);
       });
     },
   },

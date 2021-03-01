@@ -6,10 +6,7 @@ module.exports = db.model(
         issue: String,
         translated: String,
         resolve: String,
-        options: [
-            { value: String },
-            { reight: Boolean }
-        ]
+        options: [{ value: String, right: Boolean }]
     },
     "multipleChoices"
 )

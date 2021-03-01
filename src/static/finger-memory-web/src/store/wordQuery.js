@@ -48,7 +48,7 @@ export default {
       规范总是能在Tomcat 中得到体现，Tomcat 5支持最新的Servlet 2.4 和JSP 2.0 规范。因为Tomcat 技术先进、性能稳定，而且免费，
       因而深受Java 爱好者的喜爱并得到了部分软件开发商的认可，成为目前比较流行的Web 应用服务器。`,
     } */
-    card: {},
+    card: [],
   },
   mutations: {
     initAssociates(state, associates) {
@@ -59,16 +59,35 @@ export default {
     },
   },
   actions: {
-    getAssociates(context) {
-      Vue.axios.get('/word/associates').then(({ data }) => {
-        context.commit('initAssociates', data);
-        console.log(data);
-      });
+    getAssociates(context, payload) {
+      if (payload === undefined) {
+        Vue.axiosJava.get('/associates?word=wh').then(({ data }) => {
+          context.commit('initAssociates', data.data);
+        });
+      } else {
+        Vue.axiosJava.get('/associates', {
+          params: {
+            ...payload,
+          },
+        }).then(({ data }) => {
+          context.commit('initAssociates', data.data);
+        });
+      }
     },
-    getCard(context) {
-      Vue.axios.get('/word/word-card').then(({ data }) => {
-        context.commit('initCard', data);
-      });
+    getCard(context, payload) {
+      if (payload === undefined) {
+        Vue.axiosJava.get('/word-card?word=work').then(({ data }) => {
+          context.commit('initCard', data.data);
+        });
+      } else {
+        Vue.axiosJava.get('/word-card', {
+          params: {
+            ...payload,
+          },
+        }).then(({ data }) => {
+          context.commit('initCard', data.data);
+        });
+      }
     },
   },
   modules: {

@@ -16,22 +16,21 @@
         </b-navbar-nav>
         <!-- nav start-->
         <!-- 已登入 start-->
-        <!-- <b-navbar-nav class="ml-auto">
+        <b-navbar-nav class="ml-auto" v-if="userInfo !== null">
           <b-nav-item-dropdown right>
             <template #button-content>
               <b-img
                 rounded="circle"
-                src="https://placekitten.com/g/30/30"
-                alt="Circle image"
+                :src="userInfo.userAvatarUrl"
               ></b-img>
-              <em>User</em>
+              <em>{{userInfo.userName}}</em>
             </template>
-            <b-dropdown-item href="#">Sign Out</b-dropdown-item>
+            <b-dropdown-item @click="logout">Sign Out</b-dropdown-item>
           </b-nav-item-dropdown>
-        </b-navbar-nav> -->
+        </b-navbar-nav>
         <!-- 已登入 end-->
         <!-- 未登入 start -->
-        <b-navbar-nav class="ml-auto">
+        <b-navbar-nav class="ml-auto" v-else>
             <b-button-group>
               <b-button href="#/log-in" variant="outline-light">Log In</b-button>
               <b-button href="#/sign-up" variant="outline-success">Sign Up</b-button>
@@ -49,3 +48,19 @@ body {
   background-color: #eef0f5;
 }
 </style>
+<script>
+import { mapState } from 'vuex';
+
+export default {
+  computed: {
+    ...mapState({
+      userInfo: (state) => state.login.userInfo,
+    }),
+  },
+  methods: {
+    logout() {
+      this.$store.dispatch('login/removeUserInfo');
+    },
+  },
+};
+</script>

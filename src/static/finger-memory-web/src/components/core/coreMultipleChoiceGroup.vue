@@ -43,7 +43,7 @@ export default {
     }),
   },
   created() {
-    this.$store.dispatch('home/getMultipleChoices');
+    this.$store.dispatch('home/getMultipleChoices', { bookId: 0 });
   },
   methods: {
     onSlideStart() {

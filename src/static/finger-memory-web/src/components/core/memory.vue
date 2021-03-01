@@ -2,8 +2,15 @@
   <div class="card border border-info">
     <div class="card-header text-center bg-info text-white">记忆卡片</div>
     <div class="card-body text-center text-dark">
-      <h2 class="card-title">{{ memory.word }}</h2>
-      <b-link href="#" > <strong>{{ memory.translation }}</strong> </b-link>
+      <h2 class="card-title">{{ memory.english }}</h2>
+      <b-link href="#" @click="play">
+        <audio
+          :src="'http://dict.youdao.com/dictvoice?type=0&audio=' + memory.english"
+          ref="audio"
+        >
+        </audio>
+        <strong>{{ memory.translation }}</strong>
+      </b-link>
       <b-form-input
       @keyup.enter="enterHandler"
       ref="myInput"
@@ -31,8 +38,11 @@ export default {
     };
   },
   methods: {
+    play() {
+      this.$refs.audio.play();
+    },
     enterHandler() {
-      if (this.value === this.memory.word) {
+      if (this.value === this.memory.english) {
         this.state = true;
         this.toggleClass('text-success');
         this.message = 'Nice! 下一个！';

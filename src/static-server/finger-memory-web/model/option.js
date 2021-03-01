@@ -5,7 +5,7 @@
  *      properties:
  *        value:
  *          type: string
- *        reight:
+ *        right:
  *          type: boolean
  */
 module.exports = class Option {

@@ -1,6 +1,8 @@
 /* eslint-disable */
 import Vue from 'vue';
 import axios from 'axios';
+import _axiosJava from './axios-java';
+import _axiosNode from './axios-node';
 
 // Full config:  https://github.com/axios/axios#request-config
 // axios.defaults.baseURL = process.env.baseURL || process.env.apiUrl || '';
@@ -38,16 +40,40 @@ _axios.interceptors.response.use(
 
 Plugin.install = function (Vue, options) {
   Vue.axios = _axios;
+  Vue.axiosJava = _axiosJava;
+  Vue.axiosNode = _axiosNode;
   window.axios = _axios;
+  window.axiosJava = _axiosJava;
+  window.axiosNode = _axiosNode;
   Object.defineProperties(Vue.prototype, {
     axios: {
       get() {
         return _axios;
       },
     },
+    axiosJava: {
+      get() {
+        return _axiosJava;
+      },
+    },
+    axiosNode: {
+      get() {
+        return _axiosNode;
+      },
+    },
     $axios: {
       get() {
         return _axios;
+      },
+    },
+    $axiosJava: {
+      get() {
+        return _axiosJava;
+      },
+    },
+    $axiosNode: {
+      get() {
+        return _axiosNode;
       },
     },
   });

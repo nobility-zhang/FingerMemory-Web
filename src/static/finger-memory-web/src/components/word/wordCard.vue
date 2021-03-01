@@ -12,7 +12,12 @@
       <b-card-sub-title class="mb-2">
         <div class="d-flex justify-content-between">
           <span>{{card.translation}}</span>
-          <b-link href="#">
+          <b-link href="#" @click="play">
+            <audio
+            :src="'http://dict.youdao.com/dictvoice?type=0&audio=' + card.english"
+            ref="audio"
+            >
+            </audio>
             <b-icon-volume-up-fill font-scale="1.5"></b-icon-volume-up-fill>
           </b-link>
         </div>
@@ -20,14 +25,14 @@
       <b-card-text>{{card.description}}</b-card-text>
     </b-card-body>
     <b-card-body class="mb-0 pb-0">
-      <b-button v-b-modal.note variant="primary">查看笔记</b-button>
+      <b-button v-b-modal="card.id.toString()" variant="primary">查看笔记</b-button>
     </b-card-body>
     <b-card-body class="mt-0 pt-0">
       <a href="#" class="card-link">点赞</a>
       <a href="#" class="card-link">收藏</a>
     </b-card-body>
   </b-card>
-  <word-note :note="card.note"></word-note>
+  <word-note :note="card.note" :mid="card.id.toString()"></word-note>
   </div>
 </template>
 <script>
@@ -37,6 +42,11 @@ export default {
   props: ['card'],
   components: {
     wordNote,
+  },
+  methods: {
+    play() {
+      this.$refs.audio.play();
+    },
   },
 };
 </script>
