@@ -4,7 +4,7 @@
 
 官网：http://nobility-zhang.github.io/FingerMemory-Web
 
-项目dome：http://nobility.work/finger-memory（介于服务器的压力只简单部署了前端页面）
+（介于服务器的压力只简单部署了前端页面）项目dome：http://nobility.work/finger-memory
 
 ## 特色功能
 
@@ -78,6 +78,7 @@ docker run -itd --name=dynamic-server -p 8080:8080 dynamic-server
 ## 后期计划
 
 - [ ] 补充文档
+- [ ] 用户界面优化
 - [ ] 优化代码
 - [ ] 爬取数据、数据添加
 - [ ] 增加我能想到的小功能
