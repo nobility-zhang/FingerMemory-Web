@@ -1,0 +1,6 @@
+FROM openjdk:11-jre
+LABEL message="dynamic-server"
+COPY finger-memory-web/target/finger-memory-web-0.0.1-SNAPSHOT.jar /app/dynamic-server.jar
+WORKDIR /app/
+ENTRYPOINT ["nohup","java","-jar","dynamic-server.jar","&"]
+EXPOSE 8080
