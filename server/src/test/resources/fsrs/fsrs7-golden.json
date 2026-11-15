@@ -1,0 +1,489 @@
+{
+  "fixtureVersion": 1,
+  "generatedAtUtc": "2026-11-15T00:00:00.000Z",
+  "source": {
+    "package": "ts-fsrs",
+    "packageVersion": "6.0.0",
+    "modelVersion": "fsrs-7",
+    "options": {
+      "desiredRetention": 0.9,
+      "enableFuzz": false,
+      "enableShortTerm": true,
+      "learningSteps": [
+        "1m",
+        "10m"
+      ],
+      "relearningSteps": [
+        "10m"
+      ],
+      "graduatingInterval": 1,
+      "allowModelOverride": true
+    },
+    "weights": [
+      0.1104,
+      2.2395,
+      3.9221,
+      11.7841,
+      6.1686,
+      0.6457,
+      3.6807,
+      1.9795,
+      0,
+      1.3826,
+      0.7024,
+      0.5999,
+      0.8146,
+      0.6398,
+      1,
+      1.3207,
+      0.6707,
+      3.8668,
+      0.4416,
+      0.0934,
+      1.8631,
+      0.6162,
+      1.0869,
+      0.1567,
+      0.0801,
+      0.2421,
+      0.9464,
+      0.1433,
+      0.7145,
+      0,
+      0.5667,
+      0.3734,
+      0.5333,
+      0.3048
+    ]
+  },
+  "initialCard": {
+    "cardId": "fixture-card",
+    "stability": 0,
+    "stabilityFast": 0,
+    "difficulty": 0,
+    "dueAt": 1794704400000,
+    "lastReviewAt": null,
+    "state": 0,
+    "scheduleStatus": "new",
+    "reps": 0,
+    "lapses": 0,
+    "scheduledDays": 0,
+    "learningStep": 0
+  },
+  "sameCardRatingPreviews": [
+    {
+      "rating": "again",
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 0.1104,
+        "stabilityFast": 0.08832,
+        "difficulty": 6.1686,
+        "dueAt": 1794704460000,
+        "lastReviewAt": 1794704400000,
+        "state": 1,
+        "scheduleStatus": "learning",
+        "reps": 1,
+        "lapses": 0,
+        "scheduledDays": 0.0006944444444444445,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 1,
+        "stability": 0,
+        "stabilityFast": 0,
+        "difficulty": 0,
+        "dueAt": 1794704400000,
+        "lastReviewAt": null,
+        "reviewTime": 1794704400000,
+        "state": 0,
+        "scheduleStatus": "new",
+        "scheduledDays": 0,
+        "learningStep": 0
+      }
+    },
+    {
+      "rating": "hard",
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 2.2395,
+        "stabilityFast": 1.7916,
+        "difficulty": 5.26127831,
+        "dueAt": 1794756020645,
+        "lastReviewAt": 1794704400000,
+        "state": 1,
+        "scheduleStatus": "learning",
+        "reps": 1,
+        "lapses": 0,
+        "scheduledDays": 0.5974611740746611,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 2,
+        "stability": 0,
+        "stabilityFast": 0,
+        "difficulty": 0,
+        "dueAt": 1794704400000,
+        "lastReviewAt": null,
+        "reviewTime": 1794704400000,
+        "state": 0,
+        "scheduleStatus": "new",
+        "scheduledDays": 0,
+        "learningStep": 0
+      }
+    },
+    {
+      "rating": "good",
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 3.9221,
+        "stabilityFast": 3.13768,
+        "difficulty": 3.53072398,
+        "dueAt": 1795117195164,
+        "lastReviewAt": 1794704400000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "reps": 1,
+        "lapses": 0,
+        "scheduledDays": 4.777721809269842,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 3,
+        "stability": 0,
+        "stabilityFast": 0,
+        "difficulty": 0,
+        "dueAt": 1794704400000,
+        "lastReviewAt": null,
+        "reviewTime": 1794704400000,
+        "state": 0,
+        "scheduleStatus": "new",
+        "scheduledDays": 0,
+        "learningStep": 0
+      }
+    },
+    {
+      "rating": "easy",
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 11.7841,
+        "stabilityFast": 9.42728,
+        "difficulty": 1,
+        "dueAt": 1799358725937,
+        "lastReviewAt": 1794704400000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "reps": 1,
+        "lapses": 0,
+        "scheduledDays": 53.86951316227522,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 4,
+        "stability": 0,
+        "stabilityFast": 0,
+        "difficulty": 0,
+        "dueAt": 1794704400000,
+        "lastReviewAt": null,
+        "reviewTime": 1794704400000,
+        "state": 0,
+        "scheduleStatus": "new",
+        "scheduledDays": 0,
+        "learningStep": 0
+      }
+    }
+  ],
+  "sequence": [
+    {
+      "input": {
+        "rating": "good",
+        "now": 1794704700000
+      },
+      "beforeCard": {
+        "cardId": "fixture-card",
+        "stability": 0,
+        "stabilityFast": 0,
+        "difficulty": 0,
+        "dueAt": 1794704400000,
+        "lastReviewAt": null,
+        "state": 0,
+        "scheduleStatus": "new",
+        "reps": 0,
+        "lapses": 0,
+        "scheduledDays": 0,
+        "learningStep": 0
+      },
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 3.9221,
+        "stabilityFast": 3.13768,
+        "difficulty": 3.53072398,
+        "dueAt": 1795117495164,
+        "lastReviewAt": 1794704700000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "reps": 1,
+        "lapses": 0,
+        "scheduledDays": 4.777721809269842,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 3,
+        "stability": 0,
+        "stabilityFast": 0,
+        "difficulty": 0,
+        "dueAt": 1794704400000,
+        "lastReviewAt": null,
+        "reviewTime": 1794704700000,
+        "state": 0,
+        "scheduleStatus": "new",
+        "scheduledDays": 0,
+        "learningStep": 0
+      }
+    },
+    {
+      "input": {
+        "rating": "good",
+        "now": 1794790800000
+      },
+      "beforeCard": {
+        "cardId": "fixture-card",
+        "stability": 3.9221,
+        "stabilityFast": 3.13768,
+        "difficulty": 3.53072398,
+        "dueAt": 1795117495164,
+        "lastReviewAt": 1794704700000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "reps": 1,
+        "lapses": 0,
+        "scheduledDays": 4.777721809269842,
+        "learningStep": 0
+      },
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 8.21082324,
+        "stabilityFast": 135.68292755,
+        "difficulty": 3.49771674,
+        "dueAt": 1796345477936,
+        "lastReviewAt": 1794790800000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "reps": 2,
+        "lapses": 0,
+        "scheduledDays": 17.993957599908914,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 3,
+        "stability": 3.9221,
+        "stabilityFast": 3.13768,
+        "difficulty": 3.53072398,
+        "dueAt": 1795117495164,
+        "lastReviewAt": 1794704700000,
+        "reviewTime": 1794790800000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "scheduledDays": 4.777721809269842,
+        "learningStep": 0
+      }
+    },
+    {
+      "input": {
+        "rating": "again",
+        "now": 1795050000000
+      },
+      "beforeCard": {
+        "cardId": "fixture-card",
+        "stability": 8.21082324,
+        "stabilityFast": 135.68292755,
+        "difficulty": 3.49771674,
+        "dueAt": 1796345477936,
+        "lastReviewAt": 1794790800000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "reps": 2,
+        "lapses": 0,
+        "scheduledDays": 17.993957599908914,
+        "learningStep": 0
+      },
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 2.02969541,
+        "stabilityFast": 0.72294742,
+        "difficulty": 9.02679978,
+        "dueAt": 1795051052147,
+        "lastReviewAt": 1795050000000,
+        "state": 3,
+        "scheduleStatus": "learning",
+        "reps": 3,
+        "lapses": 1,
+        "scheduledDays": 0.012177629461635605,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 1,
+        "stability": 8.21082324,
+        "stabilityFast": 135.68292755,
+        "difficulty": 3.49771674,
+        "dueAt": 1796345477936,
+        "lastReviewAt": 1794790800000,
+        "reviewTime": 1795050000000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "scheduledDays": 17.993957599908914,
+        "learningStep": 0
+      }
+    },
+    {
+      "input": {
+        "rating": "hard",
+        "now": 1795050900000
+      },
+      "beforeCard": {
+        "cardId": "fixture-card",
+        "stability": 2.02969541,
+        "stabilityFast": 0.72294742,
+        "difficulty": 9.02679978,
+        "dueAt": 1795051052147,
+        "lastReviewAt": 1795050000000,
+        "state": 3,
+        "scheduleStatus": "learning",
+        "reps": 3,
+        "lapses": 1,
+        "scheduledDays": 0.012177629461635605,
+        "learningStep": 0
+      },
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 2.62897924,
+        "stabilityFast": 6.91616835,
+        "difficulty": 9.33285817,
+        "dueAt": 1795062277914,
+        "lastReviewAt": 1795050900000,
+        "state": 3,
+        "scheduleStatus": "learning",
+        "reps": 4,
+        "lapses": 1,
+        "scheduledDays": 0.13168882830934794,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 2,
+        "stability": 2.02969541,
+        "stabilityFast": 0.72294742,
+        "difficulty": 9.02679978,
+        "dueAt": 1795051052147,
+        "lastReviewAt": 1795050000000,
+        "reviewTime": 1795050900000,
+        "state": 3,
+        "scheduleStatus": "learning",
+        "scheduledDays": 0.012177629461635605,
+        "learningStep": 0
+      }
+    },
+    {
+      "input": {
+        "rating": "easy",
+        "now": 1795568400000
+      },
+      "beforeCard": {
+        "cardId": "fixture-card",
+        "stability": 2.62897924,
+        "stabilityFast": 6.91616835,
+        "difficulty": 9.33285817,
+        "dueAt": 1795062277914,
+        "lastReviewAt": 1795050900000,
+        "state": 3,
+        "scheduleStatus": "learning",
+        "reps": 4,
+        "lapses": 1,
+        "scheduledDays": 0.13168882830934794,
+        "learningStep": 0
+      },
+      "afterCard": {
+        "cardId": "fixture-card",
+        "stability": 5.5179562,
+        "stabilityFast": 56.56640421,
+        "difficulty": 8.97171921,
+        "dueAt": 1795771150720,
+        "lastReviewAt": 1795568400000,
+        "state": 2,
+        "scheduleStatus": "review",
+        "reps": 5,
+        "lapses": 1,
+        "scheduledDays": 2.3466518551129645,
+        "learningStep": 0
+      },
+      "revlog": {
+        "cardId": "fixture-card",
+        "rating": 4,
+        "stability": 2.62897924,
+        "stabilityFast": 6.91616835,
+        "difficulty": 9.33285817,
+        "dueAt": 1795062277914,
+        "lastReviewAt": 1795050900000,
+        "reviewTime": 1795568400000,
+        "state": 3,
+        "scheduleStatus": "learning",
+        "scheduledDays": 0.13168882830934794,
+        "learningStep": 0
+      }
+    }
+  ],
+  "serializationRestore": {
+    "serializedCard": {
+      "stability": 0,
+      "stabilityFast": 0,
+      "difficulty": 0,
+      "state": 0,
+      "scheduleStatus": "new",
+      "dueAt": "2026-11-15T01:00:00.000Z",
+      "lastReviewAt": null,
+      "cardId": "fixture-card",
+      "reps": 0,
+      "lapses": 0,
+      "scheduledDays": 0,
+      "learningStep": 0
+    },
+    "input": {
+      "rating": "good",
+      "now": 1794704700000
+    },
+    "afterCard": {
+      "cardId": "fixture-card",
+      "stability": 3.9221,
+      "stabilityFast": 3.13768,
+      "difficulty": 3.53072398,
+      "dueAt": 1795117495164,
+      "lastReviewAt": 1794704700000,
+      "state": 2,
+      "scheduleStatus": "review",
+      "reps": 1,
+      "lapses": 0,
+      "scheduledDays": 4.777721809269842,
+      "learningStep": 0
+    },
+    "revlog": {
+      "cardId": "fixture-card",
+      "rating": 3,
+      "stability": 0,
+      "stabilityFast": 0,
+      "difficulty": 0,
+      "dueAt": 1794704400000,
+      "lastReviewAt": null,
+      "reviewTime": 1794704700000,
+      "state": 0,
+      "scheduleStatus": "new",
+      "scheduledDays": 0,
+      "learningStep": 0
+    }
+  }
+}

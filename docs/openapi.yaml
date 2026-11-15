@@ -1,0 +1,1422 @@
+openapi: 3.1.0
+info:
+  title: FingerMemory API
+  version: 0.2.0
+  description: |
+    FingerMemory Web 与 CLI 的共享 HTTP 契约。所有时间为 UTC epoch 毫秒，ID 为不透明字符串。
+    P2 已实现在线队列、服务端会话、正式复习、本地 v4 迁移和用户级备份；
+    P3 增加游戏流程使用的练习完成命令和共享快捷键契约。
+    标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
+servers:
+  - url: /api/v1
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: FM_SESSION
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: personal-access-token
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-TOKEN
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Cookie 会话的状态变更请求必须携带；Bearer 请求不使用 CSRF。
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+      description: 稳定提交 ID；同 ID 同内容返回首次结果，不同内容返回冲突。
+    EntityId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+    Csrf:
+      type: object
+      required: [headerName, parameterName, token]
+      properties:
+        headerName:
+          type: string
+        parameterName:
+          type: string
+        token:
+          type: string
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_.-]+$'
+        displayName:
+          type: string
+          maxLength: 80
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          writeOnly: true
+        newPassword:
+          type: string
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+    ArchiveLexiconRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version:
+          type: integer
+          minimum: 0
+    UserPreferences:
+      type: object
+      required: [nickname, avatarKey, timezone, dailyGoal, theme, soundEnabled, shortcutsJson]
+      properties:
+        nickname:
+          type: string
+        avatarKey:
+          type: string
+        timezone:
+          type: string
+          description: IANA 时区，例如 Asia/Shanghai。
+        dailyGoal:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        theme:
+          type: string
+        soundEnabled:
+          type: boolean
+        shortcutsJson:
+          type: string
+          description: 版本化 JSON 字符串；P3 可升级为结构化 schema。
+    User:
+      type: object
+      required: [id, username, displayName, preferences]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        preferences:
+          $ref: '#/components/schemas/UserPreferences'
+    Lexicon:
+      type: object
+      required: [id, name, description, source, archivedAtMs, createdAtMs, updatedAtMs, version]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        source:
+          type: string
+          enum: [user, starter, migration]
+        archivedAtMs:
+          type: [integer, 'null']
+        createdAtMs:
+          type: integer
+        updatedAtMs:
+          type: integer
+        version:
+          type: integer
+    LexiconCreate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 2000
+    LexiconUpdate:
+      allOf:
+        - $ref: '#/components/schemas/LexiconCreate'
+        - type: object
+          required: [version]
+          properties:
+            version:
+              type: integer
+              minimum: 0
+    ReviewRating:
+      type: string
+      enum: [again, hard, good, easy]
+    WordEntry:
+      type: object
+      required: [id, term, meaning, acceptedAnswers, hints, normalizedTerm, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        term:
+          type: string
+        meaning:
+          type: string
+        acceptedAnswers:
+          type: array
+          items:
+            type: string
+        hints:
+          type: array
+          items:
+            type: string
+        normalizedTerm:
+          type: string
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+    StudyItem:
+      type: object
+      required: [id, wordEntryId, direction, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        wordEntryId:
+          type: string
+        direction:
+          type: string
+          enum: [meaning-to-spelling]
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+    LexiconItem:
+      type: object
+      required: [lexiconId, studyItemId, order, sourceHints]
+      properties:
+        lexiconId:
+          type: string
+        studyItemId:
+          type: string
+        order:
+          type: integer
+          minimum: 0
+        sourceHints:
+          type: array
+          items:
+            type: string
+    WordStudyItem:
+      type: object
+      required: [wordEntry, studyItem]
+      properties:
+        wordEntry:
+          $ref: '#/components/schemas/WordEntry'
+        studyItem:
+          $ref: '#/components/schemas/StudyItem'
+        lexiconItem:
+          oneOf:
+            - $ref: '#/components/schemas/LexiconItem'
+            - type: 'null'
+        reviewState:
+          type: object
+          additionalProperties: true
+        reviewVersion:
+          type: integer
+          minimum: 0
+    CreateWord:
+      type: object
+      additionalProperties: false
+      required: [term, meaning]
+      properties:
+        term:
+          type: string
+          minLength: 1
+          maxLength: 512
+        meaning:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        acceptedAnswers:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 512
+        hints:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 2000
+    QueuePlan:
+      type: object
+      required:
+        [at, timeZone, dayStartAt, dayEndAt, settings, dueAvailableCount, newAvailableCount, selected, dataVersion]
+      properties:
+        at:
+          type: integer
+        timeZone:
+          type: string
+        dayStartAt:
+          type: integer
+        dayEndAt:
+          type: integer
+        settings:
+          type: object
+          required: [newLimit, reviewLimit, paused]
+          properties:
+            newLimit:
+              type: integer
+            reviewLimit:
+              type: integer
+            paused:
+              type: boolean
+        dueAvailableCount:
+          type: integer
+        newAvailableCount:
+          type: integer
+        selected:
+          type: array
+          items:
+            type: object
+            required: [studyItem, wordEntry, source]
+            properties:
+              studyItem:
+                $ref: '#/components/schemas/StudyItem'
+              wordEntry:
+                $ref: '#/components/schemas/WordEntry'
+              reviewState:
+                type: object
+                additionalProperties: true
+              source:
+                type: string
+                enum: [new, review]
+        dataVersion:
+          type: integer
+          minimum: 0
+    ReviewPreview:
+      type: object
+      required:
+        [previews, schedulerPackageVersion, schedulerModelVersion, schedulerConfigHash, reviewedAtMs, reviewVersion, sessionVersion, dataVersion]
+      properties:
+        previews:
+          type: object
+          required: [again, hard, good, easy]
+          additionalProperties:
+            type: object
+            required: [rating, dueAt, scheduledDays]
+            properties:
+              rating:
+                $ref: '#/components/schemas/ReviewRating'
+              dueAt:
+                type: integer
+              scheduledDays:
+                type: number
+        schedulerPackageVersion:
+          type: string
+        schedulerModelVersion:
+          type: string
+        schedulerConfigHash:
+          type: string
+        reviewedAtMs:
+          type: integer
+        reviewVersion:
+          type: integer
+        sessionVersion:
+          type: integer
+        dataVersion:
+          type: integer
+    PracticeMode:
+      type: string
+      enum: [keyboard-recall, lyrics-scroll, danmaku-stream, card-rain]
+    PracticeSession:
+      type: object
+      required:
+        [id, modeId, status, queue, currentIndex, currentStudyItemId, interactions, pendingAnswer, speed, reduceMotion, createdAt, updatedAt, pausedAt, completedAt, version]
+      properties:
+        id:
+          type: string
+        modeId:
+          $ref: '#/components/schemas/PracticeMode'
+        status:
+          type: string
+          enum: [active, paused, completed]
+        queue:
+          type: array
+          items:
+            type: object
+            required: [studyItemId, source, status]
+            properties:
+              studyItemId:
+                type: string
+              source:
+                type: string
+                enum: [new, review, retry]
+              status:
+                type: string
+                enum: [pending, completed, skipped]
+        currentStudyItemId:
+          type: [string, 'null']
+        currentIndex:
+          type: integer
+          minimum: 0
+        interactions:
+          type: object
+          additionalProperties: true
+        pendingAnswer:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: 'null'
+        speed:
+          type: number
+        reduceMotion:
+          type: boolean
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+        pausedAt:
+          type: [integer, 'null']
+        completedAt:
+          type: [integer, 'null']
+        endedReason:
+          type: [string, 'null']
+          enum: [completed, abandoned, null]
+        version:
+          type: integer
+          minimum: 0
+    SessionEnvelope:
+      type: object
+      required: [session, items, dataVersion]
+      properties:
+        session:
+          $ref: '#/components/schemas/PracticeSession'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WordStudyItem'
+        dataVersion:
+          type: integer
+          minimum: 0
+    CreateSession:
+      type: object
+      additionalProperties: false
+      required: [modeId, timeZone, reduceMotion]
+      properties:
+        modeId:
+          $ref: '#/components/schemas/PracticeMode'
+        timeZone:
+          type: string
+        newLimit:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reviewLimit:
+          type: integer
+          minimum: 0
+          maximum: 500
+        reduceMotion:
+          type: boolean
+    SessionPatch:
+      type: object
+      additionalProperties: false
+      required: [expectedDataVersion, expectedVersion]
+      properties:
+        expectedDataVersion:
+          type: integer
+          minimum: 0
+        expectedVersion:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [active, paused, completed]
+        currentIndex:
+          type: integer
+          minimum: 0
+        currentStudyItemId:
+          type: string
+        interactions:
+          type: object
+          additionalProperties: true
+        speed:
+          type: number
+        reduceMotion:
+          type: boolean
+    PracticeResponseSubmission:
+      type: object
+      additionalProperties: false
+      required:
+        [practiceAttemptId, reviewSubmissionId, studyItemId, response, answerWasHidden, hintUsed, answerRevealed, abandoned, expectedDataVersion, expectedSessionVersion]
+      properties:
+        practiceAttemptId:
+          type: string
+        reviewSubmissionId:
+          type: string
+        studyItemId:
+          type: string
+        response:
+          type: string
+        answerWasHidden:
+          type: boolean
+        hintUsed:
+          type: boolean
+        answerRevealed:
+          type: boolean
+        abandoned:
+          type: boolean
+        expectedDataVersion:
+          type: integer
+        expectedSessionVersion:
+          type: integer
+    PracticeCompletionSubmission:
+      type: object
+      additionalProperties: false
+      required:
+        [practiceAttemptId, studyItemId, response, answerWasHidden, hintUsed, answerRevealed, abandoned, outcome, expectedDataVersion, expectedSessionVersion]
+      properties:
+        practiceAttemptId:
+          type: string
+        studyItemId:
+          type: string
+        response:
+          type: string
+        answerWasHidden:
+          type: boolean
+        hintUsed:
+          type: boolean
+        answerRevealed:
+          type: boolean
+        abandoned:
+          type: boolean
+        outcome:
+          type: string
+          enum: [completed, skipped]
+        expectedDataVersion:
+          type: integer
+        expectedSessionVersion:
+          type: integer
+    ReviewSubmission:
+      type: object
+      additionalProperties: false
+      required: [rating, expectedDataVersion, expectedReviewVersion, expectedSessionVersion, evidence]
+      properties:
+        rating:
+          $ref: '#/components/schemas/ReviewRating'
+        expectedDataVersion:
+          type: integer
+          minimum: 0
+        expectedReviewVersion:
+          type: integer
+          minimum: 0
+        expectedSessionVersion:
+          type: integer
+          minimum: 0
+        evidence:
+          type: object
+          required: [answerWasHidden, hintUsed, answerRevealed, abandoned, userConfirmedRating]
+          properties:
+            answerWasHidden:
+              type: boolean
+            hintUsed:
+              type: boolean
+            answerRevealed:
+              type: boolean
+            abandoned:
+              type: boolean
+            userConfirmedRating:
+              type: boolean
+    SnapshotCounts:
+      type: object
+      additionalProperties:
+        type: integer
+    MigrationPreview:
+      type: object
+      required:
+        [snapshotFingerprint, targetDataVersion, counts, schedulerPackageVersion, schedulerModelVersion, schedulerWeights]
+      properties:
+        snapshotFingerprint:
+          type: string
+        targetDataVersion:
+          type: integer
+        counts:
+          $ref: '#/components/schemas/SnapshotCounts'
+        schedulerPackageVersion:
+          type: string
+        schedulerModelVersion:
+          type: string
+        schedulerWeights:
+          type: integer
+    MigrationResult:
+      type: object
+      required: [batchId, snapshotFingerprint, dataVersion, importedCounts, idMappings]
+      properties:
+        batchId:
+          type: string
+        snapshotFingerprint:
+          type: string
+        dataVersion:
+          type: integer
+        importedCounts:
+          $ref: '#/components/schemas/SnapshotCounts'
+        idMappings:
+          type: integer
+    AccountBackup:
+      type: object
+      required: [backupVersion, schemaVersion, dataFormatVersion, exportedAt, tables]
+      additionalProperties: true
+    BackupPreview:
+      type: object
+      required:
+        [fingerprint, exportedAt, sourceDataVersion, counts, reviewReceipts, rewardEvents, migrationReceipts, idMappings]
+      properties:
+        fingerprint:
+          type: string
+        exportedAt:
+          type: integer
+        sourceDataVersion:
+          type: integer
+        counts:
+          $ref: '#/components/schemas/SnapshotCounts'
+        reviewReceipts:
+          type: integer
+        rewardEvents:
+          type: integer
+        migrationReceipts:
+          type: integer
+        idMappings:
+          type: integer
+    Page:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+        nextCursor:
+          type: [string, 'null']
+  responses:
+    Unauthorized:
+      description: 未认证或会话过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: CSRF、权限或安全策略拒绝
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadRequest:
+      description: 输入校验失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: 幂等冲突、版本冲突或业务唯一约束冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: 当前用户范围内资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+paths:
+  /auth/csrf:
+    get:
+      summary: 获取当前会话 CSRF token
+      security: []
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: CSRF token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Csrf'
+  /auth/register:
+    post:
+      summary: 注册普通用户
+      security: []
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: 用户创建成功，尚未自动登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /auth/login:
+    post:
+      summary: 使用用户名和密码建立 HttpOnly 会话
+      security: []
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: 登录成功，返回当前用户
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/logout:
+    post:
+      summary: 注销当前 Web 会话
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: 会话已失效
+  /auth/me:
+    get:
+      summary: 读取当前认证用户
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/password:
+    post:
+      summary: 修改当前用户密码
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: 密码已更新
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /auth/tokens:
+    get:
+      summary: 列出当前用户的 CLI 访问令牌元数据
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: 令牌列表，不返回摘要或明文
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+    post:
+      summary: 创建可过期、可撤销的 CLI 访问令牌
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: 只在该响应返回一次令牌明文
+  /auth/tokens/{id}:
+    delete:
+      summary: 撤销当前用户的 CLI 访问令牌
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: 令牌已撤销
+  /preferences:
+    get:
+      summary: 读取当前用户偏好
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 用户偏好
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+    put:
+      summary: 更新当前用户偏好
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferences'
+      responses:
+        '200':
+          description: 更新后的偏好
+  /lexicons:
+    get:
+      summary: 列出当前用户词库
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: includeArchived
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: 当前用户词库
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lexicon'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: 创建当前用户的私人词库
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LexiconCreate'
+      responses:
+        '201':
+          description: 创建的词库
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lexicon'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /lexicons/{id}:
+    get:
+      summary: 读取当前用户的一个词库
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+      responses:
+        '200':
+          description: 词库
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lexicon'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: 使用版本号更新当前用户词库
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LexiconUpdate'
+      responses:
+        '200':
+          description: 更新后的词库
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /lexicons/{id}/archive:
+    post:
+      summary: 归档词库
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveLexiconRequest'
+      responses:
+        '200':
+          description: 归档后的词库
+  /lexicons/{id}/restore:
+    post:
+      summary: 恢复归档词库
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveLexiconRequest'
+      responses:
+        '200':
+          description: 恢复后的词库
+  /lexicons/{id}/words:
+    get:
+      summary: 分页读取词库词条与学习目标
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+      responses:
+        '200':
+          description: 当前词库的词条、学习目标与复习状态版本
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, dataVersion]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WordStudyItem'
+                  dataVersion:
+                    type: integer
+    post:
+      summary: 新增词条和学习目标
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWord'
+      responses:
+        '201':
+          description: 已创建词条、学习目标和词库成员
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [wordEntry, studyItem, lexiconItem, dataVersion]
+                properties:
+                  wordEntry:
+                    $ref: '#/components/schemas/WordEntry'
+                  studyItem:
+                    $ref: '#/components/schemas/StudyItem'
+                  lexiconItem:
+                    $ref: '#/components/schemas/LexiconItem'
+                  dataVersion:
+                    type: integer
+  /imports/preview:
+    post:
+      summary: 预览 TSV 导入
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 有效、无效、重复和取消预览，不写业务数据
+  /imports:
+    post:
+      summary: 原子提交预览确认的导入批次
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: 导入回执
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /queue/plan:
+    get:
+      summary: 按用户学习日和上限生成今日队列
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: timeZone
+          in: query
+          required: true
+          schema:
+            type: string
+          description: IANA 时区；学习日边界按该时区计算。
+        - name: newLimit
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+        - name: reviewLimit
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 500
+      responses:
+        '200':
+          description: 到期、新词、可用数和选中队列
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuePlan'
+  /sessions:
+    get:
+      summary: 列出当前用户未完成的服务端会话
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: 按更新时间倒序的未完成会话
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions, dataVersion]
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionEnvelope'
+                  dataVersion:
+                    type: integer
+    post:
+      summary: 创建服务端练习会话
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSession'
+      responses:
+        '201':
+          description: 会话快照
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionEnvelope'
+  /sessions/{id}:
+    get:
+      summary: 读取会话并返回版本
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+      responses:
+        '200':
+          description: 会话快照
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionEnvelope'
+    patch:
+      summary: 暂停、恢复、接管或保存草稿
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionPatch'
+      responses:
+        '200':
+          description: 更新后的会话
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionEnvelope'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /sessions/{id}/responses:
+    post:
+      summary: 保存练习或待评分作答，不推进 FSRS
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PracticeResponseSubmission'
+      responses:
+        '201':
+          description: 作答回执
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attempt, pendingAnswer, session, dataVersion]
+                properties:
+                  attempt:
+                    type: object
+                    additionalProperties: true
+                  pendingAnswer:
+                    type: object
+                    additionalProperties: true
+                  session:
+                    $ref: '#/components/schemas/PracticeSession'
+                  dataVersion:
+                    type: integer
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /sessions/{id}/review-preview:
+    post:
+      summary: 计算四档预计间隔，不写状态
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [studyItemId, expectedDataVersion, expectedSessionVersion, expectedReviewVersion]
+              properties:
+                studyItemId:
+                  type: string
+                expectedDataVersion:
+                  type: integer
+                expectedSessionVersion:
+                  type: integer
+                expectedReviewVersion:
+                  type: integer
+      responses:
+        '200':
+          description: 四档预览
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewPreview'
+  /sessions/{id}/practice:
+    post:
+      summary: 记录提示、揭晓或跳过形成的练习并推进会话
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PracticeCompletionSubmission'
+      responses:
+        '201':
+          description: 练习记录和推进后的会话
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attempt, session, dataVersion]
+                properties:
+                  attempt:
+                    type: object
+                    additionalProperties: true
+                  session:
+                    $ref: '#/components/schemas/PracticeSession'
+                  dataVersion:
+                    type: integer
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /sessions/{id}/reviews:
+    post:
+      summary: 原子提交正式复习、日志和奖励
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewSubmission'
+      responses:
+        '201':
+          description: 正式复习结果
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /stats/overview:
+    get:
+      summary: 当前用户真实学习统计、等级和成就
+      x-implementation-status: planned
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 用户统计
+  /migrations/local/preview:
+    post:
+      summary: 预览本地 v4 数据迁移
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [snapshot]
+              properties:
+                snapshot:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: 数量、版本、冲突和迁移指纹
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationPreview'
+  /migrations/local:
+    post:
+      summary: 原子导入本地 v4 数据批次
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [snapshot]
+              properties:
+                snapshot:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: 迁移回执
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrationResult'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /backup/export:
+    get:
+      summary: 导出当前用户范围 JSON 备份
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: 用户级备份
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountBackup'
+  /backup/import/preview:
+    post:
+      summary: 预览当前用户范围恢复
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [backup]
+              properties:
+                backup:
+                  $ref: '#/components/schemas/AccountBackup'
+      responses:
+        '200':
+          description: 恢复预览
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupPreview'
+  /backup/import:
+    post:
+      summary: 原子恢复当前用户数据
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [backup]
+              properties:
+                backup:
+                  $ref: '#/components/schemas/AccountBackup'
+      responses:
+        '201':
+          description: 恢复完成
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [outcome, fingerprint, dataVersion, counts]
+                properties:
+                  outcome:
+                    type: string
+                    enum: [restored]
+                  fingerprint:
+                    type: string
+                  dataVersion:
+                    type: integer
+                  counts:
+                    $ref: '#/components/schemas/SnapshotCounts'
+        '409':
+          $ref: '#/components/responses/Conflict'

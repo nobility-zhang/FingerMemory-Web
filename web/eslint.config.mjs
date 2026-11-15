@@ -3,7 +3,7 @@ import pluginVue from 'eslint-plugin-vue';
 
 export default withVueTs(
   {
-    ignores: ['coverage/**', 'dist/**', 'node_modules/**'],
+    ignores: ['coverage/**', 'dist/**', 'dist-worker/**', 'node_modules/**'],
   },
   pluginVue.configs['flat/recommended'],
   vueTsConfigs.recommended,

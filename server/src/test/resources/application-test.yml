@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://mysql:3306/finger_memory_test?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    username: ${DB_USERNAME:finger_memory_test}
+    password: ${DB_PASSWORD:finger_memory_test_only}
+  session:
+    jdbc:
+      initialize-schema: never
+
+app:
+  auth:
+    registration-enabled: true
+    login-attempts-per-minute: 100
+    register-attempts-per-minute: 100

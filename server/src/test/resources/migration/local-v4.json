@@ -1,0 +1,78 @@
+{
+  "snapshotVersion": 1,
+  "schemaVersion": 4,
+  "dataFormatVersion": 4,
+  "exportedAt": 1763200000000,
+  "tables": {
+    "appMeta": [
+      {
+        "key": "database.initializedAt",
+        "value": "1763200000000",
+        "updatedAt": 1763200000000
+      },
+      {
+        "key": "data.formatVersion",
+        "value": "4",
+        "updatedAt": 1763200000000
+      }
+    ],
+    "lexicons": [
+      {
+        "id": "lexicon:local",
+        "name": "本地迁移词库",
+        "description": "P2 migration fixture",
+        "createdAt": 1763200000000,
+        "updatedAt": 1763200000000,
+        "archivedAt": null
+      }
+    ],
+    "words": [
+      {
+        "id": "word:local",
+        "term": "memory",
+        "meaning": "记忆",
+        "acceptedAnswers": [
+          "memory"
+        ],
+        "hints": [
+          "以 m 开头"
+        ],
+        "normalizedTerm": "memory",
+        "createdAt": 1763200000000,
+        "updatedAt": 1763200000000
+      }
+    ],
+    "studyItems": [
+      {
+        "id": "study:local",
+        "wordEntryId": "word:local",
+        "direction": "meaning-to-spelling",
+        "createdAt": 1763200000000,
+        "updatedAt": 1763200000000
+      }
+    ],
+    "lexiconItems": [
+      {
+        "lexiconId": "lexicon:local",
+        "studyItemId": "study:local",
+        "order": 0,
+        "sourceHints": [
+          "以 m 开头"
+        ]
+      }
+    ],
+    "notes": [
+      {
+        "id": "note:local",
+        "studyItemId": "study:local",
+        "content": "迁移时保留笔记",
+        "createdAt": 1763200000000,
+        "updatedAt": 1763200000000
+      }
+    ],
+    "practiceAttempts": [],
+    "practiceSessions": [],
+    "reviewStates": [],
+    "reviewLogs": []
+  }
+}

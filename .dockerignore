@@ -1,0 +1,10 @@
+.git
+.DS_Store
+**/node_modules
+**/dist
+**/dist-worker
+server/target
+docs
+README.md
+**/.env
+**/.env.*

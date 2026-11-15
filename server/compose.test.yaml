@@ -1,0 +1,68 @@
+name: finger-memory-test
+
+services:
+  mysql:
+    image: mysql:8.4.13
+    environment:
+      MYSQL_ROOT_PASSWORD: finger_memory_root_test_only
+      MYSQL_DATABASE: finger_memory_test
+      MYSQL_USER: finger_memory_test
+      MYSQL_PASSWORD: finger_memory_test_only
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/mysql
+
+  server-tests:
+    image: maven:3.9.11-eclipse-temurin-21
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - maven-cache:/root/.m2
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/finger_memory_test?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+      DB_USERNAME: finger_memory_test
+      DB_PASSWORD: finger_memory_test_only
+      FSRS_WORKER_URL: http://fsrs-worker:8090
+    depends_on:
+      mysql:
+        condition: service_healthy
+      fsrs-worker:
+        condition: service_healthy
+    command:
+      - mvn
+      - -q
+      - verify
+
+  fsrs-worker:
+    build:
+      context: ..
+      dockerfile: server/fsrs-worker/Dockerfile
+    image: finger-memory-fsrs-worker:0.3.0
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8090/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  maven-cache:

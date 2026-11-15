@@ -1,0 +1,72 @@
+CREATE TABLE fm_user (
+  id VARCHAR(36) NOT NULL,
+  username VARCHAR(64) NOT NULL,
+  username_normalized VARCHAR(64) NOT NULL,
+  display_name VARCHAR(80) NOT NULL,
+  password_hash VARCHAR(100) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  created_at_ms BIGINT NOT NULL,
+  updated_at_ms BIGINT NOT NULL,
+  last_login_at_ms BIGINT NULL,
+  version BIGINT NOT NULL DEFAULT 0,
+  CONSTRAINT fm_user_pk PRIMARY KEY (id),
+  CONSTRAINT fm_user_username_unique UNIQUE (username_normalized),
+  CONSTRAINT fm_user_status_check CHECK (status IN ('active', 'disabled'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE fm_user_preferences (
+  user_id VARCHAR(36) NOT NULL,
+  nickname VARCHAR(80) NOT NULL,
+  avatar_key VARCHAR(64) NOT NULL,
+  timezone VARCHAR(64) NOT NULL,
+  daily_goal INT NOT NULL,
+  theme VARCHAR(32) NOT NULL,
+  sound_enabled BOOLEAN NOT NULL,
+  shortcuts_json JSON NOT NULL,
+  created_at_ms BIGINT NOT NULL,
+  updated_at_ms BIGINT NOT NULL,
+  version BIGINT NOT NULL DEFAULT 0,
+  CONSTRAINT fm_user_preferences_pk PRIMARY KEY (user_id),
+  INDEX fm_user_preferences_user_idx (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE fm_lexicon (
+  id VARCHAR(36) NOT NULL,
+  owner_id VARCHAR(36) NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  normalized_name VARCHAR(120) NOT NULL,
+  description TEXT NOT NULL,
+  source VARCHAR(32) NOT NULL,
+  archived_at_ms BIGINT NULL,
+  created_at_ms BIGINT NOT NULL,
+  updated_at_ms BIGINT NOT NULL,
+  version BIGINT NOT NULL DEFAULT 0,
+  CONSTRAINT fm_lexicon_pk PRIMARY KEY (id),
+  CONSTRAINT fm_lexicon_owner_name_unique UNIQUE (owner_id, normalized_name),
+  INDEX fm_lexicon_owner_updated_idx (owner_id, updated_at_ms),
+  INDEX fm_lexicon_owner_archived_idx (owner_id, archived_at_ms)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE SPRING_SESSION (
+  PRIMARY_ID CHAR(36) NOT NULL,
+  SESSION_ID CHAR(36) NOT NULL,
+  CREATION_TIME BIGINT NOT NULL,
+  LAST_ACCESS_TIME BIGINT NOT NULL,
+  MAX_INACTIVE_INTERVAL INT NOT NULL,
+  EXPIRY_TIME BIGINT NOT NULL,
+  PRINCIPAL_NAME VARCHAR(100),
+  CONSTRAINT SPRING_SESSION_PK PRIMARY KEY (PRIMARY_ID)
+) ENGINE = InnoDB ROW_FORMAT = DYNAMIC;
+
+CREATE UNIQUE INDEX SPRING_SESSION_IX1 ON SPRING_SESSION (SESSION_ID);
+CREATE INDEX SPRING_SESSION_IX2 ON SPRING_SESSION (EXPIRY_TIME);
+CREATE INDEX SPRING_SESSION_IX3 ON SPRING_SESSION (PRINCIPAL_NAME);
+
+CREATE TABLE SPRING_SESSION_ATTRIBUTES (
+  SESSION_PRIMARY_ID CHAR(36) NOT NULL,
+  ATTRIBUTE_NAME VARCHAR(200) NOT NULL,
+  ATTRIBUTE_BYTES BLOB NOT NULL,
+  CONSTRAINT SPRING_SESSION_ATTRIBUTES_PK PRIMARY KEY (SESSION_PRIMARY_ID, ATTRIBUTE_NAME)
+) ENGINE = InnoDB ROW_FORMAT = DYNAMIC;
+
+CREATE INDEX SPRING_SESSION_ATTRIBUTES_IX1 ON SPRING_SESSION_ATTRIBUTES (SESSION_PRIMARY_ID);

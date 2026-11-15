@@ -1,0 +1,86 @@
+name: finger-memory
+
+services:
+  mysql:
+    image: mysql:8.4.13
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: finger_memory
+      MYSQL_USER: finger_memory
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: finger-memory-server:0.3.0
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      fsrs-worker:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/finger_memory?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+      DB_USERNAME: finger_memory
+      DB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      FSRS_WORKER_URL: http://fsrs-worker:8090
+    ports:
+      - 127.0.0.1:${APP_PORT:-8080}:8080
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -fsS
+        - http://127.0.0.1:8080/actuator/health
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  fsrs-worker:
+    build:
+      context: ..
+      dockerfile: server/fsrs-worker/Dockerfile
+    image: finger-memory-fsrs-worker:0.3.0
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8090/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  db-data:

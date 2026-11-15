@@ -14,11 +14,15 @@
     "lint": "eslint . --max-warnings=0",
     "check": "npm run type-check && npm run lint",
     "test": "vitest run",
+    "test:p2-cross": "node scripts/p2-cross-client.mjs",
+    "test:p3-fixture": "node scripts/p3-browser-fixture.mjs",
     "test:watch": "vitest",
     "build": "npm run type-check && vite build",
+    "worker:build": "vite build --config worker.vite.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lucide/vue": "1.73.0",
     "dexie": "4.4.7",
     "papaparse": "5.7.1",
     "ts-fsrs": "6.0.0",

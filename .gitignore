@@ -3,4 +3,7 @@
 
 web/node_modules/
 web/dist/
+web/dist-worker/
 web/coverage/
+server/.env
+server/target/
