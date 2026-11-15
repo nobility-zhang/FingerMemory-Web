@@ -3,6 +3,7 @@ import { Dexie } from 'dexie';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PracticeAttemptInput, ReviewSubmissionInput } from '../core/repository';
 import {
+  ImportBatchConflictError,
   InvalidStorageSnapshotError,
   ReviewStateVersionMismatchError,
   ReviewSubmissionConflictError,
@@ -353,6 +354,118 @@ describe('lexicon and study item management', () => {
         wordEntry: { term: 'memory', meaning: '记忆' },
       },
     ]);
+  });
+});
+
+describe('TSV import persistence', () => {
+  it('imports selected rows atomically and replays the same batch without duplicate writes', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '导入测试',
+      description: '',
+      now: INITIAL_TIME,
+    });
+    await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: INITIAL_TIME + 1,
+    });
+    const input = {
+      batchId: 'import-batch-1',
+      lexiconId: lexicon.id,
+      rows: [
+        {
+          term: 'memory',
+          meaning: '记忆',
+          hints: [],
+          duplicateAction: 'skip' as const,
+        },
+        {
+          term: 'memory',
+          meaning: '记忆',
+          hints: ['独立目标'],
+          duplicateAction: 'create' as const,
+        },
+        {
+          term: 'focus',
+          meaning: '专注',
+          hints: ['注意力', '焦点'],
+          duplicateAction: 'create' as const,
+        },
+      ],
+      now: INITIAL_TIME + 2,
+    };
+
+    await expect(repository.importStudyItems(input)).resolves.toEqual({
+      outcome: 'created',
+      importedCount: 2,
+      skippedCount: 1,
+    });
+    await expect(repository.listLexiconItems(lexicon.id)).resolves.toHaveLength(3);
+    await expect(repository.importStudyItems(input)).resolves.toEqual({
+      outcome: 'duplicate',
+      importedCount: 2,
+      skippedCount: 1,
+    });
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { words: 3, studyItems: 3, lexiconItems: 3 },
+    });
+    await expect(
+      repository.importStudyItems({
+        ...input,
+        rows: [{ ...input.rows[2]!, hints: ['changed'] }],
+      }),
+    ).rejects.toBeInstanceOf(ImportBatchConflictError);
+  });
+
+  it('rolls back all rows when a write fails during import', async () => {
+    const database = createDatabase();
+    let generatedId = 0;
+    const repository = createFingerMemoryRepository(database, {
+      scheduler,
+      clock: () => INITIAL_TIME,
+      idFactory: () => {
+        generatedId += 1;
+        return generatedId === 3 ? 'id-2' : `id-${generatedId}`;
+      },
+    });
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '回滚测试',
+      description: '',
+      now: INITIAL_TIME,
+    });
+
+    await expect(
+      repository.importStudyItems({
+        batchId: 'rollback-batch',
+        lexiconId: lexicon.id,
+        rows: [
+          {
+            term: 'first',
+            meaning: '第一',
+            hints: [],
+            duplicateAction: 'create',
+          },
+          {
+            term: 'second',
+            meaning: '第二',
+            hints: [],
+            duplicateAction: 'create',
+          },
+        ],
+        now: INITIAL_TIME + 1,
+      }),
+    ).rejects.toBeDefined();
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { lexicons: 1, words: 0, studyItems: 0, lexiconItems: 0 },
+    });
+    await expect(repository.listLexiconItems(lexicon.id)).resolves.toEqual([]);
   });
 });
 

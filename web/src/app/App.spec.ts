@@ -54,6 +54,9 @@ function createTestRepository(
       throw new Error('updateStudyItem is not used in this test');
     },
     removeStudyItemFromLexicon: async () => undefined,
+    importStudyItems: async () => {
+      throw new Error('importStudyItems is not used in this test');
+    },
     listPracticeItems: async () => [],
     listPracticeItemsByStudyItemIds: async () => [],
     getLatestPracticeSession: async () => undefined,

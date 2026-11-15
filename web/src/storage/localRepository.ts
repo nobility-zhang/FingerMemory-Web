@@ -9,6 +9,7 @@ import type {
   ReviewCardSnapshot,
   ReviewLog,
   ReviewState,
+  StudyItem,
   TimestampMs,
   WordEntry,
 } from '../core/domain';
@@ -17,6 +18,8 @@ import type {
   FingerMemoryRepository,
   CreateLexiconInput,
   CreateStudyItemInput,
+  ImportStudyItemsInput,
+  ImportStudyItemsResult,
   LexiconStudyItem,
   PracticeAttemptInput,
   PracticeAttemptResult,
@@ -28,6 +31,7 @@ import type {
   UpdateStudyItemInput,
 } from '../core/repository';
 import {
+  ImportBatchConflictError,
   InvalidStorageSnapshotError,
   LexiconNotFoundError,
   PracticeAttemptConflictError,
@@ -38,6 +42,11 @@ import {
   StudyItemNotFoundError,
 } from '../core/repository';
 import type { ReviewScheduler } from '../core/scheduler';
+import {
+  normalizeStudyTerm,
+  normalizeTextList,
+  studyTextKey,
+} from '../core/studyText';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
 import {
   APP_META_KEYS,
@@ -78,23 +87,102 @@ function assertTimestamp(value: TimestampMs, label: string): void {
   }
 }
 
-function normalizeStringList(values: string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
-}
-
-function normalizeSpelling(value: string): string {
-  return value.trim().normalize('NFKC').toLocaleLowerCase('en-US');
-}
-
 function inputMatchesWord(word: WordEntry, response: string): boolean {
-  const normalizedResponse = normalizeSpelling(response);
+  const normalizedResponse = normalizeStudyTerm(response);
   if (normalizedResponse.length === 0) {
     return false;
   }
 
   return [word.term, ...word.acceptedAnswers].some(
-    (answer) => normalizeSpelling(answer) === normalizedResponse,
+    (answer) => normalizeStudyTerm(answer) === normalizedResponse,
   );
+}
+
+const IMPORT_RECEIPT_KEY_PREFIX = 'import.receipt.';
+
+interface ImportReceipt {
+  fingerprint: string;
+  importedCount: number;
+  skippedCount: number;
+}
+
+function importFingerprint(input: ImportStudyItemsInput): string {
+  return JSON.stringify({
+    lexiconId: input.lexiconId,
+    rows: input.rows.map((row) => [
+      row.term.trim(),
+      row.meaning.trim(),
+      normalizeTextList(row.hints),
+      row.duplicateAction,
+    ]),
+  });
+}
+
+function readImportReceipt(value: string): ImportReceipt | undefined {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'fingerprint' in parsed &&
+      typeof parsed.fingerprint === 'string' &&
+      'importedCount' in parsed &&
+      typeof parsed.importedCount === 'number' &&
+      Number.isInteger(parsed.importedCount) &&
+      'skippedCount' in parsed &&
+      typeof parsed.skippedCount === 'number' &&
+      Number.isInteger(parsed.skippedCount)
+    ) {
+      return {
+        fingerprint: parsed.fingerprint,
+        importedCount: parsed.importedCount,
+        skippedCount: parsed.skippedCount,
+      };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function buildStudyItemEntities(input: {
+  id: string;
+  lexiconId: string;
+  term: string;
+  meaning: string;
+  acceptedAnswers: string[];
+  hints: string[];
+  order: number;
+  now: TimestampMs;
+}): {
+  wordEntry: WordEntry;
+  studyItem: StudyItem;
+  membership: LexiconItem;
+} {
+  const wordEntry: WordEntry = {
+    id: `word:${input.id}`,
+    term: input.term,
+    meaning: input.meaning,
+    acceptedAnswers: normalizeTextList(input.acceptedAnswers),
+    hints: normalizeTextList(input.hints),
+    normalizedTerm: normalizeStudyTerm(input.term),
+    createdAt: input.now,
+    updatedAt: input.now,
+  };
+  const studyItem: StudyItem = {
+    id: `study:${input.id}`,
+    wordEntryId: wordEntry.id,
+    direction: 'meaning-to-spelling',
+    createdAt: input.now,
+    updatedAt: input.now,
+  };
+  const membership: LexiconItem = {
+    lexiconId: input.lexiconId,
+    studyItemId: studyItem.id,
+    order: input.order,
+    sourceHints: wordEntry.hints,
+  };
+  return { wordEntry, studyItem, membership };
 }
 
 function reviewFingerprint(input: ReviewSubmissionInput): string {
@@ -698,8 +786,6 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     }
     assertTimestamp(input.now, 'study item creation time');
     const entityId = this.idFactory();
-    const wordId = `word:${entityId}`;
-    const studyItemId = `study:${entityId}`;
     await this.database.open();
 
     return this.database.transaction(
@@ -719,29 +805,16 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
           .equals(input.lexiconId)
           .toArray();
         const order = memberships.reduce((maximum, item) => Math.max(maximum, item.order), -1) + 1;
-        const wordEntry: WordEntry = {
-          id: wordId,
+        const { wordEntry, studyItem, membership } = buildStudyItemEntities({
+          id: entityId,
+          lexiconId: input.lexiconId,
           term,
           meaning,
-          acceptedAnswers: normalizeStringList(input.acceptedAnswers),
-          hints: normalizeStringList(input.hints),
-          normalizedTerm: normalizeSpelling(term),
-          createdAt: input.now,
-          updatedAt: input.now,
-        };
-        const studyItem = {
-          id: studyItemId,
-          wordEntryId: wordId,
-          direction: 'meaning-to-spelling' as const,
-          createdAt: input.now,
-          updatedAt: input.now,
-        };
-        const membership: LexiconItem = {
-          lexiconId: input.lexiconId,
-          studyItemId,
+          acceptedAnswers: input.acceptedAnswers,
+          hints: input.hints,
           order,
-          sourceHints: wordEntry.hints,
-        };
+          now: input.now,
+        });
 
         await this.database.words.add(wordEntry);
         await this.database.studyItems.add(studyItem);
@@ -790,9 +863,9 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
           ...wordEntry,
           term,
           meaning,
-          acceptedAnswers: normalizeStringList(input.acceptedAnswers),
-          hints: normalizeStringList(input.hints),
-          normalizedTerm: normalizeSpelling(term),
+          acceptedAnswers: normalizeTextList(input.acceptedAnswers),
+          hints: normalizeTextList(input.hints),
+          normalizedTerm: normalizeStudyTerm(term),
           updatedAt: input.now,
         };
         const updatedStudyItem = { ...studyItem, updatedAt: input.now };
@@ -837,6 +910,117 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     );
   }
 
+  async importStudyItems(input: ImportStudyItemsInput): Promise<ImportStudyItemsResult> {
+    assertIdentifier(input.batchId, 'import batch id');
+    assertIdentifier(input.lexiconId, 'lexicon id');
+    assertTimestamp(input.now, 'import time');
+    if (input.rows.length === 0) {
+      throw new TypeError('import rows must not be empty');
+    }
+    for (const row of input.rows) {
+      if (row.term.trim().length === 0 || row.meaning.trim().length === 0) {
+        throw new TypeError('import row term and meaning must not be empty');
+      }
+      if (row.duplicateAction !== 'skip' && row.duplicateAction !== 'create') {
+        throw new TypeError('import row duplicate action is invalid');
+      }
+    }
+
+    const fingerprint = importFingerprint(input);
+    const receiptKey = `${IMPORT_RECEIPT_KEY_PREFIX}${input.batchId}`;
+    await this.database.open();
+
+    return this.database.transaction(
+      'rw',
+      [
+        this.database.appMeta,
+        this.database.lexicons,
+        this.database.words,
+        this.database.studyItems,
+        this.database.lexiconItems,
+      ],
+      async () => {
+        const existingReceiptRecord = await this.database.appMeta.get(receiptKey);
+        if (existingReceiptRecord !== undefined) {
+          const existingReceipt = readImportReceipt(existingReceiptRecord.value);
+          if (existingReceipt?.fingerprint !== fingerprint) {
+            throw new ImportBatchConflictError(input.batchId);
+          }
+          return {
+            outcome: 'duplicate',
+            importedCount: existingReceipt.importedCount,
+            skippedCount: existingReceipt.skippedCount,
+          };
+        }
+
+        if ((await this.database.lexicons.get(input.lexiconId)) === undefined) {
+          throw new LexiconNotFoundError(input.lexiconId);
+        }
+
+        const memberships = await this.database.lexiconItems
+          .where('lexiconId')
+          .equals(input.lexiconId)
+          .toArray();
+        let nextOrder =
+          memberships.reduce((maximum, membership) => Math.max(maximum, membership.order), -1) +
+          1;
+        const existingKeys = new Set<string>();
+        for (const membership of memberships) {
+          const studyItem = await this.database.studyItems.get(membership.studyItemId);
+          const wordEntry =
+            studyItem === undefined
+              ? undefined
+              : await this.database.words.get(studyItem.wordEntryId);
+          if (studyItem === undefined || wordEntry === undefined) {
+            throw new StudyItemNotFoundError(membership.studyItemId);
+          }
+          existingKeys.add(studyTextKey(wordEntry.term, wordEntry.meaning));
+        }
+
+        const importedKeys = new Set<string>();
+        let importedCount = 0;
+        let skippedCount = 0;
+        for (const row of input.rows) {
+          const key = studyTextKey(row.term, row.meaning);
+          const alreadyExists = existingKeys.has(key) || importedKeys.has(key);
+          if (row.duplicateAction === 'skip' && alreadyExists) {
+            skippedCount += 1;
+            continue;
+          }
+
+          const entities = buildStudyItemEntities({
+            id: this.idFactory(),
+            lexiconId: input.lexiconId,
+            term: row.term.trim(),
+            meaning: row.meaning.trim(),
+            acceptedAnswers: [],
+            hints: row.hints,
+            order: nextOrder,
+            now: input.now,
+          });
+          await this.database.words.add(entities.wordEntry);
+          await this.database.studyItems.add(entities.studyItem);
+          await this.database.lexiconItems.add(entities.membership);
+          importedKeys.add(key);
+          importedCount += 1;
+          nextOrder += 1;
+        }
+
+        const receipt: ImportReceipt = {
+          fingerprint,
+          importedCount,
+          skippedCount,
+        };
+        await this.database.appMeta.put({
+          key: receiptKey,
+          value: JSON.stringify(receipt),
+          updatedAt: input.now,
+        });
+        return { outcome: 'created', importedCount, skippedCount };
+      },
+    );
+  }
+
   async ensureStarterContent(): Promise<PracticeItem[]> {
     await this.database.open();
     const now = this.clock();
@@ -872,7 +1056,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
               meaning: starterWord.meaning,
               acceptedAnswers: [starterWord.term],
               hints: starterWord.hints,
-              normalizedTerm: normalizeSpelling(starterWord.term),
+              normalizedTerm: normalizeStudyTerm(starterWord.term),
               createdAt: now,
               updatedAt: now,
             });

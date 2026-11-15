@@ -113,6 +113,26 @@ export interface UpdateStudyItemInput {
   now: TimestampMs;
 }
 
+export interface ImportStudyItemRow {
+  term: string;
+  meaning: string;
+  hints: string[];
+  duplicateAction: 'skip' | 'create';
+}
+
+export interface ImportStudyItemsInput {
+  batchId: string;
+  lexiconId: string;
+  rows: ImportStudyItemRow[];
+  now: TimestampMs;
+}
+
+export interface ImportStudyItemsResult {
+  outcome: 'created' | 'duplicate';
+  importedCount: number;
+  skippedCount: number;
+}
+
 export interface DueReviewItem {
   studyItem: StudyItem;
   wordEntry: WordEntry;
@@ -153,6 +173,7 @@ export interface FingerMemoryRepository {
   createStudyItem(input: CreateStudyItemInput): Promise<LexiconStudyItem>;
   updateStudyItem(input: UpdateStudyItemInput): Promise<LexiconStudyItem>;
   removeStudyItemFromLexicon(lexiconId: string, studyItemId: string): Promise<void>;
+  importStudyItems(input: ImportStudyItemsInput): Promise<ImportStudyItemsResult>;
   listPracticeItems(limit?: number): Promise<PracticeItem[]>;
   listPracticeItemsByStudyItemIds(studyItemIds: string[]): Promise<PracticeItem[]>;
   getLatestPracticeSession(modeId?: PracticeModeId): Promise<PracticeSession | undefined>;
@@ -229,5 +250,12 @@ export class StudyItemInUseError extends Error {
   constructor(readonly studyItemId: string) {
     super(`Study item is referenced by an unfinished practice session: ${studyItemId}`);
     this.name = 'StudyItemInUseError';
+  }
+}
+
+export class ImportBatchConflictError extends Error {
+  constructor(readonly batchId: string) {
+    super(`Import batch id already exists with different input: ${batchId}`);
+    this.name = 'ImportBatchConflictError';
   }
 }

@@ -128,4 +128,74 @@ describe('LexiconManager', () => {
       });
     });
   });
+
+  it('previews TSV, blocks invalid rows, and imports only confirmed duplicate choices', async () => {
+    await FingerMemoryDatabase.delete(databaseName);
+    database = new FingerMemoryDatabase(databaseName);
+    const repository = createFingerMemoryRepository(database, {
+      scheduler,
+      clock: () => Date.now(),
+    });
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '导入词库',
+      description: '',
+      now: Date.now(),
+    });
+    await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: Date.now() + 1,
+    });
+
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(LexiconManager, { repository });
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('导入词库');
+    });
+    root.querySelector<HTMLElement>('summary')?.click();
+    await nextTick();
+
+    const textarea = root.querySelector<HTMLTextAreaElement>('#tsv-import-text')!;
+    await setInputValue(
+      textarea,
+      'memory\t记忆\nfocus\t专注\t注意力\nfocus\t专注\ninvalid\n',
+    );
+    buttonByText(root, '生成预览')?.click();
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('存在无效记录');
+      expect(buttonByText(root, '确认导入')?.disabled).toBe(true);
+    });
+    buttonByText(root, '取消')?.click();
+    await vi.waitFor(async () => {
+      await expect(repository.listLexiconItems(lexicon.id)).resolves.toHaveLength(1);
+    });
+
+    await setInputValue(
+      root.querySelector<HTMLTextAreaElement>('#tsv-import-text')!,
+      'memory\t记忆\nfocus\t专注\t注意力\nfocus\t专注\n',
+    );
+    buttonByText(root, '生成预览')?.click();
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('重复记录');
+      expect(buttonByText(root, '确认导入')?.disabled).toBe(false);
+    });
+
+    const createIndependent = [...root.querySelectorAll<HTMLInputElement>('input[value="create"]')][0];
+    createIndependent?.click();
+    await nextTick();
+    buttonByText(root, '确认导入')?.click();
+
+    await vi.waitFor(async () => {
+      await expect(repository.listLexiconItems(lexicon.id)).resolves.toHaveLength(3);
+      expect(root.textContent).toContain('已导入 2 条，跳过 1 条');
+    });
+  });
 });

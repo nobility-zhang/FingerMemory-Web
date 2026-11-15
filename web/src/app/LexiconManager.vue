@@ -6,6 +6,7 @@ import type {
   LexiconStudyItem,
 } from '../core/repository';
 import { StudyItemInUseError } from '../core/repository';
+import TsvImportPanel from './TsvImportPanel.vue';
 
 const props = defineProps<{
   repository: FingerMemoryRepository;
@@ -248,6 +249,10 @@ async function removeWord(entry: LexiconStudyItem): Promise<void> {
   }
 }
 
+async function handleImported(): Promise<void> {
+  await loadItems();
+}
+
 watch(selectedId, () => {
   editingLexicon.value = false;
   confirmDeleteLexicon.value = false;
@@ -360,6 +365,17 @@ onMounted(() => {
           </div>
           <button v-if="editingStudyItemId" type="button" @click="resetWordForm">取消编辑</button>
         </div>
+
+        <details class="import-disclosure">
+          <summary>从 TSV 批量导入</summary>
+          <TsvImportPanel
+            :key="selectedLexicon.id"
+            :repository="repository"
+            :lexicon-id="selectedLexicon.id"
+            :existing-items="items"
+            @imported="handleImported"
+          />
+        </details>
 
         <form class="word-form" @submit.prevent="saveWord">
           <div class="field-grid">
@@ -588,6 +604,25 @@ onMounted(() => {
   border: 1px solid #d4ddd7;
   border-radius: 6px;
   background: #f7f9f8;
+}
+
+.import-disclosure {
+  margin-bottom: 16px;
+  border: 1px solid #d4ddd7;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.import-disclosure summary {
+  padding: 12px 14px;
+  color: #355044;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.import-disclosure[open] summary {
+  border-bottom: 1px solid #e0e6e2;
 }
 
 .field-grid {
