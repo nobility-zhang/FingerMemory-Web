@@ -358,6 +358,56 @@ describe('lexicon and study item management', () => {
   });
 });
 
+describe('practice session lifecycle', () => {
+  it('abandons other unfinished sessions when a new session starts', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '会话测试',
+      description: '',
+      now: INITIAL_TIME,
+    });
+    const created = await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: INITIAL_TIME + 1,
+    });
+    const first = await repository.savePracticeSession(
+      createPracticeSession({
+        id: 'first-session',
+        modeId: 'lyrics-scroll',
+        items: [created.practiceItem],
+        now: INITIAL_TIME + 2,
+        reduceMotion: false,
+      }),
+    );
+
+    const second = await repository.savePracticeSession(
+      createPracticeSession({
+        id: 'new-session',
+        modeId: 'keyboard-recall',
+        items: [created.practiceItem],
+        now: INITIAL_TIME + 3,
+        reduceMotion: false,
+      }),
+    );
+
+    expect(second.status).toBe('active');
+    await expect(database.practiceSessions.get(first.id)).resolves.toMatchObject({
+      status: 'completed',
+      endedReason: 'abandoned',
+    });
+    await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+      id: second.id,
+      status: 'active',
+    });
+  });
+});
+
 describe('TSV import persistence', () => {
   it('imports selected rows atomically and replays the same batch without duplicate writes', async () => {
     const database = createDatabase();

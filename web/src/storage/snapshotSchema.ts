@@ -239,6 +239,7 @@ const practiceSessionSchema = z
     updatedAt: timestampSchema,
     pausedAt: timestampSchema.nullable(),
     completedAt: timestampSchema.nullable(),
+    endedReason: z.enum(['completed', 'abandoned']).optional(),
   })
   .strict() satisfies z.ZodType<PracticeSession>;
 

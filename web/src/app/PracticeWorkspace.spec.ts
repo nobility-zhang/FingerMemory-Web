@@ -61,6 +61,14 @@ describe('PracticeWorkspace', () => {
     await vi.waitFor(() => {
       expect(root.textContent).toContain('打开上次会话');
     });
+    buttonByText(root, '放弃上次会话')?.click();
+    await vi.waitFor(async () => {
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        status: 'completed',
+        endedReason: 'abandoned',
+      });
+      expect(root.textContent).not.toContain('打开上次会话');
+    });
   });
 
   it('restores an unfinished session after its lexicon is deleted', async () => {

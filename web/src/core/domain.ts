@@ -14,6 +14,8 @@ export type PracticeModeId = 'keyboard-recall' | 'lyrics-scroll';
 
 export type PracticeSessionStatus = 'active' | 'paused' | 'completed';
 
+export type PracticeSessionEndReason = 'completed' | 'abandoned';
+
 export type PracticeQueueItemStatus = 'pending' | 'completed' | 'skipped';
 
 export interface AppMetaRecord {
@@ -204,4 +206,5 @@ export interface PracticeSession {
   updatedAt: TimestampMs;
   pausedAt: TimestampMs | null;
   completedAt: TimestampMs | null;
+  endedReason?: PracticeSessionEndReason;
 }

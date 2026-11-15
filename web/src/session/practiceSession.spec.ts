@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PracticeItem, PracticeSession } from '../core/domain';
 import {
+  abandonPracticeSession,
   completeCurrentSessionItem,
   createPracticeSession,
   pausePracticeSession,
@@ -83,5 +84,39 @@ describe('practice session state', () => {
     expect(completed.status).toBe('completed');
     expect(completed.currentStudyItemId).toBeNull();
     expect(completed.completedAt).toBe(now + 2);
+  });
+
+  it('requeues a wrong target once and keeps the retry in the same session', () => {
+    const session = revealSessionHint(updateSessionDraft(createSession(), 'wrong', now), 1, now);
+    const firstRetry = completeCurrentSessionItem(session, 'completed', now + 1, {
+      requeueCurrent: true,
+    });
+
+    expect(firstRetry.queue).toHaveLength(3);
+    expect(firstRetry.queue.at(-1)).toMatchObject({
+      studyItemId: 'study-memory',
+      status: 'pending',
+    });
+    expect(firstRetry.currentStudyItemId).toBe('study-cursor');
+    expect(firstRetry.interactions['study-memory']).toBeUndefined();
+
+    const selectedRetry = selectSessionItem(firstRetry, 2, now + 2);
+    const completedRetry = completeCurrentSessionItem(selectedRetry, 'completed', now + 3, {
+      requeueCurrent: true,
+    });
+    expect(completedRetry.queue).toHaveLength(3);
+    expect(completedRetry.queue.filter((item) => item.studyItemId === 'study-memory')).toHaveLength(2);
+  });
+
+  it('marks an explicitly abandoned session completed without deleting its queue', () => {
+    const session = updateSessionDraft(createSession(), 'mem', now + 1);
+    const abandoned = abandonPracticeSession(session, now + 2);
+
+    expect(abandoned).toMatchObject({
+      status: 'completed',
+      completedAt: now + 2,
+      endedReason: 'abandoned',
+      queue: session.queue,
+    });
   });
 });

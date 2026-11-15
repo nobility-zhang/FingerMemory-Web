@@ -214,6 +214,103 @@ describe('SessionWorkbench modes', () => {
     });
   });
 
+  it('offers copy practice after revealing the answer without creating a formal review', async () => {
+    const { root } = await mountWorkbench();
+    buttonByText(root, '看答案抄写')?.click();
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('抄写练习');
+      expect(root.querySelector('.answer-reveal')?.textContent).toContain('memory');
+    });
+
+    const input = root.querySelector<HTMLInputElement>('#answer-input');
+    input!.value = 'memory';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+    buttonByText(root, '提交')?.click();
+    await vi.waitFor(() => {
+      expect(buttonByText(root, '记录练习并继续')).toBeDefined();
+      expect(buttonByText(root, 'Good')).toBeUndefined();
+    });
+    buttonByText(root, '记录练习并继续')?.click();
+    await vi.waitFor(async () => {
+      await expect(repository.getStatus()).resolves.toMatchObject({
+        counts: { practiceAttempts: 1, reviewStates: 0, reviewLogs: 0 },
+      });
+    });
+  });
+
+  it('adds a wrong target to the same session queue at most once for retry', async () => {
+    const { root } = await mountWorkbench();
+    const input = root.querySelector<HTMLInputElement>('#answer-input');
+    input!.value = 'wrong';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+    buttonByText(root, '提交')?.click();
+    await vi.waitFor(() => {
+      expect(buttonByText(root, '加入错词重练')).toBeDefined();
+    });
+    buttonByText(root, '加入错词重练')?.click();
+
+    await vi.waitFor(async () => {
+      await expect(repository.getStatus()).resolves.toMatchObject({
+        counts: { practiceAttempts: 1, reviewStates: 0, reviewLogs: 0 },
+      });
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        currentStudyItemId: 'study-cursor',
+        queue: [
+          { studyItemId: 'study-memory', status: 'completed' },
+          { studyItemId: 'study-cursor', status: 'pending' },
+          { studyItemId: 'study-memory', status: 'pending' },
+        ],
+      });
+    });
+    expect(root.textContent).toContain('已完成 1 / 3');
+    expect(root.querySelector<HTMLInputElement>('#answer-input')?.value).toBe('');
+  });
+
+  it('does not submit while the IME is composing', async () => {
+    const { root } = await mountWorkbench();
+    const input = root.querySelector<HTMLInputElement>('#answer-input')!;
+    input.value = 'memory';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        isComposing: true,
+        bubbles: true,
+      }),
+    );
+    await nextTick();
+    expect(buttonByText(root, 'Good')).toBeUndefined();
+    await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+      pendingAnswer: null,
+    });
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+    await vi.waitFor(() => {
+      expect(buttonByText(root, 'Good')).toBeDefined();
+    });
+  });
+
+  it('explicitly abandons the current session without deleting practice history', async () => {
+    const { root } = await mountWorkbench();
+    buttonByText(root, '放弃会话')?.click();
+    await nextTick();
+    buttonByText(root, '确认放弃')?.click();
+
+    await vi.waitFor(async () => {
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        status: 'completed',
+        endedReason: 'abandoned',
+      });
+    });
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { practiceSessions: 1, reviewStates: 0, reviewLogs: 0 },
+    });
+  });
+
   it('persists speed and reduced-motion changes in the same session', async () => {
     const { root } = await mountWorkbench();
     const speed = root.querySelector<HTMLInputElement>('input[type="range"]');

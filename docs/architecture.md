@@ -78,7 +78,7 @@ M1-02 落地 schema v1；当前已通过 Dexie v3 迁移到词条、学习目标
 | `lexiconItems` | `[lexiconId+studyItemId]`, `lexiconId`, `studyItemId`, `order`, `sourceHints` | 词库成员和顺序；同一学习目标可出现在多个词库。 |
 | `notes` | `id`, `studyItemId`, `content`, `createdAt`, `updatedAt` | 个人笔记，引用学习目标而不复制词义或复习状态。 |
 | `practiceAttempts` | `id`, `studyItemId`, `modeId`, `direction`, 作答与揭示标记 | 练习事实；写入时不改变正式复习状态。 |
-| `practiceSessions` | `id`, `modeId`, `status`, 队列快照, 当前目标, 草稿, 待评分答案, 速度/动画设置 | 支持暂停、后台切换、退出和再次进入；不保存掌握度。 |
+| `practiceSessions` | `id`, `modeId`, `status`, 队列快照, 当前目标, 草稿, 待评分答案, 速度/动画设置, `endedReason` | 支持暂停、后台切换、退出、错词重练和再次进入；不保存掌握度。 |
 | `reviewStates` | `studyItemId`, FSRS 卡片字段, `dueAt`, 调度版本与配置快照 | 每个学习目标唯一一份正式调度状态。 |
 | `reviewLogs` | `submissionId`, 评分、作答证据、前后卡片和 ts-fsrs revlog | 不可变正式复习记录；主键天然保证提交幂等。 |
 
@@ -100,6 +100,8 @@ M1-02 落地 schema v1；当前已通过 Dexie v3 迁移到词条、学习目标
 - 同一提交 ID 但请求内容不同必须报冲突，不能返回一个看似成功但语义不同的结果。
 - 正式复习时间不得早于该学习目标已有的 `lastReviewAt`；练习记录与正式复习日志分别保存。
 - 会话队列必须引用存在的学习目标；当前索引必须对应队列中唯一 `currentStudyItemId`；待评分答案必须属于当前会话。
+- 错词重练只向当前会话追加同目标的一次待练项，不新建会话或复习状态；开始新一轮会将其余未完成会话标记为 `abandoned`。
+- 看答案抄写使用同一练习记录命令，但 `answerRevealed` 会关闭正式复习门禁；IME 组合期间的 Enter 不提交。
 - 备份和恢复使用完整数据库边界；恢复开始前保存当前数据，校验或写入失败时整体回滚。
 - 备份是版本化 JSON `StorageSnapshot`，包含全部业务表和 `appMeta`。选择该格式而不是二进制数据库转储，是为了在覆盖前执行 Zod 结构校验、跨表引用校验和未来版本迁移；不手写 IndexedDB 底层序列化。
 - TSV 导入以 `appMeta` 中的批次回执保存幂等结果；同一批次与同一输入重复提交返回第一次结果，同批次不同输入报冲突。

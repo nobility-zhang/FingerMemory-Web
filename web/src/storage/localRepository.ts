@@ -1264,7 +1264,12 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     const sessions = await this.database.practiceSessions.toArray();
     return sessions
       .filter((session) => modeId === undefined || session.modeId === modeId)
-      .sort((left, right) => right.updatedAt - left.updatedAt)[0];
+      .sort(
+        (left, right) =>
+          right.updatedAt - left.updatedAt ||
+          right.createdAt - left.createdAt ||
+          right.id.localeCompare(left.id),
+      )[0];
   }
 
   async savePracticeSession(session: PracticeSession): Promise<PracticeSession> {
@@ -1327,6 +1332,22 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
           throw new Error('Practice session pending answer references invalid study data');
         }
 
+        const otherSessions = await this.database.practiceSessions.toArray();
+        for (const otherSession of otherSessions) {
+          if (
+            otherSession.id !== plainSession.id &&
+            otherSession.status !== 'completed'
+          ) {
+            await this.database.practiceSessions.put({
+              ...otherSession,
+              status: 'completed',
+              pendingAnswer: null,
+              updatedAt: plainSession.updatedAt,
+              completedAt: plainSession.updatedAt,
+              endedReason: 'abandoned',
+            });
+          }
+        }
         await this.database.practiceSessions.put(plainSession);
         return plainSession;
       },

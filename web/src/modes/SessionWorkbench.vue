@@ -10,6 +10,7 @@ import type {
 } from '../core/domain';
 import type { FingerMemoryRepository } from '../core/repository';
 import {
+  abandonPracticeSession,
   completeCurrentSessionItem,
   pausePracticeSession,
   resumePracticeSession,
@@ -47,6 +48,7 @@ const emit = defineEmits<{
 const session = ref<PracticeSession>({ ...props.initialSession });
 const busy = ref(false);
 const error = ref<string | null>(null);
+const confirmAbandon = ref(false);
 const itemById = computed(
   () => new Map(props.items.map((item) => [item.studyItem.id, item])),
 );
@@ -73,6 +75,18 @@ const isPaused = computed(() => session.value.status === 'paused');
 const completedCount = computed(
   () => session.value.queue.filter((item) => item.status !== 'pending').length,
 );
+const allowRetry = computed(() => {
+  const item = currentItem.value;
+  const pendingAnswer = session.value.pendingAnswer;
+  if (item === undefined || pendingAnswer === null || pendingAnswer.inputMatchedAnswer) {
+    return false;
+  }
+  return (
+    session.value.queue.filter(
+      (queueItem) => queueItem.studyItemId === item.studyItem.id,
+    ).length < 2
+  );
+});
 
 function now(): number {
   return props.clock();
@@ -186,8 +200,13 @@ async function submitAnswer(): Promise<void> {
   busy.value = false;
 }
 
-async function completeItem(status: 'completed' | 'skipped'): Promise<void> {
-  const next = completeCurrentSessionItem(session.value, status, now());
+async function completeItem(
+  status: 'completed' | 'skipped',
+  requeueCurrent = false,
+): Promise<void> {
+  const next = completeCurrentSessionItem(session.value, status, now(), {
+    requeueCurrent,
+  });
   await persist(next);
 }
 
@@ -222,7 +241,7 @@ async function chooseRating(rating: ReviewRating): Promise<void> {
   }
 }
 
-async function recordPractice(): Promise<void> {
+async function recordPractice(requeueCurrent = false): Promise<void> {
   const pendingAnswer = session.value.pendingAnswer;
   if (pendingAnswer === null) {
     return;
@@ -243,12 +262,16 @@ async function recordPractice(): Promise<void> {
       abandoned: false,
       occurredAt: pendingAnswer.submittedAt,
     });
-    await completeItem('completed');
+    await completeItem('completed', requeueCurrent);
   } catch {
     error.value = '练习记录未保存，请重试。';
   } finally {
     busy.value = false;
   }
+}
+
+async function retryPractice(): Promise<void> {
+  await recordPractice(true);
 }
 
 async function skipCurrent(): Promise<void> {
@@ -287,6 +310,18 @@ async function exitSession(): Promise<void> {
   }
 }
 
+async function abandonSession(): Promise<void> {
+  busy.value = true;
+  try {
+    const abandoned = abandonPracticeSession(session.value, now());
+    if (await persist(abandoned)) {
+      emit('exit', session.value);
+    }
+  } finally {
+    busy.value = false;
+  }
+}
+
 function handleVisibilityChange(): void {
   if (document.visibilityState === 'hidden' && session.value.status === 'active') {
     void persist(pausePracticeSession(session.value, now()));
@@ -322,8 +357,21 @@ onBeforeUnmount(() => {
           {{ isPaused ? '恢复' : '暂停' }}
         </button>
         <button type="button" :disabled="busy" @click="exitSession">退出模式</button>
+        <button type="button" class="danger-action" :disabled="busy" @click="confirmAbandon = true">
+          放弃会话
+        </button>
       </div>
     </header>
+
+    <div v-if="confirmAbandon" class="abandon-confirm" role="alert">
+      <p>放弃后会结束当前会话并保留已产生的练习事实；之后需要重新开始会话。</p>
+      <div>
+        <button type="button" class="danger-action" :disabled="busy" @click="abandonSession">
+          确认放弃
+        </button>
+        <button type="button" :disabled="busy" @click="confirmAbandon = false">取消</button>
+      </div>
+    </div>
 
     <div class="mode-toolbar">
       <div class="mode-switch" role="group" aria-label="练习模式">
@@ -390,6 +438,7 @@ onBeforeUnmount(() => {
         :paused="isPaused"
         :busy="busy"
         :error="error"
+        :allow-retry="allowRetry"
         @draft="updateDraft"
         @hint="revealHint"
         @reveal="revealAnswer"
@@ -397,6 +446,7 @@ onBeforeUnmount(() => {
         @skip="skipCurrent"
         @rate="chooseRating"
         @practice="recordPractice"
+        @retry="retryPractice"
       />
     </template>
   </section>
@@ -480,6 +530,11 @@ button.selected {
   color: #18372a;
 }
 
+.danger-action {
+  color: #9b4935;
+  border-color: #dfc2b9;
+}
+
 button:focus-visible,
 input:focus-visible {
   outline: 3px solid rgb(45 113 83 / 28%);
@@ -515,6 +570,31 @@ input:focus-visible {
   background: #fff;
 }
 
+.abandon-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #d9b6aa;
+  border-radius: 6px;
+  background: #fbf3f0;
+}
+
+.abandon-confirm p {
+  margin: 0;
+  color: #7f4e40;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.abandon-confirm > div {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
 .complete-panel h3 {
   margin: 0 0 8px;
   font-family: Georgia, "Times New Roman", serif;
@@ -536,7 +616,8 @@ input:focus-visible {
 
 @media (max-width: 720px) {
   .session-header,
-  .mode-toolbar {
+  .mode-toolbar,
+  .abandon-confirm {
     align-items: flex-start;
     flex-direction: column;
   }

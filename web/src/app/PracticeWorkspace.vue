@@ -7,7 +7,10 @@ import type {
 } from '../core/domain';
 import type { FingerMemoryRepository } from '../core/repository';
 import SessionWorkbench from '../modes/SessionWorkbench.vue';
-import { createPracticeSession } from '../session/practiceSession';
+import {
+  abandonPracticeSession,
+  createPracticeSession,
+} from '../session/practiceSession';
 
 const props = defineProps<{
   repository: FingerMemoryRepository;
@@ -111,6 +114,24 @@ function continueSession(): void {
   activeSession.value = resumableSession.value;
 }
 
+async function abandonResumableSession(): Promise<void> {
+  const current = resumableSession.value;
+  if (current === undefined) {
+    return;
+  }
+  busy.value = true;
+  error.value = null;
+  try {
+    const abandoned = abandonPracticeSession(current, Date.now());
+    latestSession.value = await props.repository.savePracticeSession(abandoned);
+    latestSessionItems.value = [];
+  } catch {
+    error.value = '无法放弃上次会话，现有会话未改变。';
+  } finally {
+    busy.value = false;
+  }
+}
+
 function handleSessionUpdated(session: PracticeSession): void {
   latestSession.value = session;
 }
@@ -169,6 +190,15 @@ onMounted(() => {
         <button type="button" class="primary-action" :disabled="busy" @click="loadStarterContent">
           载入入门词库
         </button>
+        <button
+          v-if="resumableSession !== undefined"
+          type="button"
+          class="danger-action"
+          :disabled="busy"
+          @click="abandonResumableSession"
+        >
+          放弃上次会话
+        </button>
       </div>
     </div>
     <div v-else class="start-actions">
@@ -188,6 +218,15 @@ onMounted(() => {
         </button>
         <button type="button" :disabled="busy" @click="startSession('keyboard-recall')">
           开始键盘对照
+        </button>
+        <button
+          v-if="resumableSession !== undefined"
+          type="button"
+          class="danger-action"
+          :disabled="busy"
+          @click="abandonResumableSession"
+        >
+          放弃上次会话
         </button>
       </div>
     </div>
@@ -289,6 +328,11 @@ button:focus-visible {
   border-color: #244f3d;
   background: #244f3d;
   color: #fff;
+}
+
+.danger-action {
+  color: #9b4935;
+  border-color: #dfc2b9;
 }
 
 .continue-action {

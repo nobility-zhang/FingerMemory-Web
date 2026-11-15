@@ -7,14 +7,20 @@ import type {
   ReviewRating,
 } from '../core/domain';
 
-const props = defineProps<{
-  currentItem: PracticeItem;
-  interaction: PracticeInteractionState;
-  pendingAnswer: PendingAnswer | null;
-  paused: boolean;
-  busy: boolean;
-  error: string | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    currentItem: PracticeItem;
+    interaction: PracticeInteractionState;
+    pendingAnswer: PendingAnswer | null;
+    paused: boolean;
+    busy: boolean;
+    error: string | null;
+    allowRetry?: boolean;
+  }>(),
+  {
+    allowRetry: false,
+  },
+);
 
 const emit = defineEmits<{
   draft: [value: string];
@@ -24,6 +30,7 @@ const emit = defineEmits<{
   skip: [];
   rate: [rating: ReviewRating];
   practice: [];
+  retry: [];
 }>();
 
 const input = ref<HTMLInputElement | null>(null);
@@ -31,6 +38,18 @@ const answerVisible = computed(
   () => props.pendingAnswer !== null || props.interaction.answerRevealed,
 );
 const hintUsed = computed(() => props.interaction.revealedHintCount > 0);
+const answerModeLabel = computed(() =>
+  props.interaction.answerRevealed ? '看词抄写' : '隐藏答案默写',
+);
+const answerStateLabel = computed(() => {
+  if (props.paused) {
+    return '已暂停';
+  }
+  if (props.pendingAnswer !== null) {
+    return '选择结果';
+  }
+  return props.interaction.answerRevealed ? '抄写练习' : '输入英文';
+});
 const visibleHints = computed(() =>
   props.currentItem.wordEntry.hints.slice(0, props.interaction.revealedHintCount),
 );
@@ -40,6 +59,7 @@ const canUseMoreHints = computed(
 const formalEligible = computed(
   () =>
     props.pendingAnswer !== null &&
+    !props.paused &&
     props.pendingAnswer.answerWasHidden &&
     !props.pendingAnswer.hintUsed &&
     !props.pendingAnswer.answerRevealed,
@@ -82,11 +102,11 @@ watch(
   <section class="answer-panel" aria-labelledby="answer-title">
     <header class="answer-heading">
       <div>
-        <p class="answer-eyebrow">正在作答</p>
+        <p class="answer-eyebrow">{{ answerModeLabel }}</p>
         <h2 id="answer-title">{{ currentItem.wordEntry.meaning }}</h2>
       </div>
       <span class="answer-state">
-        {{ paused ? '已暂停' : pendingAnswer === null ? '输入英文' : '选择结果' }}
+        {{ answerStateLabel }}
       </span>
     </header>
 
@@ -134,7 +154,7 @@ watch(
         提示 {{ interaction.revealedHintCount }}/{{ currentItem.wordEntry.hints.length }}
       </button>
       <button type="button" :disabled="busy || answerVisible" @click="emit('reveal')">
-        显示答案
+        看答案抄写
       </button>
       <button type="button" class="quiet-danger" :disabled="busy" @click="emit('skip')">
         跳过
@@ -179,19 +199,45 @@ watch(
             :key="rating.value"
             type="button"
             class="rating-button"
-            :disabled="busy"
+            :disabled="busy || paused"
             @click="emit('rate', rating.value)"
           >
             <strong>{{ rating.label }}</strong>
             <span>{{ rating.description }}</span>
           </button>
         </div>
+        <button
+          v-if="!pendingAnswer.inputMatchedAnswer && allowRetry"
+          type="button"
+          class="retry-action"
+          :disabled="busy || paused"
+          @click="emit('retry')"
+        >
+          加入错词重练
+        </button>
       </template>
       <template v-else>
         <p class="practice-notice">本次使用提示、显示答案或主动放弃，仅记录练习。</p>
-        <button type="button" class="primary-action" :disabled="busy" @click="emit('practice')">
-          记录练习并继续
-        </button>
+        <div class="practice-actions">
+          <button
+            v-if="!pendingAnswer.inputMatchedAnswer && allowRetry"
+            type="button"
+            class="primary-action"
+            :disabled="busy || paused"
+            @click="emit('retry')"
+          >
+            记录练习并重练
+          </button>
+          <button
+            v-else
+            type="button"
+            class="primary-action"
+            :disabled="busy || paused"
+            @click="emit('practice')"
+          >
+            记录练习并继续
+          </button>
+        </div>
       </template>
     </div>
 
@@ -380,6 +426,19 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+.retry-action {
+  margin-top: 10px;
+  border-color: #c38c76;
+  color: #874a37;
+}
+
+.practice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .rating-button {

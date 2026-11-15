@@ -173,6 +173,24 @@ export function resumePracticeSession(
   };
 }
 
+export function abandonPracticeSession(
+  session: PracticeSession,
+  now: TimestampMs,
+): PracticeSession {
+  if (session.status === 'completed') {
+    return session;
+  }
+
+  return {
+    ...session,
+    status: 'completed',
+    pendingAnswer: null,
+    updatedAt: now,
+    completedAt: now,
+    endedReason: 'abandoned',
+  };
+}
+
 export function switchSessionMode(
   session: PracticeSession,
   modeId: PracticeModeId,
@@ -201,10 +219,30 @@ export function completeCurrentSessionItem(
   session: PracticeSession,
   status: 'completed' | 'skipped',
   now: TimestampMs,
+  options: { requeueCurrent?: boolean } = {},
 ): PracticeSession {
-  const queue = session.queue.map((item, index) =>
+  let queue = session.queue.map((item, index) =>
     index === session.currentIndex ? { ...item, status } : item,
   );
+  let interactions = session.interactions;
+  const currentItem = session.queue[session.currentIndex];
+  if (
+    options.requeueCurrent === true &&
+    status === 'completed' &&
+    currentItem !== undefined &&
+    queue.filter((item) => item.studyItemId === currentItem.studyItemId).length < 2
+  ) {
+    queue = [
+      ...queue,
+      {
+        studyItemId: currentItem.studyItemId,
+        wordEntryId: currentItem.wordEntryId,
+        status: 'pending',
+      },
+    ];
+    interactions = { ...session.interactions };
+    delete interactions[currentItem.studyItemId];
+  }
   const laterPendingIndex = queue.findIndex(
     (item, index) => index > session.currentIndex && item.status === 'pending',
   );
@@ -215,11 +253,13 @@ export function completeCurrentSessionItem(
   return {
     ...session,
     queue,
+    interactions,
     pendingAnswer: null,
     status: nextItem === undefined ? 'completed' : session.status,
     currentIndex: nextItem === undefined ? session.currentIndex : nextIndex,
     currentStudyItemId: nextItem?.studyItemId ?? null,
     updatedAt: now,
     completedAt: nextItem === undefined ? now : null,
+    endedReason: nextItem === undefined ? 'completed' : undefined,
   };
 }
