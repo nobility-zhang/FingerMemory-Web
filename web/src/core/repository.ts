@@ -133,6 +133,12 @@ export interface ImportStudyItemsResult {
   skippedCount: number;
 }
 
+export interface SaveStudyNoteInput {
+  studyItemId: string;
+  content: string;
+  now: TimestampMs;
+}
+
 export interface DueReviewItem {
   studyItem: StudyItem;
   wordEntry: WordEntry;
@@ -174,6 +180,8 @@ export interface FingerMemoryRepository {
   updateStudyItem(input: UpdateStudyItemInput): Promise<LexiconStudyItem>;
   removeStudyItemFromLexicon(lexiconId: string, studyItemId: string): Promise<void>;
   importStudyItems(input: ImportStudyItemsInput): Promise<ImportStudyItemsResult>;
+  listStudyNotes(): Promise<StudyNote[]>;
+  saveStudyNote(input: SaveStudyNoteInput): Promise<StudyNote | undefined>;
   listPracticeItems(limit?: number): Promise<PracticeItem[]>;
   listPracticeItemsByStudyItemIds(studyItemIds: string[]): Promise<PracticeItem[]>;
   getLatestPracticeSession(modeId?: PracticeModeId): Promise<PracticeSession | undefined>;

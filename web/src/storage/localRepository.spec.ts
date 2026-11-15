@@ -9,6 +9,7 @@ import {
   ReviewSubmissionConflictError,
   ReviewSubmissionRejectedError,
   StudyItemInUseError,
+  StudyItemNotFoundError,
 } from '../core/repository';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
 import { createPracticeSession } from '../session/practiceSession';
@@ -466,6 +467,70 @@ describe('TSV import persistence', () => {
       counts: { lexicons: 1, words: 0, studyItems: 0, lexiconItems: 0 },
     });
     await expect(repository.listLexiconItems(lexicon.id)).resolves.toEqual([]);
+  });
+});
+
+describe('study note persistence', () => {
+  it('keeps one note per study item and clears it with empty content', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '笔记测试',
+      description: '',
+      now: INITIAL_TIME,
+    });
+    const created = await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: INITIAL_TIME + 1,
+    });
+    const studyItemId = created.practiceItem.studyItem.id;
+
+    const firstNote = await repository.saveStudyNote({
+      studyItemId,
+      content: '注意 memory 和 remember 的区别。',
+      now: INITIAL_TIME + 2,
+    });
+    expect(firstNote).toMatchObject({
+      studyItemId,
+      content: '注意 memory 和 remember 的区别。',
+    });
+
+    const updatedNote = await repository.saveStudyNote({
+      studyItemId,
+      content: '补充：memory 也有内存的含义。',
+      now: INITIAL_TIME + 3,
+    });
+    expect(updatedNote?.id).toBe(firstNote?.id);
+    await expect(repository.listStudyNotes()).resolves.toMatchObject([
+      {
+        id: firstNote?.id,
+        studyItemId,
+        content: '补充：memory 也有内存的含义。',
+        createdAt: INITIAL_TIME + 2,
+        updatedAt: INITIAL_TIME + 3,
+      },
+    ]);
+
+    await expect(
+      repository.saveStudyNote({
+        studyItemId,
+        content: '   ',
+        now: INITIAL_TIME + 4,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(repository.listStudyNotes()).resolves.toEqual([]);
+    await expect(
+      repository.saveStudyNote({
+        studyItemId: 'missing-study-item',
+        content: '不能保存',
+        now: INITIAL_TIME + 5,
+      }),
+    ).rejects.toBeInstanceOf(StudyItemNotFoundError);
   });
 });
 

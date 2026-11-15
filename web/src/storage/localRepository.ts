@@ -10,6 +10,7 @@ import type {
   ReviewLog,
   ReviewState,
   StudyItem,
+  StudyNote,
   TimestampMs,
   WordEntry,
 } from '../core/domain';
@@ -25,6 +26,7 @@ import type {
   PracticeAttemptResult,
   ReviewSubmissionInput,
   ReviewSubmissionResult,
+  SaveStudyNoteInput,
   StorageSnapshot,
   StorageStatus,
   UpdateLexiconInput,
@@ -385,10 +387,17 @@ function validateSnapshotReferences(snapshot: StorageSnapshot): void {
       throw new InvalidStorageSnapshotError('lexicon item references missing data');
     }
   }
+  const noteStudyItemIds = new Set<string>();
   for (const note of tables.notes) {
     if (!studyItemIds.has(note.studyItemId)) {
       throw new InvalidStorageSnapshotError(`note ${note.id} references a missing study item`);
     }
+    if (noteStudyItemIds.has(note.studyItemId)) {
+      throw new InvalidStorageSnapshotError(
+        `study item ${note.studyItemId} contains multiple notes`,
+      );
+    }
+    noteStudyItemIds.add(note.studyItemId);
   }
   for (const attempt of tables.practiceAttempts) {
     if (
@@ -1017,6 +1026,53 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
           updatedAt: input.now,
         });
         return { outcome: 'created', importedCount, skippedCount };
+      },
+    );
+  }
+
+  async listStudyNotes(): Promise<StudyNote[]> {
+    await this.database.open();
+    const notes = await this.database.notes.toArray();
+    return notes.sort(
+      (left, right) =>
+        left.studyItemId.localeCompare(right.studyItemId) ||
+        right.updatedAt - left.updatedAt ||
+        left.id.localeCompare(right.id),
+    );
+  }
+
+  async saveStudyNote(input: SaveStudyNoteInput): Promise<StudyNote | undefined> {
+    assertIdentifier(input.studyItemId, 'study item id');
+    assertTimestamp(input.now, 'study note update time');
+    await this.database.open();
+
+    return this.database.transaction(
+      'rw',
+      [this.database.studyItems, this.database.notes],
+      async () => {
+        if ((await this.database.studyItems.get(input.studyItemId)) === undefined) {
+          throw new StudyItemNotFoundError(input.studyItemId);
+        }
+        const existing = await this.database.notes
+          .where('studyItemId')
+          .equals(input.studyItemId)
+          .first();
+        if (input.content.trim().length === 0) {
+          if (existing !== undefined) {
+            await this.database.notes.delete(existing.id);
+          }
+          return undefined;
+        }
+
+        const note: StudyNote = {
+          id: existing?.id ?? `note:${input.studyItemId}`,
+          studyItemId: input.studyItemId,
+          content: input.content,
+          createdAt: existing?.createdAt ?? input.now,
+          updatedAt: input.now,
+        };
+        await this.database.notes.put(note);
+        return note;
       },
     );
   }

@@ -17,6 +17,12 @@ function buttonByText(root: HTMLElement, text: string): HTMLButtonElement | unde
   );
 }
 
+function buttonByExactText(root: HTMLElement, text: string): HTMLButtonElement | undefined {
+  return [...root.querySelectorAll('button')].find(
+    (button) => button.textContent?.trim() === text,
+  );
+}
+
 async function setInputValue(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
   element.value = value;
   element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -196,6 +202,66 @@ describe('LexiconManager', () => {
     await vi.waitFor(async () => {
       await expect(repository.listLexiconItems(lexicon.id)).resolves.toHaveLength(3);
       expect(root.textContent).toContain('已导入 2 条，跳过 1 条');
+    });
+  });
+
+  it('saves a study item note and restores it after remounting the app', async () => {
+    await FingerMemoryDatabase.delete(databaseName);
+    database = new FingerMemoryDatabase(databaseName);
+    const repository = createFingerMemoryRepository(database, {
+      scheduler,
+      clock: () => Date.now(),
+    });
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '笔记界面',
+      description: '',
+      now: Date.now(),
+    });
+    await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: Date.now() + 1,
+    });
+
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(LexiconManager, { repository });
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      expect(buttonByExactText(root, '笔记')?.disabled).toBe(false);
+    });
+    buttonByExactText(root, '笔记')?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('.note-editor textarea')).not.toBeNull();
+    });
+    await setInputValue(
+      root.querySelector<HTMLTextAreaElement>('.note-editor textarea')!,
+      'memory 作“记忆”时通常不可数。',
+    );
+    buttonByText(root, '保存笔记')?.click();
+
+    await vi.waitFor(async () => {
+      await expect(repository.listStudyNotes()).resolves.toHaveLength(1);
+      expect(root.textContent).toContain('memory 作“记忆”时通常不可数。');
+      expect(buttonByExactText(root, '编辑笔记')).toBeDefined();
+    });
+
+    mountedApp?.unmount();
+    mountedApp = null;
+    document.body.innerHTML = '';
+    const remountedRoot = document.createElement('div');
+    document.body.append(remountedRoot);
+    const remountedApp = createApp(LexiconManager, { repository });
+    mountedApp = remountedApp;
+    remountedApp.mount(remountedRoot);
+    await vi.waitFor(() => {
+      expect(remountedRoot.textContent).toContain('memory 作“记忆”时通常不可数。');
     });
   });
 });

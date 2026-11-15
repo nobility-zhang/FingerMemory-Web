@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import type { Lexicon } from '../core/domain';
+import type { Lexicon, StudyNote } from '../core/domain';
 import type {
   FingerMemoryRepository,
   LexiconStudyItem,
@@ -15,6 +15,7 @@ const props = defineProps<{
 const lexicons = ref<Lexicon[]>([]);
 const selectedId = ref<string>();
 const items = ref<LexiconStudyItem[]>([]);
+const notes = ref<StudyNote[]>([]);
 const loading = ref(true);
 const busy = ref(false);
 const error = ref<string | null>(null);
@@ -22,6 +23,8 @@ const editingLexicon = ref(false);
 const confirmDeleteLexicon = ref(false);
 const pendingRemoveId = ref<string>();
 const editingStudyItemId = ref<string>();
+const noteEditorItemId = ref<string>();
+const noteDraft = ref('');
 
 const newLexicon = reactive({ name: '', description: '' });
 const lexiconForm = reactive({ name: '', description: '' });
@@ -34,6 +37,9 @@ const wordForm = reactive({
 
 const selectedLexicon = computed(() =>
   lexicons.value.find((lexicon) => lexicon.id === selectedId.value),
+);
+const notesByStudyItemId = computed(
+  () => new Map(notes.value.map((note) => [note.studyItemId, note])),
 );
 
 function splitLines(value: string): string[] {
@@ -76,12 +82,19 @@ async function loadLexicons(): Promise<void> {
 async function loadItems(): Promise<void> {
   if (selectedId.value === undefined) {
     items.value = [];
+    notes.value = [];
     return;
   }
   try {
-    items.value = await props.repository.listLexiconItems(selectedId.value);
+    const [entries, studyNotes] = await Promise.all([
+      props.repository.listLexiconItems(selectedId.value),
+      props.repository.listStudyNotes(),
+    ]);
+    items.value = entries;
+    notes.value = studyNotes;
   } catch {
     items.value = [];
+    notes.value = [];
     error.value = '无法读取词库内容。';
   }
 }
@@ -253,10 +266,42 @@ async function handleImported(): Promise<void> {
   await loadItems();
 }
 
+function beginNote(entry: LexiconStudyItem): void {
+  const studyItemId = entry.practiceItem.studyItem.id;
+  if (noteEditorItemId.value === studyItemId) {
+    noteEditorItemId.value = undefined;
+    noteDraft.value = '';
+    return;
+  }
+  noteEditorItemId.value = studyItemId;
+  noteDraft.value = notesByStudyItemId.value.get(studyItemId)?.content ?? '';
+}
+
+async function saveNote(entry: LexiconStudyItem): Promise<void> {
+  busy.value = true;
+  error.value = null;
+  try {
+    await props.repository.saveStudyNote({
+      studyItemId: entry.practiceItem.studyItem.id,
+      content: noteDraft.value,
+      now: Date.now(),
+    });
+    noteEditorItemId.value = undefined;
+    noteDraft.value = '';
+    await loadItems();
+  } catch {
+    error.value = '笔记保存失败，现有笔记未改变。';
+  } finally {
+    busy.value = false;
+  }
+}
+
 watch(selectedId, () => {
   editingLexicon.value = false;
   confirmDeleteLexicon.value = false;
   pendingRemoveId.value = undefined;
+  noteEditorItemId.value = undefined;
+  noteDraft.value = '';
   resetWordForm();
   void loadItems();
 });
@@ -428,6 +473,9 @@ onMounted(() => {
               </div>
               <div class="row-actions">
                 <button type="button" :disabled="busy" @click="beginEditWord(entry)">编辑</button>
+                <button type="button" :disabled="busy" @click="beginNote(entry)">
+                  {{ notesByStudyItemId.has(entry.practiceItem.studyItem.id) ? '编辑笔记' : '笔记' }}
+                </button>
                 <button
                   type="button"
                   class="danger-action"
@@ -441,6 +489,31 @@ onMounted(() => {
             <p v-if="entry.practiceItem.wordEntry.hints.length > 0">
               提示：{{ entry.practiceItem.wordEntry.hints.join(' / ') }}
             </p>
+            <p
+              v-if="notesByStudyItemId.get(entry.practiceItem.studyItem.id)"
+              class="note-summary"
+            >
+              {{ notesByStudyItemId.get(entry.practiceItem.studyItem.id)?.content }}
+            </p>
+            <form
+              v-if="noteEditorItemId === entry.practiceItem.studyItem.id"
+              class="note-editor"
+              @submit.prevent="saveNote(entry)"
+            >
+              <label :for="`note-${entry.practiceItem.studyItem.id}`">
+                学习目标笔记
+                <textarea
+                  :id="`note-${entry.practiceItem.studyItem.id}`"
+                  v-model="noteDraft"
+                  rows="4"
+                  placeholder="记录辨析、例句或个人提示；留空保存会清除笔记"
+                ></textarea>
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="primary-action" :disabled="busy">保存笔记</button>
+                <button type="button" :disabled="busy" @click="beginNote(entry)">取消</button>
+              </div>
+            </form>
             <div
               v-if="pendingRemoveId === entry.practiceItem.studyItem.id"
               class="remove-confirm"
@@ -709,6 +782,24 @@ textarea:focus-visible {
   margin: 8px 0 0;
   color: #7b8780;
   font-size: 0.75rem;
+}
+
+.word-list li > .note-summary {
+  padding: 8px 10px;
+  border-left: 3px solid #87a996;
+  background: #f4f8f5;
+  color: #4f6659;
+  white-space: pre-wrap;
+}
+
+.note-editor {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d4ddd7;
+  border-radius: 6px;
+  background: #f7f9f8;
 }
 
 .remove-confirm {

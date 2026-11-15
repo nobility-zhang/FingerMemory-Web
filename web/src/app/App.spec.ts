@@ -57,6 +57,8 @@ function createTestRepository(
     importStudyItems: async () => {
       throw new Error('importStudyItems is not used in this test');
     },
+    listStudyNotes: async () => [],
+    saveStudyNote: async () => undefined,
     listPracticeItems: async () => [],
     listPracticeItemsByStudyItemIds: async () => [],
     getLatestPracticeSession: async () => undefined,
