@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
         <span class="brand-mark" aria-hidden="true">F</span>
         <span>FingerMemory</span>
       </a>
-      <span class="stage-label">M2</span>
+      <span class="stage-label">v1.0</span>
     </header>
 
     <div class="app-layout">
@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
         </section>
 
         <footer class="workspace-footer">
-          <span>FingerMemory</span>
+          <span>FingerMemory v1.0.0</span>
           <span>Keyboard-first vocabulary practice</span>
         </footer>
       </main>

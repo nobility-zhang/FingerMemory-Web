@@ -1,6 +1,6 @@
 {
   "name": "finger-memory-web",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "A local-first keyboard vocabulary practice app.",
