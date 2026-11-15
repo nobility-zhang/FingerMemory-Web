@@ -75,6 +75,9 @@ function createTestRepository(
     exportSnapshot: async () => {
       throw new Error('exportSnapshot is not used in this test');
     },
+    previewSnapshot: async () => {
+      throw new Error('previewSnapshot is not used in this test');
+    },
     importSnapshot: async () => readyStatus,
   };
 }

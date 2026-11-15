@@ -166,6 +166,14 @@ export interface StorageSnapshot {
   tables: StorageSnapshotTableData;
 }
 
+export interface StorageSnapshotPreview {
+  snapshotVersion: number;
+  schemaVersion: number;
+  dataFormatVersion: number;
+  exportedAt: TimestampMs;
+  counts: StorageCounts;
+}
+
 export interface FingerMemoryRepository {
   initialize(): Promise<StorageStatus>;
   getStatus(): Promise<StorageStatus>;
@@ -192,6 +200,7 @@ export interface FingerMemoryRepository {
   getReviewLog(submissionId: string): Promise<ReviewLog | undefined>;
   listDueReviewItems(at: TimestampMs): Promise<DueReviewItem[]>;
   exportSnapshot(exportedAt: TimestampMs): Promise<StorageSnapshot>;
+  previewSnapshot(snapshot: unknown): Promise<StorageSnapshotPreview>;
   importSnapshot(snapshot: unknown): Promise<StorageStatus>;
 }
 

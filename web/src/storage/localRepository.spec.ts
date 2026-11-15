@@ -852,6 +852,55 @@ describe('due filtering, recovery and backup import', () => {
     });
   });
 
+  it('previews a valid backup without replacing the destination data', async () => {
+    const sourceDatabase = createDatabase();
+    const sourceRepository = createRepository(sourceDatabase);
+    await sourceRepository.initialize();
+    const inventory = await sourceRepository.createLexicon({
+      name: '备份词库',
+      description: '',
+      now: INITIAL_TIME,
+    });
+    const created = await sourceRepository.createStudyItem({
+      lexiconId: inventory.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: INITIAL_TIME + 1,
+    });
+    await sourceRepository.saveStudyNote({
+      studyItemId: created.practiceItem.studyItem.id,
+      content: '备份中的笔记',
+      now: INITIAL_TIME + 2,
+    });
+    const snapshot = await sourceRepository.exportSnapshot(INITIAL_TIME + 3);
+
+    const destinationDatabase = createDatabase();
+    const destinationRepository = createRepository(destinationDatabase);
+    await destinationRepository.initialize();
+    const kept = await destinationRepository.createLexicon({
+      name: '现有词库',
+      description: '',
+      now: INITIAL_TIME + 4,
+    });
+
+    await expect(destinationRepository.previewSnapshot(snapshot)).resolves.toMatchObject({
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      dataFormatVersion: DATA_FORMAT_VERSION,
+      exportedAt: INITIAL_TIME + 3,
+      counts: {
+        lexicons: 1,
+        words: 1,
+        studyItems: 1,
+        notes: 1,
+      },
+    });
+    await expect(destinationRepository.listLexicons()).resolves.toMatchObject([
+      { id: kept.id, name: '现有词库' },
+    ]);
+  });
+
   it('rejects an invalid snapshot without replacing existing data', async () => {
     const database = createDatabase();
     const repository = createRepository(database);

@@ -28,6 +28,7 @@ import type {
   ReviewSubmissionResult,
   SaveStudyNoteInput,
   StorageSnapshot,
+  StorageSnapshotPreview,
   StorageStatus,
   UpdateLexiconInput,
   UpdateStudyItemInput,
@@ -512,6 +513,40 @@ function validateSnapshotReferences(snapshot: StorageSnapshot): void {
       );
     }
   }
+}
+
+function parseAndValidateSnapshot(input: unknown): StorageSnapshot {
+  let snapshot: StorageSnapshot;
+  try {
+    snapshot = parseStorageSnapshot(input);
+  } catch (error) {
+    throw new InvalidStorageSnapshotError(
+      error instanceof Error ? error.message : 'snapshot schema validation failed',
+    );
+  }
+  validateSnapshotReferences(snapshot);
+  return snapshot;
+}
+
+function snapshotPreview(snapshot: StorageSnapshot): StorageSnapshotPreview {
+  const counts = snapshot.tables;
+  return {
+    snapshotVersion: snapshot.snapshotVersion,
+    schemaVersion: snapshot.schemaVersion,
+    dataFormatVersion: snapshot.dataFormatVersion,
+    exportedAt: snapshot.exportedAt,
+    counts: {
+      lexicons: counts.lexicons.length,
+      words: counts.words.length,
+      studyItems: counts.studyItems.length,
+      lexiconItems: counts.lexiconItems.length,
+      notes: counts.notes.length,
+      practiceAttempts: counts.practiceAttempts.length,
+      practiceSessions: counts.practiceSessions.length,
+      reviewStates: counts.reviewStates.length,
+      reviewLogs: counts.reviewLogs.length,
+    },
+  };
 }
 
 class DexieFingerMemoryRepository implements FingerMemoryRepository {
@@ -1572,16 +1607,12 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     );
   }
 
+  async previewSnapshot(snapshot: unknown): Promise<StorageSnapshotPreview> {
+    return snapshotPreview(parseAndValidateSnapshot(snapshot));
+  }
+
   async importSnapshot(snapshot: unknown): Promise<StorageStatus> {
-    let parsedSnapshot: StorageSnapshot;
-    try {
-      parsedSnapshot = parseStorageSnapshot(snapshot);
-    } catch (error) {
-      throw new InvalidStorageSnapshotError(
-        error instanceof Error ? error.message : 'snapshot schema validation failed',
-      );
-    }
-    validateSnapshotReferences(parsedSnapshot);
+    const parsedSnapshot = parseAndValidateSnapshot(snapshot);
     await this.database.open();
 
     await this.database.transaction(

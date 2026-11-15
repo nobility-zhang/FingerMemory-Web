@@ -58,6 +58,10 @@ const viewHeading = computed(() => {
   return { label: '概览', title: '学习工作台' };
 });
 
+function handleDataRestored(status: StorageStatus): void {
+  storageStatus.value = status;
+}
+
 onMounted(async () => {
   try {
     const status = await props.repository.initialize();
@@ -156,6 +160,7 @@ onBeforeUnmount(() => {
         <DataWorkspace
           v-else-if="storageState === 'ready' && activeView === 'data'"
           :repository="repository"
+          @restored="handleDataRestored"
         />
         <section v-else class="empty-panel" aria-labelledby="empty-title">
           <span class="panel-index" aria-hidden="true">01</span>

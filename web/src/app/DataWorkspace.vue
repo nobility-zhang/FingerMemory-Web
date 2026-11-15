@@ -1,20 +1,30 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import type { StorageStatus } from '../core/repository';
-import type { FingerMemoryRepository } from '../core/repository';
+import type {
+  FingerMemoryRepository,
+  StorageCounts,
+  StorageSnapshotPreview,
+  StorageStatus,
+} from '../core/repository';
 import { createBackupFile, downloadBackupFile } from './backupFile';
 
 const props = defineProps<{
   repository: FingerMemoryRepository;
 }>();
+const emit = defineEmits<{
+  restored: [status: StorageStatus];
+}>();
 
 const status = ref<StorageStatus>();
+const backupPreview = ref<StorageSnapshotPreview>();
+const pendingSnapshot = ref<unknown>();
+const backupFileName = ref('');
+const confirmOverwrite = ref(false);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
 
-const countRows = computed(() => {
-  const counts = status.value?.counts;
+function countRowsFrom(counts: StorageCounts | undefined): Array<[string, number]> {
   if (counts === undefined) {
     return [];
   }
@@ -28,7 +38,10 @@ const countRows = computed(() => {
     ['复习状态', counts.reviewStates],
     ['复习日志', counts.reviewLogs],
   ] satisfies Array<[string, number]>;
-});
+}
+
+const countRows = computed(() => countRowsFrom(status.value?.counts));
+const backupCountRows = computed(() => countRowsFrom(backupPreview.value?.counts));
 
 async function loadStatus(): Promise<void> {
   try {
@@ -50,6 +63,71 @@ async function exportBackup(): Promise<void> {
     notice.value = `备份文件 ${file.fileName} 已生成。`;
   } catch {
     error.value = '备份导出失败，本地数据未改变。';
+  } finally {
+    busy.value = false;
+  }
+}
+
+function formatExportedAt(exportedAt: number): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+  }).format(new Date(exportedAt));
+}
+
+async function chooseBackupFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (file === undefined) {
+    return;
+  }
+
+  pendingSnapshot.value = undefined;
+  backupPreview.value = undefined;
+  backupFileName.value = file.name;
+  confirmOverwrite.value = false;
+  error.value = null;
+  notice.value = null;
+  busy.value = true;
+  try {
+    if (file.size > 25 * 1024 * 1024) {
+      throw new Error('backup file is too large');
+    }
+    const text = await file.text();
+    const parsed: unknown = JSON.parse(text);
+    backupPreview.value = await props.repository.previewSnapshot(parsed);
+    pendingSnapshot.value = parsed;
+  } catch {
+    error.value = '备份校验失败，现有数据未改变。';
+  } finally {
+    busy.value = false;
+    input.value = '';
+  }
+}
+
+async function restoreBackup(): Promise<void> {
+  if (
+    pendingSnapshot.value === undefined ||
+    backupPreview.value === undefined ||
+    !confirmOverwrite.value
+  ) {
+    return;
+  }
+
+  busy.value = true;
+  error.value = null;
+  notice.value = null;
+  try {
+    const restoredStatus = await props.repository.importSnapshot(pendingSnapshot.value);
+    status.value = restoredStatus;
+    notice.value = `已恢复 ${formatExportedAt(backupPreview.value.exportedAt)} 导出的备份。`;
+    pendingSnapshot.value = undefined;
+    backupPreview.value = undefined;
+    backupFileName.value = '';
+    confirmOverwrite.value = false;
+    emit('restored', restoredStatus);
+  } catch {
+    error.value = '恢复失败，现有数据未改变。';
   } finally {
     busy.value = false;
   }
@@ -78,6 +156,52 @@ onMounted(() => {
       <button type="button" class="primary-action" :disabled="busy" @click="exportBackup">
         下载完整备份
       </button>
+    </section>
+
+    <section class="import-panel" aria-labelledby="restore-title">
+      <div>
+        <h3 id="restore-title">恢复备份</h3>
+        <p>恢复会校验完整备份并覆盖当前本地数据。确认前不会写入，失败时保留现有数据。</p>
+      </div>
+      <label class="file-picker">
+        <span>选择备份 JSON · 最大 25 MB</span>
+        <input
+          type="file"
+          accept=".json,application/json"
+          :disabled="busy"
+          @change="chooseBackupFile"
+        />
+      </label>
+
+      <div v-if="backupPreview" class="restore-preview">
+        <div class="preview-heading">
+          <div>
+            <strong>{{ backupFileName }}</strong>
+            <p>
+              导出于 {{ formatExportedAt(backupPreview.exportedAt) }} · 数据 v{{ backupPreview.schemaVersion }}
+            </p>
+          </div>
+          <span>版本兼容 · 数据 v{{ backupPreview.dataFormatVersion }}</span>
+        </div>
+        <dl>
+          <div v-for="[label, count] in backupCountRows" :key="label">
+            <dt>{{ label }}</dt>
+            <dd>{{ count }}</dd>
+          </div>
+        </dl>
+        <label class="overwrite-confirm">
+          <input v-model="confirmOverwrite" type="checkbox" :disabled="busy" />
+          我确认使用该备份覆盖当前本地数据
+        </label>
+        <button
+          type="button"
+          class="danger-action"
+          :disabled="busy || !confirmOverwrite"
+          @click="restoreBackup"
+        >
+          覆盖并恢复
+        </button>
+      </div>
     </section>
 
     <section class="counts-panel" aria-labelledby="counts-title">
@@ -111,6 +235,7 @@ onMounted(() => {
 
 .data-heading,
 .export-panel,
+.import-panel,
 .counts-heading {
   display: flex;
   align-items: flex-start;
@@ -122,6 +247,8 @@ onMounted(() => {
 .data-heading h2,
 .export-panel h3,
 .export-panel p,
+.import-panel h3,
+.import-panel p,
 .counts-panel h3,
 .counts-panel p {
   margin: 0;
@@ -150,6 +277,7 @@ onMounted(() => {
 }
 
 .export-panel,
+.import-panel,
 .counts-panel {
   padding: 20px;
   border: 1px solid #d0dad4;
@@ -162,6 +290,7 @@ onMounted(() => {
 }
 
 .export-panel h3,
+.import-panel h3,
 .counts-panel h3 {
   margin-bottom: 5px;
   color: #253a2e;
@@ -169,6 +298,7 @@ onMounted(() => {
 }
 
 .export-panel p,
+.import-panel p,
 .counts-panel p {
   color: #6d7b73;
   font-size: 0.8rem;
@@ -186,6 +316,11 @@ button {
   font-weight: 650;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.danger-action {
+  border-color: #b85d45;
+  background: #a84d36;
 }
 
 button:disabled {
@@ -212,6 +347,73 @@ dl {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin: 16px 0 0;
+}
+
+.import-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.file-picker {
+  display: grid;
+  gap: 5px;
+  width: fit-content;
+  color: #53655b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.file-picker input {
+  max-width: 100%;
+  color: #53655b;
+  font: inherit;
+}
+
+.file-picker input:focus-visible,
+.overwrite-confirm input:focus-visible {
+  outline: 3px solid rgb(45 113 83 / 28%);
+  outline-offset: 2px;
+}
+
+.restore-preview {
+  display: grid;
+  gap: 13px;
+  padding-top: 14px;
+  border-top: 1px solid #dce4df;
+}
+
+.preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-heading strong {
+  color: #253a2e;
+}
+
+.preview-heading p {
+  margin-top: 3px;
+}
+
+.preview-heading > span {
+  color: #246044;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.overwrite-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #7f4231;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.restore-preview > button {
+  justify-self: start;
 }
 
 dl div {
@@ -254,13 +456,16 @@ dd {
 
 @media (max-width: 760px) {
   .data-heading,
-  .export-panel {
+  .export-panel,
+  .preview-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
   .data-heading > span,
-  .export-panel button {
+  .export-panel button,
+  .file-picker,
+  .restore-preview > button {
     align-self: flex-start;
   }
 
