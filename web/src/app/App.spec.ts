@@ -75,6 +75,8 @@ function createTestRepository(
       newAvailableCount: 0,
       selected: [],
     }),
+    getPracticeModePreferences: async () => ({ disabledModeIds: [] }),
+    savePracticeModePreferences: async (preferences) => preferences,
     listPracticeItems: async () => [],
     listPracticeItemsByStudyItemIds: async () => [],
     getLatestPracticeSession: async () => undefined,

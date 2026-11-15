@@ -7,10 +7,12 @@ import type {
 } from '../core/domain';
 import type {
   FingerMemoryRepository,
+  PracticeModePreferences,
   PracticeQueuePlan,
   PracticeQueueSettings,
 } from '../core/repository';
 import SessionWorkbench from '../modes/SessionWorkbench.vue';
+import { TRUSTED_MODE_PLUGINS } from '../modes/registry';
 import {
   abandonPracticeSession,
   createPracticeSession,
@@ -22,6 +24,7 @@ const props = defineProps<{
 
 const items = ref<PracticeItem[]>([]);
 const queuePlan = ref<PracticeQueuePlan>();
+const modePreferences = ref<PracticeModePreferences>({ disabledModeIds: [] });
 const latestSession = ref<PracticeSession>();
 const latestSessionItems = ref<PracticeItem[]>([]);
 const activeSession = ref<PracticeSession>();
@@ -49,6 +52,15 @@ const workbenchItems = computed(() => {
   return [...merged.values()];
 });
 const selectedQueueCount = computed(() => queuePlan.value?.selected.length ?? 0);
+const disabledModeIds = computed(() => new Set(modePreferences.value.disabledModeIds));
+const enabledModePlugins = computed(() =>
+  TRUSTED_MODE_PLUGINS.filter(
+    (plugin) => !disabledModeIds.value.has(plugin.manifest.id),
+  ),
+);
+const enabledModeIds = computed(() =>
+  enabledModePlugins.value.map((plugin) => plugin.manifest.id),
+);
 
 function currentTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -72,13 +84,15 @@ async function loadWorkspace(): Promise<void> {
   error.value = null;
   try {
     const at = Date.now();
-    const [practiceItems, session, plan] = await Promise.all([
+    const [practiceItems, session, plan, preferences] = await Promise.all([
       props.repository.listPracticeItems(100),
       props.repository.getLatestPracticeSession(),
       props.repository.planPracticeQueue({ at, timeZone: currentTimeZone() }),
+      props.repository.getPracticeModePreferences(),
     ]);
     items.value = practiceItems;
     queuePlan.value = plan;
+    modePreferences.value = preferences;
     latestSession.value = session;
     latestSessionItems.value =
       session === undefined || session.status === 'completed'
@@ -159,6 +173,34 @@ async function updateQueueSettings(update: Partial<PracticeQueueSettings>): Prom
   }
 }
 
+async function updateModeEnabled(modeId: PracticeModeId, event: Event): Promise<void> {
+  const enabled = (event.target as HTMLInputElement).checked;
+  const disabled = new Set(modePreferences.value.disabledModeIds);
+  if (enabled) {
+    disabled.delete(modeId);
+  } else {
+    disabled.add(modeId);
+  }
+  if (disabled.size >= TRUSTED_MODE_PLUGINS.length) {
+    (event.target as HTMLInputElement).checked = true;
+    error.value = '至少保留一个练习模式。';
+    return;
+  }
+
+  busy.value = true;
+  error.value = null;
+  try {
+    modePreferences.value = await props.repository.savePracticeModePreferences(
+      { disabledModeIds: [...disabled] },
+      Date.now(),
+    );
+  } catch {
+    error.value = '模式启用状态未能保存。';
+  } finally {
+    busy.value = false;
+  }
+}
+
 function updateQueueLimit(
   field: 'newLimit' | 'reviewLimit',
   event: Event,
@@ -206,7 +248,7 @@ function handleSessionExit(session: PracticeSession): void {
 
 function startAnotherSession(): void {
   activeSession.value = undefined;
-  void startSession('lyrics-scroll');
+  void startSession(enabledModePlugins.value[0]?.manifest.id ?? 'lyrics-scroll');
 }
 
 onMounted(() => {
@@ -216,7 +258,7 @@ onMounted(() => {
 
 <template>
   <div v-if="loading" class="workspace-state" role="status">正在读取练习数据...</div>
-  <div v-else-if="error" class="workspace-state error" role="alert">
+  <div v-else-if="error && queuePlan === undefined" class="workspace-state error" role="alert">
     <p>{{ error }}</p>
     <button type="button" @click="loadWorkspace">重试</button>
   </div>
@@ -225,11 +267,13 @@ onMounted(() => {
     :initial-session="activeSession"
     :items="workbenchItems"
     :repository="repository"
+    :enabled-mode-ids="enabledModeIds"
     @updated="handleSessionUpdated"
     @exit="handleSessionExit"
     @new-session="startAnotherSession"
   />
   <section v-else class="practice-lobby" aria-labelledby="practice-lobby-title">
+    <p v-if="error" class="lobby-error" role="alert">{{ error }}</p>
     <div class="lobby-copy">
       <p class="lobby-kicker">歌词式滚动</p>
       <h2 id="practice-lobby-title">让词义沿着视线滚动</h2>
@@ -283,19 +327,14 @@ onMounted(() => {
       </button>
       <div class="new-session-actions">
         <button
+          v-for="plugin in enabledModePlugins"
+          :key="plugin.manifest.id"
           type="button"
-          class="primary-action"
+          :class="{ 'primary-action': plugin === enabledModePlugins[0] }"
           :disabled="busy || selectedQueueCount === 0"
-          @click="startSession('lyrics-scroll')"
+          @click="startSession(plugin.manifest.id)"
         >
-          开始歌词滚动
-        </button>
-        <button
-          type="button"
-          :disabled="busy || selectedQueueCount === 0"
-          @click="startSession('keyboard-recall')"
-        >
-          开始键盘对照
+          开始{{ plugin.manifest.label }}
         </button>
         <button
           v-if="resumableSession !== undefined"
@@ -360,6 +399,29 @@ onMounted(() => {
         当前计划为空，开始按钮已停用。调整上限或恢复队列后再开始。
       </p>
     </section>
+
+    <section
+      v-if="items.length > 0"
+      class="mode-policy"
+      aria-labelledby="mode-policy-title"
+    >
+      <div class="mode-policy-copy">
+        <p class="lobby-kicker">练习模式</p>
+        <h3 id="mode-policy-title">选择可启动的呈现方式</h3>
+        <p>当前启用 {{ enabledModePlugins.length }} 个模式。</p>
+      </div>
+      <div class="mode-preferences">
+        <label v-for="plugin in TRUSTED_MODE_PLUGINS" :key="plugin.manifest.id">
+          <input
+            type="checkbox"
+            :checked="!disabledModeIds.has(plugin.manifest.id)"
+            :disabled="busy"
+            @change="updateModeEnabled(plugin.manifest.id, $event)"
+          />
+          <span>{{ plugin.manifest.label }}</span>
+        </label>
+      </div>
+    </section>
   </section>
 </template>
 
@@ -381,6 +443,15 @@ onMounted(() => {
 
 .workspace-state.error {
   color: #9a432f;
+}
+
+.lobby-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #ad5b42;
+  background: #fbf1ed;
+  color: #8d4634;
+  font-size: 0.8rem;
 }
 
 .practice-lobby {
@@ -416,7 +487,8 @@ onMounted(() => {
 
 .empty-actions,
 .start-actions,
-.queue-policy {
+.queue-policy,
+.mode-policy {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -520,6 +592,55 @@ onMounted(() => {
   font-size: 0.76rem;
 }
 
+.mode-policy {
+  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 28px;
+  padding: 18px;
+  border: 1px solid #d3dcd6;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+
+.mode-policy-copy h3 {
+  margin: 0 0 6px;
+  color: #263c30;
+  font-size: 1.05rem;
+}
+
+.mode-policy-copy p:last-child {
+  margin: 0;
+  color: #6d7c73;
+  font-size: 0.78rem;
+}
+
+.mode-preferences {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mode-preferences label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid #c7d2cb;
+  border-radius: 6px;
+  background: #fff;
+  color: #465b50;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.mode-preferences input {
+  width: 16px;
+  height: 16px;
+}
+
 button {
   min-height: 40px;
   padding: 8px 14px;
@@ -570,7 +691,8 @@ button:focus-visible {
 
   .empty-actions,
   .start-actions,
-  .queue-policy {
+  .queue-policy,
+  .mode-policy {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -586,6 +708,10 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .mode-policy {
+    grid-template-columns: 1fr;
+  }
+
   .queue-fields {
     justify-content: flex-start;
     width: 100%;
@@ -593,6 +719,11 @@ button:focus-visible {
 
   .queue-fields label,
   .queue-fields input[type="number"] {
+    width: 100%;
+  }
+
+  .mode-preferences {
+    justify-content: flex-start;
     width: 100%;
   }
 }

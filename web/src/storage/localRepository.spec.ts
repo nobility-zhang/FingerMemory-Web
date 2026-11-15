@@ -1095,6 +1095,31 @@ describe('due filtering, recovery and backup import', () => {
     });
   });
 
+  it('persists enabled mode preferences and refuses to disable every mode', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+
+    await expect(repository.getPracticeModePreferences()).resolves.toEqual({
+      disabledModeIds: [],
+    });
+    await expect(
+      repository.savePracticeModePreferences(
+        { disabledModeIds: ['keyboard-recall'] },
+        INITIAL_TIME,
+      ),
+    ).resolves.toEqual({ disabledModeIds: ['keyboard-recall'] });
+    await expect(repository.getPracticeModePreferences()).resolves.toEqual({
+      disabledModeIds: ['keyboard-recall'],
+    });
+    await expect(
+      repository.savePracticeModePreferences(
+        { disabledModeIds: ['keyboard-recall', 'lyrics-scroll'] },
+        INITIAL_TIME + 1,
+      ),
+    ).rejects.toThrow('at least one practice mode');
+  });
+
   it('restores serialized state and logs and preserves duplicate protection', async () => {
     const sourceDatabase = createDatabase();
     const sourceRepository = createRepository(sourceDatabase);

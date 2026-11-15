@@ -185,6 +185,10 @@ export interface ReviewHistoryEntry {
   issue: string | null;
 }
 
+export interface PracticeModePreferences {
+  disabledModeIds: PracticeModeId[];
+}
+
 export interface StorageSnapshotTableData {
   appMeta: AppMetaRecord[];
   lexicons: Lexicon[];
@@ -239,6 +243,11 @@ export interface FingerMemoryRepository {
     at: TimestampMs;
     timeZone: string;
   }): Promise<PracticeQueuePlan>;
+  getPracticeModePreferences(): Promise<PracticeModePreferences>;
+  savePracticeModePreferences(
+    preferences: PracticeModePreferences,
+    now: TimestampMs,
+  ): Promise<PracticeModePreferences>;
   listPracticeItems(limit?: number): Promise<PracticeItem[]>;
   listPracticeItemsByStudyItemIds(studyItemIds: string[]): Promise<PracticeItem[]>;
   getLatestPracticeSession(modeId?: PracticeModeId): Promise<PracticeSession | undefined>;

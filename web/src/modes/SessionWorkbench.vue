@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import type { Component } from 'vue';
 import type {
   PendingAnswer,
   PracticeInteractionState,
@@ -28,19 +29,25 @@ import {
   updateSessionDraft,
 } from '../session/practiceSession';
 import AnswerPanel from './AnswerPanel.vue';
-import { PRACTICE_MODES } from './registry';
+import {
+  TRUSTED_MODE_PLUGINS,
+  createTrustedModeRegistry,
+} from './registry';
+import type { PracticeModeEvent } from './types';
 
 const props = withDefaults(
   defineProps<{
     initialSession: PracticeSession;
     items: PracticeItem[];
     repository: FingerMemoryRepository;
+    enabledModeIds?: PracticeModeId[];
     clock?: () => number;
     idFactory?: (prefix: string) => string;
   }>(),
   {
     clock: () => Date.now(),
     idFactory: (prefix: string) => `${prefix}:${crypto.randomUUID()}`,
+    enabledModeIds: () => TRUSTED_MODE_PLUGINS.map((plugin) => plugin.manifest.id),
   },
 );
 
@@ -51,6 +58,9 @@ const emit = defineEmits<{
 }>();
 
 const session = ref<PracticeSession>({ ...props.initialSession });
+const modeRegistry = createTrustedModeRegistry();
+const activeModeComponent = shallowRef<Component>();
+const modeEventListeners = new Set<(event: PracticeModeEvent) => void>();
 const busy = ref(false);
 const error = ref<string | null>(null);
 const confirmAbandon = ref(false);
@@ -70,8 +80,18 @@ const orderedItems = computed(() =>
     .filter((item): item is PracticeItem => item !== undefined),
 );
 const activeMode = computed(
-  () => PRACTICE_MODES.find((mode) => mode.id === session.value.modeId) ?? PRACTICE_MODES[0]!,
+  () =>
+    modeRegistry.get(session.value.modeId)?.manifest ??
+    TRUSTED_MODE_PLUGINS[0]!.manifest,
 );
+const availableModes = computed(() => {
+  const enabled = new Set(props.enabledModeIds);
+  return TRUSTED_MODE_PLUGINS.filter(
+    (plugin) =>
+      enabled.has(plugin.manifest.id) ||
+      plugin.manifest.id === session.value.modeId,
+  );
+});
 const currentItem = computed(() => orderedItems.value[session.value.currentIndex]);
 const currentInteraction = computed<PracticeInteractionState>(() => {
   const studyItemId = session.value.currentStudyItemId;
@@ -157,7 +177,9 @@ async function persist(nextSession: PracticeSession): Promise<boolean> {
 }
 
 async function changeMode(modeId: PracticeModeId): Promise<void> {
-  await persist(switchSessionMode(session.value, modeId, now()));
+  if (await persist(switchSessionMode(session.value, modeId, now()))) {
+    activateMode(modeId);
+  }
 }
 
 async function togglePause(): Promise<void> {
@@ -186,7 +208,15 @@ async function selectItem(index: number): Promise<void> {
   if (isPaused.value || session.value.pendingAnswer !== null) {
     return;
   }
-  await persist(selectSessionItem(session.value, index, now()));
+  const selected = selectSessionItem(session.value, index, now());
+  if (selected !== session.value && (await persist(selected))) {
+    emitModeEvent({
+      type: 'target-selected',
+      sessionId: session.value.id,
+      studyItemId: selected.currentStudyItemId ?? '',
+      occurredAt: selected.updatedAt,
+    });
+  }
 }
 
 async function revealHint(): Promise<void> {
@@ -239,7 +269,52 @@ async function submitAnswer(): Promise<void> {
   };
   busy.value = true;
   await persist({ ...session.value, pendingAnswer, updatedAt: now() });
+  emitModeEvent({
+    type: 'answer-submitted',
+    sessionId: session.value.id,
+    studyItemId: pendingAnswer.studyItemId,
+    occurredAt: pendingAnswer.submittedAt,
+  });
   busy.value = false;
+}
+
+function subscribeModeEvents(listener: (event: PracticeModeEvent) => void): () => void {
+  modeEventListeners.add(listener);
+  return () => {
+    modeEventListeners.delete(listener);
+  };
+}
+
+function emitModeEvent(event: PracticeModeEvent): void {
+  for (const listener of modeEventListeners) {
+    listener(event);
+  }
+}
+
+function currentPluginContext() {
+  return {
+    sessionId: session.value.id,
+    getSession: () => session.value,
+    getItems: () => orderedItems.value,
+    subscribe: subscribeModeEvents,
+    commands: {
+      selectTarget: selectItem,
+      recordPractice: (input: Parameters<FingerMemoryRepository['recordPracticeAttempt']>[0]) =>
+        props.repository.recordPracticeAttempt(input),
+      submitReview: (input: Parameters<FingerMemoryRepository['submitReview']>[0]) =>
+        props.repository.submitReview(input),
+    },
+  };
+}
+
+function activateMode(modeId: PracticeModeId): void {
+  const instance = modeRegistry.activate(modeId, currentPluginContext());
+  activeModeComponent.value = instance.component;
+  emitModeEvent({
+    type: 'session-started',
+    sessionId: session.value.id,
+    occurredAt: now(),
+  });
 }
 
 async function loadRatingPreviews(pendingAnswer: PendingAnswer): Promise<void> {
@@ -346,6 +421,12 @@ async function chooseRating(rating: ReviewRating): Promise<void> {
       ...reviewStatesByStudyItemId.value,
       [result.state.studyItemId]: result.state,
     };
+    emitModeEvent({
+      type: 'review-submitted',
+      sessionId: session.value.id,
+      studyItemId: pendingAnswer.studyItemId,
+      occurredAt: pendingAnswer.submittedAt,
+    });
     await completeItem('completed');
   } catch {
     error.value = '正式复习未保存，当前答案仍保留，可重试。';
@@ -386,6 +467,12 @@ async function recordPractice(requeueCurrent = false): Promise<void> {
       abandoned: false,
       occurredAt: pendingAnswer.submittedAt,
     });
+    emitModeEvent({
+      type: 'practice-recorded',
+      sessionId: session.value.id,
+      studyItemId: pendingAnswer.studyItemId,
+      occurredAt: pendingAnswer.submittedAt,
+    });
     await completeItem('completed', requeueCurrent);
   } catch {
     error.value = '练习记录未保存，请重试。';
@@ -417,6 +504,12 @@ async function skipCurrent(): Promise<void> {
       hintUsed: interaction.revealedHintCount > 0,
       answerRevealed: interaction.answerRevealed,
       abandoned: true,
+      occurredAt: now(),
+    });
+    emitModeEvent({
+      type: 'practice-recorded',
+      sessionId: session.value.id,
+      studyItemId: currentItem.value.studyItem.id,
       occurredAt: now(),
     });
     await completeItem('skipped');
@@ -454,11 +547,18 @@ function handleVisibilityChange(): void {
 
 onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  activateMode(session.value.modeId);
   void loadReviewStates();
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  emitModeEvent({
+    type: 'session-stopped',
+    sessionId: session.value.id,
+    occurredAt: now(),
+  });
+  modeRegistry.deactivate();
   if (session.value.status === 'active') {
     void props.repository
       .savePracticeSession(pausePracticeSession(session.value, now()))
@@ -523,15 +623,15 @@ watch(
     <div class="mode-toolbar">
       <div class="mode-switch" role="group" aria-label="练习模式">
         <button
-          v-for="mode in PRACTICE_MODES"
-          :key="mode.id"
+          v-for="mode in availableModes"
+          :key="mode.manifest.id"
           type="button"
-          :class="{ selected: mode.id === session.modeId }"
-          :aria-pressed="mode.id === session.modeId"
+          :class="{ selected: mode.manifest.id === session.modeId }"
+          :aria-pressed="mode.manifest.id === session.modeId"
           :disabled="busy"
-          @click="changeMode(mode.id)"
+          @click="changeMode(mode.manifest.id)"
         >
-          {{ mode.label }}
+          {{ mode.manifest.label }}
         </button>
       </div>
 
@@ -586,7 +686,7 @@ watch(
 
     <template v-else-if="currentItem !== undefined">
       <component
-        :is="activeMode.component"
+        :is="activeModeComponent"
         :items="orderedItems"
         :queue="session.queue"
         :current-index="session.currentIndex"

@@ -22,6 +22,63 @@ afterEach(async () => {
 });
 
 describe('PracticeWorkspace', () => {
+  it('honors disabled mode preferences and keeps one mode enabled', async () => {
+    await FingerMemoryDatabase.delete(databaseName);
+    database = new FingerMemoryDatabase(databaseName);
+    const repository = createFingerMemoryRepository(database, {
+      scheduler,
+      clock: () => Date.now(),
+    });
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '模式测试',
+      description: '',
+      now: Date.now(),
+    });
+    await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: Date.now() + 1,
+    });
+    await repository.savePracticeModePreferences(
+      { disabledModeIds: ['keyboard-recall'] },
+      Date.now() + 2,
+    );
+
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(PracticeWorkspace, { repository });
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      expect(buttonByText(root, '开始歌词滚动')).toBeDefined();
+      expect(buttonByText(root, '开始键盘对照')).toBeUndefined();
+    });
+    const modeCheckboxes = root.querySelectorAll<HTMLInputElement>(
+      '.mode-preferences input[type="checkbox"]',
+    );
+    modeCheckboxes[0]?.click();
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('至少保留一个练习模式');
+    });
+    await expect(repository.getPracticeModePreferences()).resolves.toEqual({
+      disabledModeIds: ['keyboard-recall'],
+    });
+
+    await vi.waitFor(() => {
+      expect(buttonByText(root, '开始歌词滚动')?.disabled).toBe(false);
+    });
+    buttonByText(root, '开始歌词滚动')?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('#session-title')?.textContent).toBe('歌词滚动');
+      expect(buttonByText(root, '键盘对照')).toBeUndefined();
+    });
+  });
+
   it('uses configured queue limits and makes pause empty the next plan', async () => {
     await FingerMemoryDatabase.delete(databaseName);
     database = new FingerMemoryDatabase(databaseName);

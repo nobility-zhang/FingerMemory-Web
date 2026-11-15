@@ -21,6 +21,7 @@ export const APP_META_KEYS = {
   initializedAt: 'database.initializedAt',
   dataFormatVersion: 'data.formatVersion',
   practiceQueueSettings: 'practice.queueSettings',
+  practiceModePreferences: 'practice.modePreferences',
 } as const;
 
 export const LEGACY_STORES_V1 = {

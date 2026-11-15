@@ -24,6 +24,7 @@ import type {
   LexiconStudyItem,
   PracticeQueuePlan,
   PracticeQueueSettings,
+  PracticeModePreferences,
   PracticeAttemptInput,
   PracticeAttemptResult,
   ReviewHistoryEntry,
@@ -113,6 +114,53 @@ const DEFAULT_PRACTICE_QUEUE_SETTINGS: PracticeQueueSettings = {
   reviewLimit: 50,
   paused: false,
 };
+
+const KNOWN_PRACTICE_MODE_IDS = new Set([
+  'keyboard-recall',
+  'lyrics-scroll',
+]);
+
+function assertPracticeModePreferences(preferences: PracticeModePreferences): void {
+  if (!Array.isArray(preferences.disabledModeIds)) {
+    throw new TypeError('disabled mode ids must be an array');
+  }
+  if (new Set(preferences.disabledModeIds).size !== preferences.disabledModeIds.length) {
+    throw new TypeError('disabled mode ids must be unique');
+  }
+  for (const modeId of preferences.disabledModeIds) {
+    if (!KNOWN_PRACTICE_MODE_IDS.has(modeId)) {
+      throw new TypeError(`unknown practice mode id: ${String(modeId)}`);
+    }
+  }
+  if (preferences.disabledModeIds.length >= KNOWN_PRACTICE_MODE_IDS.size) {
+    throw new TypeError('at least one practice mode must remain enabled');
+  }
+}
+
+function readPracticeModePreferences(value: string | undefined): PracticeModePreferences {
+  if (value === undefined) {
+    return { disabledModeIds: [] };
+  }
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'disabledModeIds' in parsed &&
+      Array.isArray(parsed.disabledModeIds) &&
+      parsed.disabledModeIds.every((modeId) => typeof modeId === 'string')
+    ) {
+      const preferences = {
+        disabledModeIds: parsed.disabledModeIds as PracticeModePreferences['disabledModeIds'],
+      };
+      assertPracticeModePreferences(preferences);
+      return preferences;
+    }
+  } catch {
+    return { disabledModeIds: [] };
+  }
+  return { disabledModeIds: [] };
+}
 
 function assertPracticeQueueSettings(settings: PracticeQueueSettings): void {
   if (!Number.isInteger(settings.newLimit) || settings.newLimit < 0 || settings.newLimit > 100) {
@@ -1254,6 +1302,32 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     await this.database.open();
     await this.database.appMeta.put({
       key: APP_META_KEYS.practiceQueueSettings,
+      value: JSON.stringify(normalized),
+      updatedAt: now,
+    });
+    return normalized;
+  }
+
+  async getPracticeModePreferences(): Promise<PracticeModePreferences> {
+    await this.database.open();
+    const record = await this.database.appMeta.get(
+      APP_META_KEYS.practiceModePreferences,
+    );
+    return readPracticeModePreferences(record?.value);
+  }
+
+  async savePracticeModePreferences(
+    preferences: PracticeModePreferences,
+    now: TimestampMs,
+  ): Promise<PracticeModePreferences> {
+    assertPracticeModePreferences(preferences);
+    assertTimestamp(now, 'mode preferences update time');
+    const normalized = {
+      disabledModeIds: [...preferences.disabledModeIds].sort(),
+    };
+    await this.database.open();
+    await this.database.appMeta.put({
+      key: APP_META_KEYS.practiceModePreferences,
       value: JSON.stringify(normalized),
       updatedAt: now,
     });

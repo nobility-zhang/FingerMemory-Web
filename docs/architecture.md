@@ -160,19 +160,15 @@ M1-02 落地 schema v1；当前已通过 Dexie v3 迁移到词条、学习目标
 
 ## 模式插件边界
 
-当前只有最小内部模式边界，不声称已有 M5 插件系统：
-
-- `modes/types.ts` 定义共享视图输入和模式定义；`modes/registry.ts` 注册守信的键盘对照与歌词滚动组件。
-- 模式只负责呈现和选择目标；输入、提示、揭晓、跳过、评分提交、会话保存和资源清理由共享工作台统一处理。
-- `SessionWorkbench` 在卸载时移除 `visibilitychange` 监听，并尽力暂停保存；歌词定位使用 CSS transition，不创建 interval 或 `requestAnimationFrame`；当前模式没有音频资源。
-
-第一版插件是随项目构建、可信、同源的 TypeScript 模块，不是安全沙箱。最小契约：
+M5 已落地随项目构建、可信、同源的 TypeScript 插件注册表，不声称具备安全沙箱。契约：
 
 - `id`、显示名、版本、能力声明和默认配置。
-- `setup(context)` 注册 UI 挂载点、事件订阅和配置；`start/stop` 管理一次会话生命周期。
-- 插件只能通过核心查询取题、通过核心命令提交练习或正式复习。
+- `setup(context)` 返回组件和 `start/stop/dispose`；上下文提供会话/词条只读查询、会话事件订阅，以及取目标、练习和正式复习命令。
+- 注册表拒绝重复 ID、空身份、重复能力声明和越界配置；同一时刻只激活一个模式插件。
 - 返回 `dispose()`，必须清理键盘监听、定时器、`requestAnimationFrame`、观察器、音频和 DOM 订阅。
-- 注册表拒绝重复 ID、未知生命周期和不允许的持久化键；禁用插件后保留数据但停止事件和资源。
+- 模式组件只负责呈现和选择目标；输入、提示、揭晓、跳过、评分提交、会话保存和资源清理由共享工作台统一处理。
+- `appMeta['practice.modePreferences']` 保存禁用的模式 ID，并保证至少一个模式可用；禁用后保留全部学习数据。
+- `SessionWorkbench` 在卸载时停止并销毁当前插件，移除 `visibilitychange` 监听并尽力暂停保存；歌词定位使用 CSS transition，不创建 interval 或 `requestAnimationFrame`。
 
 远程安装、动态 `eval`、第三方脚本和跨站 iframe 不属于第一版。
 
