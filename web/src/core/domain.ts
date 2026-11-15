@@ -18,6 +18,8 @@ export type PracticeSessionEndReason = 'completed' | 'abandoned';
 
 export type PracticeQueueItemStatus = 'pending' | 'completed' | 'skipped';
 
+export type PracticeQueueItemSource = 'new' | 'review' | 'retry';
+
 export interface AppMetaRecord {
   key: string;
   value: string;
@@ -171,6 +173,7 @@ export interface PracticeSessionQueueItem {
   studyItemId: EntityId;
   wordEntryId: EntityId;
   status: PracticeQueueItemStatus;
+  source: PracticeQueueItemSource;
 }
 
 export interface PracticeInteractionState {

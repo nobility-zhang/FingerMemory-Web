@@ -20,6 +20,7 @@ export const DATA_FORMAT_VERSION = 3;
 export const APP_META_KEYS = {
   initializedAt: 'database.initializedAt',
   dataFormatVersion: 'data.formatVersion',
+  practiceQueueSettings: 'practice.queueSettings',
 } as const;
 
 export const LEGACY_STORES_V1 = {

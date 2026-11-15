@@ -198,6 +198,7 @@ const practiceSessionQueueItemSchema = z
     studyItemId: idSchema,
     wordEntryId: idSchema,
     status: z.enum(['pending', 'completed', 'skipped']),
+    source: z.enum(['new', 'review', 'retry']),
   })
   .strict();
 

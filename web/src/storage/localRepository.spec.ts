@@ -952,6 +952,74 @@ describe('due filtering, recovery and backup import', () => {
     ]);
   });
 
+  it('plans bounded new and due queues and honors a persisted pause', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '队列测试',
+      description: '',
+      now: INITIAL_TIME,
+    });
+    const created = [];
+    for (const [index, term] of ['memory', 'cursor', 'window'].entries()) {
+      created.push(
+        await repository.createStudyItem({
+          lexiconId: lexicon.id,
+          term,
+          meaning: ['记忆', '光标', '窗口'][index]!,
+          acceptedAnswers: [],
+          hints: [],
+          now: INITIAL_TIME + index + 1,
+        }),
+      );
+    }
+    await repository.submitReview(
+      createReviewInput({
+        submissionId: 'queue-review',
+        studyItemId: created[0]!.practiceItem.studyItem.id,
+        modeId: 'lyrics-scroll',
+      }),
+    );
+    await database.reviewStates.update(created[0]!.practiceItem.studyItem.id, {
+      dueAt: INITIAL_TIME + 30 * 60_000,
+    });
+    await repository.savePracticeQueueSettings(
+      { newLimit: 1, reviewLimit: 1, paused: false },
+      INITIAL_TIME + 10,
+    );
+
+    const plan = await repository.planPracticeQueue({
+      at: INITIAL_TIME + 20,
+      timeZone: 'UTC',
+    });
+    expect(plan).toMatchObject({
+      dueAvailableCount: 1,
+      newAvailableCount: 2,
+      settings: { newLimit: 1, reviewLimit: 1, paused: false },
+    });
+    expect(plan.selected.map((entry) => entry.source)).toEqual(['review', 'new']);
+    expect(plan.selected.map((entry) => entry.item.studyItem.id)).toContain(
+      created[0]!.practiceItem.studyItem.id,
+    );
+
+    await repository.savePracticeQueueSettings(
+      { newLimit: 1, reviewLimit: 1, paused: true },
+      INITIAL_TIME + 30,
+    );
+    const paused = await repository.planPracticeQueue({
+      at: INITIAL_TIME + 31,
+      timeZone: 'UTC',
+    });
+    expect(paused.selected).toEqual([]);
+    expect(paused).toMatchObject({ dueAvailableCount: 1, newAvailableCount: 2 });
+    await expect(repository.getPracticeQueueSettings()).resolves.toEqual({
+      newLimit: 1,
+      reviewLimit: 1,
+      paused: true,
+    });
+  });
+
   it('restores serialized state and logs and preserves duplicate protection', async () => {
     const sourceDatabase = createDatabase();
     const sourceRepository = createRepository(sourceDatabase);

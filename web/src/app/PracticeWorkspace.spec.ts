@@ -22,6 +22,67 @@ afterEach(async () => {
 });
 
 describe('PracticeWorkspace', () => {
+  it('uses configured queue limits and makes pause empty the next plan', async () => {
+    await FingerMemoryDatabase.delete(databaseName);
+    database = new FingerMemoryDatabase(databaseName);
+    const repository = createFingerMemoryRepository(database, {
+      scheduler,
+      clock: () => Date.now(),
+    });
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '队列界面测试',
+      description: '',
+      now: Date.now(),
+    });
+    for (const [index, term] of ['memory', 'cursor', 'window'].entries()) {
+      await repository.createStudyItem({
+        lexiconId: lexicon.id,
+        term,
+        meaning: ['记忆', '光标', '窗口'][index]!,
+        acceptedAnswers: [],
+        hints: [],
+        now: Date.now() + index + 1,
+      });
+    }
+    await repository.savePracticeQueueSettings(
+      { newLimit: 2, reviewLimit: 0, paused: false },
+      Date.now() + 10,
+    );
+
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(PracticeWorkspace, { repository });
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('本次计划 2');
+    });
+    buttonByText(root, '开始歌词滚动')?.click();
+    await vi.waitFor(async () => {
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        queue: [
+          { source: 'new', status: 'pending' },
+          { source: 'new', status: 'pending' },
+        ],
+      });
+    });
+    buttonByText(root, '退出模式')?.click();
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('暂停加入新内容');
+    });
+
+    root.querySelector<HTMLInputElement>('.queue-pause input')?.click();
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('当前计划为空');
+      expect(buttonByText(root, '开始歌词滚动')?.disabled).toBe(true);
+    });
+    await expect(repository.getPracticeQueueSettings()).resolves.toMatchObject({
+      paused: true,
+    });
+  });
+
   it('keeps a newly started session resumable after exiting the mode', async () => {
     await FingerMemoryDatabase.delete(databaseName);
     database = new FingerMemoryDatabase(databaseName);

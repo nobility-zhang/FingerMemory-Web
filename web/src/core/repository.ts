@@ -5,6 +5,7 @@ import type {
   PracticeItem,
   PracticeAttempt,
   PracticeModeId,
+  PracticeQueueItemSource,
   PracticeSession,
   ReviewLog,
   ReviewRating,
@@ -145,6 +146,28 @@ export interface DueReviewItem {
   reviewState: ReviewState;
 }
 
+export interface PracticeQueueSettings {
+  newLimit: number;
+  reviewLimit: number;
+  paused: boolean;
+}
+
+export interface PlannedPracticeQueueItem {
+  item: PracticeItem;
+  source: Extract<PracticeQueueItemSource, 'new' | 'review'>;
+}
+
+export interface PracticeQueuePlan {
+  at: TimestampMs;
+  timeZone: string;
+  dayStartAt: TimestampMs;
+  dayEndAt: TimestampMs;
+  settings: PracticeQueueSettings;
+  dueAvailableCount: number;
+  newAvailableCount: number;
+  selected: PlannedPracticeQueueItem[];
+}
+
 export interface StorageSnapshotTableData {
   appMeta: AppMetaRecord[];
   lexicons: Lexicon[];
@@ -190,6 +213,15 @@ export interface FingerMemoryRepository {
   importStudyItems(input: ImportStudyItemsInput): Promise<ImportStudyItemsResult>;
   listStudyNotes(): Promise<StudyNote[]>;
   saveStudyNote(input: SaveStudyNoteInput): Promise<StudyNote | undefined>;
+  getPracticeQueueSettings(): Promise<PracticeQueueSettings>;
+  savePracticeQueueSettings(
+    settings: PracticeQueueSettings,
+    now: TimestampMs,
+  ): Promise<PracticeQueueSettings>;
+  planPracticeQueue(input: {
+    at: TimestampMs;
+    timeZone: string;
+  }): Promise<PracticeQueuePlan>;
   listPracticeItems(limit?: number): Promise<PracticeItem[]>;
   listPracticeItemsByStudyItemIds(studyItemIds: string[]): Promise<PracticeItem[]>;
   getLatestPracticeSession(modeId?: PracticeModeId): Promise<PracticeSession | undefined>;

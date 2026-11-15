@@ -2,6 +2,96 @@ import type { TimestampMs } from './domain';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+interface LocalDateParts {
+  year: number;
+  month: number;
+  day: number;
+}
+
+function partsAt(timestamp: TimestampMs, timeZone: string): LocalDateParts {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(timestamp));
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(values.get('year')),
+    month: Number(values.get('month')),
+    day: Number(values.get('day')),
+  };
+}
+
+function wallClockToTimestamp(parts: LocalDateParts, timeZone: string): TimestampMs {
+  const target = Date.UTC(parts.year, parts.month - 1, parts.day);
+  let guess = target;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const observedParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(guess));
+    const values = new Map(observedParts.map((part) => [part.type, part.value]));
+    const observed = Date.UTC(
+      Number(values.get('year')),
+      Number(values.get('month')) - 1,
+      Number(values.get('day')),
+      Number(values.get('hour')),
+      Number(values.get('minute')),
+      Number(values.get('second')),
+    );
+    const difference = target - observed;
+    guess += difference;
+    if (difference === 0) {
+      break;
+    }
+  }
+
+  return guess;
+}
+
+export interface LocalDayRange {
+  startAt: TimestampMs;
+  endAt: TimestampMs;
+}
+
+export function getLocalDayRange(
+  at: TimestampMs,
+  timeZone: string,
+): LocalDayRange {
+  if (!Number.isFinite(at)) {
+    throw new TypeError('Current timestamp must be finite');
+  }
+  if (timeZone.trim().length === 0) {
+    throw new TypeError('Time zone must not be empty');
+  }
+
+  const current = partsAt(at, timeZone);
+  const nextDate = new Date(Date.UTC(current.year, current.month - 1, current.day + 1));
+  return {
+    startAt: wallClockToTimestamp(current, timeZone),
+    endAt: wallClockToTimestamp(
+      {
+        year: nextDate.getUTCFullYear(),
+        month: nextDate.getUTCMonth() + 1,
+        day: nextDate.getUTCDate(),
+      },
+      timeZone,
+    ),
+  };
+}
+
 function calendarDaySerial(timestamp: TimestampMs, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,

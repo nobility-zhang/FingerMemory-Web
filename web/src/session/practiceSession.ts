@@ -43,6 +43,7 @@ export function createPracticeSession(input: {
   id: string;
   modeId: PracticeModeId;
   items: PracticeItem[];
+  sources?: Readonly<Record<string, 'new' | 'review'>>;
   now: TimestampMs;
   reduceMotion: boolean;
 }): PracticeSession {
@@ -54,6 +55,7 @@ export function createPracticeSession(input: {
     studyItemId: item.studyItem.id,
     wordEntryId: item.wordEntry.id,
     status: 'pending',
+    source: input.sources?.[item.studyItem.id] ?? 'new',
   }));
 
   return {
@@ -238,6 +240,7 @@ export function completeCurrentSessionItem(
         studyItemId: currentItem.studyItemId,
         wordEntryId: currentItem.wordEntryId,
         status: 'pending',
+        source: 'retry',
       },
     ];
     interactions = { ...session.interactions };

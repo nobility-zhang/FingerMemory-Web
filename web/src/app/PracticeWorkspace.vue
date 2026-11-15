@@ -5,7 +5,11 @@ import type {
   PracticeModeId,
   PracticeSession,
 } from '../core/domain';
-import type { FingerMemoryRepository } from '../core/repository';
+import type {
+  FingerMemoryRepository,
+  PracticeQueuePlan,
+  PracticeQueueSettings,
+} from '../core/repository';
 import SessionWorkbench from '../modes/SessionWorkbench.vue';
 import {
   abandonPracticeSession,
@@ -17,6 +21,7 @@ const props = defineProps<{
 }>();
 
 const items = ref<PracticeItem[]>([]);
+const queuePlan = ref<PracticeQueuePlan>();
 const latestSession = ref<PracticeSession>();
 const latestSessionItems = ref<PracticeItem[]>([]);
 const activeSession = ref<PracticeSession>();
@@ -43,6 +48,20 @@ const workbenchItems = computed(() => {
   }
   return [...merged.values()];
 });
+const selectedQueueCount = computed(() => queuePlan.value?.selected.length ?? 0);
+
+function currentTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
+async function loadQueuePlan(at = Date.now()): Promise<PracticeQueuePlan> {
+  const plan = await props.repository.planPracticeQueue({
+    at,
+    timeZone: currentTimeZone(),
+  });
+  queuePlan.value = plan;
+  return plan;
+}
 
 function preferredReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -52,11 +71,14 @@ async function loadWorkspace(): Promise<void> {
   loading.value = true;
   error.value = null;
   try {
-    const [practiceItems, session] = await Promise.all([
+    const at = Date.now();
+    const [practiceItems, session, plan] = await Promise.all([
       props.repository.listPracticeItems(100),
       props.repository.getLatestPracticeSession(),
+      props.repository.planPracticeQueue({ at, timeZone: currentTimeZone() }),
     ]);
     items.value = practiceItems;
+    queuePlan.value = plan;
     latestSession.value = session;
     latestSessionItems.value =
       session === undefined || session.status === 'completed'
@@ -76,6 +98,7 @@ async function loadStarterContent(): Promise<void> {
   error.value = null;
   try {
     items.value = await props.repository.ensureStarterContent();
+    await loadQueuePlan();
   } catch {
     error.value = '示例词库未能保存。';
   } finally {
@@ -84,30 +107,70 @@ async function loadStarterContent(): Promise<void> {
 }
 
 async function startSession(modeId: PracticeModeId = 'lyrics-scroll'): Promise<void> {
-  if (items.value.length === 0) {
-    return;
-  }
-
   busy.value = true;
   error.value = null;
   try {
     const now = Date.now();
+    const plan = await loadQueuePlan(now);
+    if (plan.selected.length === 0) {
+      error.value = '今日队列为空，请调整上限、恢复队列或先添加词条。';
+      return;
+    }
+    const planItems = plan.selected.map((entry) => entry.item);
+    const sources = Object.fromEntries(
+      plan.selected.map((entry) => [entry.item.studyItem.id, entry.source]),
+    );
     const session = createPracticeSession({
       id: crypto.randomUUID(),
       modeId,
-      items: items.value,
+      items: planItems,
+      sources,
       now,
       reduceMotion: preferredReducedMotion(),
     });
     const saved = await props.repository.savePracticeSession(session);
     latestSession.value = saved;
-    latestSessionItems.value = items.value;
+    latestSessionItems.value = planItems;
     activeSession.value = saved;
   } catch {
     error.value = '无法创建练习会话。';
   } finally {
     busy.value = false;
   }
+}
+
+async function updateQueueSettings(update: Partial<PracticeQueueSettings>): Promise<void> {
+  const current = queuePlan.value?.settings;
+  if (current === undefined) {
+    return;
+  }
+  busy.value = true;
+  error.value = null;
+  try {
+    await props.repository.savePracticeQueueSettings(
+      { ...current, ...update },
+      Date.now(),
+    );
+    await loadQueuePlan();
+  } catch {
+    error.value = '队列设置未能保存，现有计划未改变。';
+  } finally {
+    busy.value = false;
+  }
+}
+
+function updateQueueLimit(
+  field: 'newLimit' | 'reviewLimit',
+  event: Event,
+): void {
+  const value = Number((event.target as HTMLInputElement).value);
+  void updateQueueSettings({ [field]: value });
+}
+
+function updateQueuePaused(event: Event): void {
+  void updateQueueSettings({
+    paused: (event.target as HTMLInputElement).checked,
+  });
 }
 
 function continueSession(): void {
@@ -202,7 +265,13 @@ onMounted(() => {
       </div>
     </div>
     <div v-else class="start-actions">
-      <p>{{ items.length }} 个学习目标已保存在本地。</p>
+      <div class="queue-overview">
+        <p>{{ items.length }} 个学习目标已保存在本地。</p>
+        <p v-if="queuePlan !== undefined" class="queue-counts">
+          今日到期 {{ queuePlan.dueAvailableCount }} · 可学新词
+          {{ queuePlan.newAvailableCount }} · 本次计划 {{ selectedQueueCount }}
+        </p>
+      </div>
       <button
         v-if="resumableSession !== undefined"
         type="button"
@@ -213,10 +282,19 @@ onMounted(() => {
         打开上次会话 · {{ resumableSession.status === 'paused' ? '已暂停' : '进行中' }}
       </button>
       <div class="new-session-actions">
-        <button type="button" class="primary-action" :disabled="busy" @click="startSession('lyrics-scroll')">
+        <button
+          type="button"
+          class="primary-action"
+          :disabled="busy || selectedQueueCount === 0"
+          @click="startSession('lyrics-scroll')"
+        >
           开始歌词滚动
         </button>
-        <button type="button" :disabled="busy" @click="startSession('keyboard-recall')">
+        <button
+          type="button"
+          :disabled="busy || selectedQueueCount === 0"
+          @click="startSession('keyboard-recall')"
+        >
           开始键盘对照
         </button>
         <button
@@ -230,6 +308,58 @@ onMounted(() => {
         </button>
       </div>
     </div>
+
+    <section
+      v-if="items.length > 0 && queuePlan !== undefined"
+      class="queue-policy"
+      aria-labelledby="queue-policy-title"
+    >
+      <div class="queue-policy-copy">
+        <p class="lobby-kicker">今日队列</p>
+        <h3 id="queue-policy-title">控制本次取词范围</h3>
+        <p>
+          到期复习优先，新词随后加入。会话开始后队列固定；暂停不会删除已有会话或历史。
+        </p>
+      </div>
+      <div class="queue-fields">
+        <label>
+          <span>新词上限</span>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+            :value="queuePlan.settings.newLimit"
+            :disabled="busy"
+            @change="updateQueueLimit('newLimit', $event)"
+          />
+        </label>
+        <label>
+          <span>复习上限</span>
+          <input
+            type="number"
+            min="0"
+            max="500"
+            step="1"
+            :value="queuePlan.settings.reviewLimit"
+            :disabled="busy"
+            @change="updateQueueLimit('reviewLimit', $event)"
+          />
+        </label>
+        <label class="queue-pause">
+          <input
+            type="checkbox"
+            :checked="queuePlan.settings.paused"
+            :disabled="busy"
+            @change="updateQueuePaused"
+          />
+          <span>暂停加入新内容</span>
+        </label>
+      </div>
+      <p v-if="selectedQueueCount === 0" class="queue-empty-note" role="status">
+        当前计划为空，开始按钮已停用。调整上限或恢复队列后再开始。
+      </p>
+    </section>
   </section>
 </template>
 
@@ -285,7 +415,8 @@ onMounted(() => {
 }
 
 .empty-actions,
-.start-actions {
+.start-actions,
+.queue-policy {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -299,6 +430,94 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.queue-overview {
+  display: grid;
+  gap: 5px;
+}
+
+.queue-counts {
+  color: #465b50 !important;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.queue-policy {
+  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 28px;
+  padding: 18px;
+  border: 1px solid #d3dcd6;
+  border-radius: 8px;
+  background: #f8faf9;
+}
+
+.queue-policy-copy h3 {
+  margin: 0 0 6px;
+  color: #263c30;
+  font-size: 1.05rem;
+}
+
+.queue-policy-copy p:last-child {
+  max-width: 52ch;
+  margin: 0;
+  color: #6d7c73;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.queue-fields {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.queue-fields label {
+  display: grid;
+  gap: 5px;
+  color: #586960;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.queue-fields input[type="number"] {
+  width: 92px;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #b8c5bd;
+  border-radius: 6px;
+  background: #fff;
+  color: #263b30;
+}
+
+.queue-fields .queue-pause {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid #c7d2cb;
+  border-radius: 6px;
+  background: #fff;
+  white-space: nowrap;
+}
+
+.queue-pause input {
+  width: 16px;
+  height: 16px;
+}
+
+.queue-empty-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 9px 11px;
+  border-left: 3px solid #a06546;
+  background: #f7f1ed;
+  color: #7b4c37;
+  font-size: 0.76rem;
 }
 
 button {
@@ -350,7 +569,8 @@ button:focus-visible {
   }
 
   .empty-actions,
-  .start-actions {
+  .start-actions,
+  .queue-policy {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -359,6 +579,20 @@ button:focus-visible {
   .new-session-actions button,
   .empty-actions button,
   .continue-action {
+    width: 100%;
+  }
+
+  .queue-policy {
+    grid-template-columns: 1fr;
+  }
+
+  .queue-fields {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .queue-fields label,
+  .queue-fields input[type="number"] {
     width: 100%;
   }
 }
