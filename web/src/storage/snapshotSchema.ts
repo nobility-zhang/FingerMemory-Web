@@ -16,6 +16,7 @@ import type {
 } from '../core/domain';
 import type { StorageSnapshot } from '../core/repository';
 import {
+  APP_META_KEYS,
   DATA_FORMAT_VERSION,
   STORAGE_SCHEMA_VERSION,
 } from './database';
@@ -249,29 +250,100 @@ const practiceSessionSchema = z
   })
   .strict() satisfies z.ZodType<PracticeSession>;
 
+const storageTablesSchema = z
+  .object({
+    appMeta: z.array(appMetaSchema),
+    lexicons: z.array(lexiconSchema),
+    words: z.array(wordEntrySchema),
+    studyItems: z.array(studyItemSchema),
+    lexiconItems: z.array(lexiconItemSchema),
+    notes: z.array(studyNoteSchema),
+    practiceAttempts: z.array(practiceAttemptSchema),
+    practiceSessions: z.array(practiceSessionSchema),
+    reviewStates: z.array(reviewStateSchema),
+    reviewLogs: z.array(reviewLogSchema),
+  })
+  .strict();
+
 export const storageSnapshotSchema = z
   .object({
     snapshotVersion: z.literal(1),
     schemaVersion: z.literal(STORAGE_SCHEMA_VERSION),
     dataFormatVersion: z.literal(DATA_FORMAT_VERSION),
     exportedAt: timestampSchema,
-    tables: z
-      .object({
-        appMeta: z.array(appMetaSchema),
-        lexicons: z.array(lexiconSchema),
-        words: z.array(wordEntrySchema),
-        studyItems: z.array(studyItemSchema),
-        lexiconItems: z.array(lexiconItemSchema),
-        notes: z.array(studyNoteSchema),
-        practiceAttempts: z.array(practiceAttemptSchema),
-        practiceSessions: z.array(practiceSessionSchema),
-        reviewStates: z.array(reviewStateSchema),
-        reviewLogs: z.array(reviewLogSchema),
-      })
-      .strict(),
+    tables: storageTablesSchema,
   })
   .strict() satisfies z.ZodType<StorageSnapshot>;
 
+const legacyPracticeSessionQueueItemSchema = z
+  .object({
+    studyItemId: idSchema,
+    wordEntryId: idSchema,
+    status: z.enum(['pending', 'completed', 'skipped']),
+    source: z.enum(['new', 'review', 'retry']).optional(),
+  })
+  .strict();
+
+const legacyPracticeSessionV3Schema = practiceSessionSchema
+  .omit({ queue: true })
+  .extend({
+    queue: z.array(legacyPracticeSessionQueueItemSchema).min(1),
+  });
+
+const storageSnapshotV3Schema = z
+  .object({
+    snapshotVersion: z.literal(1),
+    schemaVersion: z.literal(3),
+    dataFormatVersion: z.literal(3),
+    exportedAt: timestampSchema,
+    tables: storageTablesSchema
+      .omit({ practiceSessions: true })
+      .extend({
+        practiceSessions: z.array(legacyPracticeSessionV3Schema),
+      }),
+  })
+  .strict();
+
+function migrateV3Snapshot(
+  snapshot: z.infer<typeof storageSnapshotV3Schema>,
+): StorageSnapshot {
+  return {
+    snapshotVersion: 1,
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    dataFormatVersion: DATA_FORMAT_VERSION,
+    exportedAt: snapshot.exportedAt,
+    tables: {
+      ...snapshot.tables,
+      appMeta: snapshot.tables.appMeta.map((record) =>
+        record.key === APP_META_KEYS.dataFormatVersion
+          ? {
+              ...record,
+              value: String(DATA_FORMAT_VERSION),
+              updatedAt: snapshot.exportedAt,
+            }
+          : record,
+      ),
+      practiceSessions: snapshot.tables.practiceSessions.map((session) => ({
+        ...session,
+        queue: session.queue.map((item) => ({
+          ...item,
+          source: item.source ?? 'new',
+        })),
+      })),
+    },
+  };
+}
+
 export function parseStorageSnapshot(input: unknown): StorageSnapshot {
+  if (
+    typeof input === 'object' &&
+    input !== null &&
+    'schemaVersion' in input &&
+    input.schemaVersion === 3 &&
+    'dataFormatVersion' in input &&
+    input.dataFormatVersion === 3
+  ) {
+    return migrateV3Snapshot(storageSnapshotV3Schema.parse(input));
+  }
   return storageSnapshotSchema.parse(input);
 }

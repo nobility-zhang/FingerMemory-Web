@@ -14,8 +14,8 @@ import type {
 } from '../core/domain';
 
 export const DATABASE_NAME = 'finger-memory';
-export const STORAGE_SCHEMA_VERSION = 3;
-export const DATA_FORMAT_VERSION = 3;
+export const STORAGE_SCHEMA_VERSION = 4;
+export const DATA_FORMAT_VERSION = 4;
 
 export const APP_META_KEYS = {
   initializedAt: 'database.initializedAt',
@@ -55,6 +55,12 @@ interface LegacyStudyItemV1 {
   normalization: string;
   createdAt: number;
   updatedAt: number;
+}
+
+interface LegacyPracticeSessionV3 extends Omit<PracticeSession, 'queue'> {
+  queue: Array<Omit<PracticeSession['queue'][number], 'source'> & {
+    source?: PracticeSession['queue'][number]['source'];
+  }>;
 }
 
 export class FingerMemoryDatabase extends Dexie {
@@ -119,7 +125,7 @@ export class FingerMemoryDatabase extends Dexie {
           });
         }
       });
-    this.version(STORAGE_SCHEMA_VERSION)
+    this.version(3)
       .stores({
         ...STORES_V2,
         practiceSessions: 'id, updatedAt, status, modeId',
@@ -131,6 +137,43 @@ export class FingerMemoryDatabase extends Dexie {
 
         if (versionRecord !== undefined && versionRecord.value !== '2') {
           throw new Error(`Unsupported v2 data format version: ${versionRecord.value}`);
+        }
+
+        if (versionRecord !== undefined) {
+          await transaction.table<AppMetaRecord>('appMeta').put({
+            ...versionRecord,
+            value: '3',
+            updatedAt: Date.now(),
+          });
+        }
+      });
+    this.version(STORAGE_SCHEMA_VERSION)
+      .stores({
+        ...STORES_V2,
+        practiceSessions: 'id, updatedAt, status, modeId',
+      })
+      .upgrade(async (transaction) => {
+        const versionRecord = await transaction
+          .table<AppMetaRecord>('appMeta')
+          .get(APP_META_KEYS.dataFormatVersion);
+
+        if (versionRecord !== undefined && versionRecord.value !== '3') {
+          throw new Error(`Unsupported v3 data format version: ${versionRecord.value}`);
+        }
+
+        const sessions = await transaction
+          .table<LegacyPracticeSessionV3>('practiceSessions')
+          .toArray();
+        if (sessions.length > 0) {
+          await transaction.table<PracticeSession>('practiceSessions').bulkPut(
+            sessions.map((session) => ({
+              ...session,
+              queue: session.queue.map((item) => ({
+                ...item,
+                source: item.source ?? 'new',
+              })),
+            })),
+          );
         }
 
         if (versionRecord !== undefined) {

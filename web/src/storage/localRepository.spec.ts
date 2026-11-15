@@ -18,6 +18,7 @@ import {
   DATA_FORMAT_VERSION,
   FingerMemoryDatabase,
   LEGACY_STORES_V1,
+  STORES_V2,
   STORAGE_SCHEMA_VERSION,
 } from './database';
 import { createFingerMemoryRepository } from './localRepository';
@@ -113,7 +114,7 @@ afterEach(async () => {
 });
 
 describe('FingerMemoryDatabase', () => {
-  it('creates the v3 tables and indexed relationships', async () => {
+  it('creates the v4 tables and indexed relationships', async () => {
     const database = createDatabase();
     const repository = createRepository(database);
 
@@ -141,6 +142,80 @@ describe('FingerMemoryDatabase', () => {
         'meaning-to-spelling',
       ]).count(),
     ).resolves.toBe(1);
+  });
+
+  it('migrates v3 sessions by filling missing queue sources', async () => {
+    const name = nextDatabaseName('finger-memory-v3-upgrade');
+    const legacy = new Dexie(name);
+    legacy.version(3).stores({
+      ...STORES_V2,
+      practiceSessions: 'id, updatedAt, status, modeId',
+    });
+    await legacy.open();
+    await legacy.table('appMeta').bulkPut([
+      {
+        key: APP_META_KEYS.dataFormatVersion,
+        value: '3',
+        updatedAt: INITIAL_TIME,
+      },
+      {
+        key: APP_META_KEYS.initializedAt,
+        value: new Date(INITIAL_TIME).toISOString(),
+        updatedAt: INITIAL_TIME,
+      },
+    ]);
+    await legacy.table('words').put({
+      id: 'word-memory',
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      normalizedTerm: 'memory',
+      createdAt: INITIAL_TIME,
+      updatedAt: INITIAL_TIME,
+    });
+    await legacy.table('studyItems').put({
+      id: 'study-memory',
+      wordEntryId: 'word-memory',
+      direction: 'meaning-to-spelling',
+      createdAt: INITIAL_TIME,
+      updatedAt: INITIAL_TIME,
+    });
+    await legacy.table('practiceSessions').put({
+      id: 'legacy-session',
+      modeId: 'lyrics-scroll',
+      status: 'paused',
+      queue: [
+        {
+          studyItemId: 'study-memory',
+          wordEntryId: 'word-memory',
+          status: 'pending',
+        },
+      ],
+      currentIndex: 0,
+      currentStudyItemId: 'study-memory',
+      interactions: {},
+      pendingAnswer: null,
+      speed: 1,
+      reduceMotion: false,
+      createdAt: INITIAL_TIME,
+      updatedAt: INITIAL_TIME,
+      pausedAt: INITIAL_TIME,
+      completedAt: null,
+    });
+    legacy.close();
+
+    const database = new FingerMemoryDatabase(name);
+    openDatabases.push(database);
+    const repository = createRepository(database);
+    await expect(repository.initialize()).resolves.toMatchObject({
+      schemaVersion: 4,
+      dataFormatVersion: 4,
+    });
+    await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+      id: 'legacy-session',
+      queue: [{ source: 'new', status: 'pending' }],
+    });
   });
 
   it('loads the starter lexicon idempotently as real persisted study items', async () => {
@@ -1225,6 +1300,65 @@ describe('due filtering, recovery and backup import', () => {
     ).resolves.toMatchObject({
       outcome: 'duplicate',
       log: { submissionId: 'submission-1', rating: 'good' },
+    });
+  });
+
+  it('migrates a v3 backup without losing sessions or review history', async () => {
+    const sourceDatabase = createDatabase();
+    const sourceRepository = createRepository(sourceDatabase);
+    await sourceRepository.initialize();
+    await seedStudyItem(sourceDatabase);
+    await sourceRepository.submitReview(createReviewInput());
+    const wordEntry = await sourceDatabase.words.get('word-memory');
+    const studyItem = await sourceDatabase.studyItems.get('study-memory');
+    if (wordEntry === undefined || studyItem === undefined) {
+      throw new Error('seed data missing');
+    }
+    await sourceRepository.savePracticeSession(
+      createPracticeSession({
+        id: 'v3-backed-session',
+        modeId: 'lyrics-scroll',
+        items: [{ wordEntry, studyItem }],
+        now: INITIAL_TIME,
+        reduceMotion: false,
+      }),
+    );
+    const snapshot = await sourceRepository.exportSnapshot(INITIAL_TIME + 120_000);
+    const legacy = structuredClone(snapshot);
+    legacy.schemaVersion = 3;
+    legacy.dataFormatVersion = 3;
+    const versionRecord = legacy.tables.appMeta.find(
+      (record) => record.key === APP_META_KEYS.dataFormatVersion,
+    );
+    if (versionRecord === undefined) {
+      throw new Error('data format metadata missing');
+    }
+    versionRecord.value = '3';
+    for (const session of legacy.tables.practiceSessions) {
+      for (const queueItem of session.queue) {
+        delete (queueItem as { source?: string }).source;
+      }
+    }
+
+    const destinationDatabase = createDatabase();
+    const destinationRepository = createRepository(destinationDatabase);
+    await destinationRepository.initialize();
+    await expect(
+      destinationRepository.previewSnapshot(JSON.parse(JSON.stringify(legacy))),
+    ).resolves.toMatchObject({
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      dataFormatVersion: DATA_FORMAT_VERSION,
+      counts: { practiceSessions: 1, reviewStates: 1, reviewLogs: 1 },
+    });
+    await destinationRepository.importSnapshot(legacy);
+
+    await expect(destinationRepository.getLatestPracticeSession()).resolves.toMatchObject({
+      id: 'v3-backed-session',
+      queue: [{ source: 'new' }],
+    });
+    await expect(destinationRepository.getReviewLog('submission-1')).resolves.toMatchObject({
+      rating: 'good',
+      afterCard: { cardId: 'study-memory' },
     });
   });
 
