@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
         <span class="brand-mark" aria-hidden="true">F</span>
         <span>FingerMemory</span>
       </a>
-      <span class="stage-label">M4</span>
+      <span class="stage-label">M1</span>
     </header>
 
     <div class="app-layout">

@@ -20,6 +20,9 @@ const backupPreview = ref<StorageSnapshotPreview>();
 const pendingSnapshot = ref<unknown>();
 const backupFileName = ref('');
 const confirmOverwrite = ref(false);
+const storageUsage = ref<number>();
+const storageQuota = ref<number>();
+const storagePersisted = ref<boolean>();
 const busy = ref(false);
 const error = ref<string | null>(null);
 const notice = ref<string | null>(null);
@@ -49,6 +52,57 @@ async function loadStatus(): Promise<void> {
   } catch {
     error.value = '无法读取本地数据状态。';
   }
+}
+
+async function loadStorageHealth(): Promise<void> {
+  if (navigator.storage?.estimate === undefined) {
+    return;
+  }
+  try {
+    const estimate = await navigator.storage.estimate();
+    storageUsage.value = estimate.usage;
+    storageQuota.value = estimate.quota;
+    storagePersisted.value = await navigator.storage.persisted?.();
+  } catch {
+    storageUsage.value = undefined;
+    storageQuota.value = undefined;
+  }
+}
+
+async function requestPersistentStorage(): Promise<void> {
+  if (navigator.storage?.persist === undefined) {
+    error.value = '当前浏览器不支持申请持久存储。';
+    return;
+  }
+  busy.value = true;
+  error.value = null;
+  try {
+    storagePersisted.value = await navigator.storage.persist();
+    notice.value = storagePersisted.value
+      ? '浏览器已授予持久存储。'
+      : '浏览器未授予持久存储，请继续定期下载备份。';
+    await loadStorageHealth();
+  } catch {
+    error.value = '无法申请持久存储。';
+  } finally {
+    busy.value = false;
+  }
+}
+
+function formatBytes(value: number | undefined): string {
+  if (value === undefined) {
+    return '未知';
+  }
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  if (value < 1024 * 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 async function exportBackup(): Promise<void> {
@@ -135,6 +189,7 @@ async function restoreBackup(): Promise<void> {
 
 onMounted(() => {
   void loadStatus();
+  void loadStorageHealth();
 });
 </script>
 
@@ -220,6 +275,28 @@ onMounted(() => {
       <p v-else>正在读取数据状态...</p>
     </section>
 
+    <section class="storage-panel" aria-labelledby="storage-title">
+      <div>
+        <h3 id="storage-title">浏览器存储</h3>
+        <p v-if="storageUsage !== undefined || storageQuota !== undefined">
+          当前使用 {{ formatBytes(storageUsage) }}，浏览器配额
+          {{ formatBytes(storageQuota) }}。
+        </p>
+        <p v-else>当前浏览器没有提供存储用量信息。</p>
+        <p>
+          持久存储状态：
+          {{ storagePersisted === true ? '已授予' : storagePersisted === false ? '未授予' : '未知' }}
+        </p>
+      </div>
+      <button
+        type="button"
+        :disabled="busy || storagePersisted === true"
+        @click="requestPersistentStorage"
+      >
+        {{ storagePersisted === true ? '已启用持久存储' : '申请持久存储' }}
+      </button>
+    </section>
+
     <p v-if="error" class="data-error" role="alert">{{ error }}</p>
     <p v-if="notice" class="data-notice" role="status">{{ notice }}</p>
   </section>
@@ -278,7 +355,8 @@ onMounted(() => {
 
 .export-panel,
 .import-panel,
-.counts-panel {
+.counts-panel,
+.storage-panel {
   padding: 20px;
   border: 1px solid #d0dad4;
   border-radius: 8px;
@@ -291,7 +369,8 @@ onMounted(() => {
 
 .export-panel h3,
 .import-panel h3,
-.counts-panel h3 {
+.counts-panel h3,
+.storage-panel h3 {
   margin-bottom: 5px;
   color: #253a2e;
   font-size: 1rem;
@@ -299,7 +378,8 @@ onMounted(() => {
 
 .export-panel p,
 .import-panel p,
-.counts-panel p {
+.counts-panel p,
+.storage-panel p {
   color: #6d7b73;
   font-size: 0.8rem;
   line-height: 1.65;
@@ -352,6 +432,17 @@ dl {
 .import-panel {
   display: grid;
   gap: 16px;
+}
+
+.storage-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.storage-panel p + p {
+  margin-top: 4px;
 }
 
 .file-picker {
@@ -457,13 +548,15 @@ dd {
 @media (max-width: 760px) {
   .data-heading,
   .export-panel,
-  .preview-heading {
+  .preview-heading,
+  .storage-panel {
     align-items: stretch;
     flex-direction: column;
   }
 
   .data-heading > span,
   .export-panel button,
+  .storage-panel button,
   .file-picker,
   .restore-preview > button {
     align-self: flex-start;

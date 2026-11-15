@@ -468,6 +468,36 @@ describe('TSV import persistence', () => {
     });
     await expect(repository.listLexiconItems(lexicon.id)).resolves.toEqual([]);
   });
+
+  it('imports and exports a personal-scale 500-item batch', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '容量测试',
+      description: '',
+      now: INITIAL_TIME,
+    });
+    const rows = Array.from({ length: 500 }, (_, index) => ({
+      term: `word-${String(index + 1).padStart(3, '0')}`,
+      meaning: `释义 ${index + 1}`,
+      hints: [`提示 ${index + 1}`],
+      duplicateAction: 'create' as const,
+    }));
+
+    await expect(
+      repository.importStudyItems({
+        batchId: 'capacity-batch',
+        lexiconId: lexicon.id,
+        rows,
+        now: INITIAL_TIME + 1,
+      }),
+    ).resolves.toMatchObject({ importedCount: 500, skippedCount: 0 });
+    const snapshot = await repository.exportSnapshot(INITIAL_TIME + 2);
+    expect(snapshot.tables.studyItems).toHaveLength(500);
+    expect(snapshot.tables.lexiconItems).toHaveLength(500);
+    expect(snapshot.tables.words).toHaveLength(500);
+  }, 20_000);
 });
 
 describe('study note persistence', () => {
