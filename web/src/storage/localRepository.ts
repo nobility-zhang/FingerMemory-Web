@@ -26,6 +26,7 @@ import type {
   PracticeQueueSettings,
   PracticeAttemptInput,
   PracticeAttemptResult,
+  ReviewHistoryEntry,
   ReviewRatingPreviews,
   ReviewSubmissionInput,
   ReviewSubmissionResult,
@@ -1819,6 +1820,85 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   async getReviewLog(submissionId: string): Promise<ReviewLog | undefined> {
     await this.database.open();
     return this.database.reviewLogs.get(submissionId);
+  }
+
+  async listReviewHistory(): Promise<ReviewHistoryEntry[]> {
+    await this.database.open();
+
+    return this.database.transaction(
+      'r',
+      [
+        this.database.reviewStates,
+        this.database.reviewLogs,
+        this.database.studyItems,
+        this.database.words,
+      ],
+      async () => {
+        const states = await this.database.reviewStates.toArray();
+        const logs = await this.database.reviewLogs.toArray();
+        const logsByStudyItemId = new Map<string, ReviewLog[]>();
+        for (const log of logs) {
+          const itemLogs = logsByStudyItemId.get(log.studyItemId) ?? [];
+          itemLogs.push(log);
+          logsByStudyItemId.set(log.studyItemId, itemLogs);
+        }
+
+        const history: ReviewHistoryEntry[] = [];
+        for (const state of states) {
+          const studyItem = await this.database.studyItems.get(state.studyItemId);
+          if (studyItem === undefined) {
+            throw new Error(`Review state ${state.studyItemId} has no study item`);
+          }
+          const wordEntry = await this.database.words.get(studyItem.wordEntryId);
+          if (wordEntry === undefined) {
+            throw new Error(`Study item ${studyItem.id} has no word entry`);
+          }
+          const itemLogs = (logsByStudyItemId.get(state.studyItemId) ?? []).sort(
+            (left, right) =>
+              left.reviewedAt - right.reviewedAt ||
+              left.submissionId.localeCompare(right.submissionId),
+          );
+          let issue: string | null = null;
+          if (itemLogs.length === 0) {
+            issue = '当前计划没有对应的正式复习日志。';
+          }
+          for (let index = 1; index < itemLogs.length && issue === null; index += 1) {
+            const previous = itemLogs[index - 1];
+            const current = itemLogs[index];
+            if (
+              previous === undefined ||
+              current === undefined ||
+              current.beforeCard === null ||
+              !cardsHaveSameSchedulingState(previous.afterCard, current.beforeCard)
+            ) {
+              issue = '相邻正式复习日志的前后卡片状态不连续。';
+            }
+          }
+          const latestLog = itemLogs.at(-1);
+          if (
+            issue === null &&
+            (latestLog === undefined ||
+              !cardsHaveSameSchedulingState(latestLog.afterCard, cardFromState(state)))
+          ) {
+            issue = '当前计划与最新正式复习日志不一致。';
+          }
+          history.push({
+            studyItem,
+            wordEntry,
+            state,
+            logs: itemLogs,
+            consistent: issue === null,
+            issue,
+          });
+        }
+
+        return history.sort(
+          (left, right) =>
+            left.state.dueAt - right.state.dueAt ||
+            left.studyItem.id.localeCompare(right.studyItem.id),
+        );
+      },
+    );
   }
 
   async listDueReviewItems(at: TimestampMs): Promise<DueReviewItem[]> {

@@ -90,6 +90,7 @@ function createTestRepository(
     },
     getReviewState: async () => undefined,
     getReviewLog: async () => undefined,
+    listReviewHistory: async () => [],
     listDueReviewItems: async () => [],
     exportSnapshot: async () => {
       throw new Error('exportSnapshot is not used in this test');
@@ -141,6 +142,15 @@ describe('App', () => {
     await vi.waitFor(() => {
       expect(root.querySelector('h1')?.textContent).toBe('词库管理');
       expect(root.textContent).toContain('还没有词库');
+    });
+
+    const reviewButton = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '复习',
+    );
+    reviewButton?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('h1')?.textContent).toBe('正式复习诊断');
+      expect(root.textContent).toContain('还没有正式复习');
     });
 
     const dataButton = [...root.querySelectorAll('button')].find(

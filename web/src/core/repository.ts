@@ -176,6 +176,15 @@ export interface PracticeQueuePlan {
   selected: PlannedPracticeQueueItem[];
 }
 
+export interface ReviewHistoryEntry {
+  studyItem: StudyItem;
+  wordEntry: WordEntry;
+  state: ReviewState;
+  logs: ReviewLog[];
+  consistent: boolean;
+  issue: string | null;
+}
+
 export interface StorageSnapshotTableData {
   appMeta: AppMetaRecord[];
   lexicons: Lexicon[];
@@ -242,6 +251,7 @@ export interface FingerMemoryRepository {
   submitReview(input: ReviewSubmissionInput): Promise<ReviewSubmissionResult>;
   getReviewState(studyItemId: string): Promise<ReviewState | undefined>;
   getReviewLog(submissionId: string): Promise<ReviewLog | undefined>;
+  listReviewHistory(): Promise<ReviewHistoryEntry[]>;
   listDueReviewItems(at: TimestampMs): Promise<DueReviewItem[]>;
   exportSnapshot(exportedAt: TimestampMs): Promise<StorageSnapshot>;
   previewSnapshot(snapshot: unknown): Promise<StorageSnapshotPreview>;

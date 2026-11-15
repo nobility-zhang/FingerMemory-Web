@@ -4,6 +4,7 @@ import type { FingerMemoryRepository, StorageStatus } from '../core/repository';
 import DataWorkspace from './DataWorkspace.vue';
 import LexiconManager from './LexiconManager.vue';
 import PracticeWorkspace from './PracticeWorkspace.vue';
+import ReviewWorkspace from './ReviewWorkspace.vue';
 
 const props = defineProps<{
   repository: FingerMemoryRepository;
@@ -13,7 +14,7 @@ type StorageState = 'initializing' | 'ready' | 'error';
 
 const storageState = ref<StorageState>('initializing');
 const storageStatus = ref<StorageStatus | null>(null);
-const activeView = ref<'practice' | 'library' | 'data'>('practice');
+const activeView = ref<'practice' | 'library' | 'review' | 'data'>('practice');
 let disposed = false;
 
 const stateLabel = computed(() => {
@@ -54,6 +55,9 @@ const viewHeading = computed(() => {
   }
   if (activeView.value === 'data') {
     return { label: '数据', title: '数据管理' };
+  }
+  if (activeView.value === 'review') {
+    return { label: '复习', title: '正式复习诊断' };
   }
   return { label: '概览', title: '学习工作台' };
 });
@@ -118,7 +122,15 @@ onBeforeUnmount(() => {
             </button>
           </li>
           <li>
-            <button type="button" class="nav-item" disabled>复习</button>
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ 'nav-item--active': activeView === 'review' }"
+              :aria-current="activeView === 'review' ? 'page' : undefined"
+              @click="activeView = 'review'"
+            >
+              复习
+            </button>
           </li>
           <li>
             <button
@@ -155,6 +167,10 @@ onBeforeUnmount(() => {
         />
         <LexiconManager
           v-else-if="storageState === 'ready' && activeView === 'library'"
+          :repository="repository"
+        />
+        <ReviewWorkspace
+          v-else-if="storageState === 'ready' && activeView === 'review'"
           :repository="repository"
         />
         <DataWorkspace

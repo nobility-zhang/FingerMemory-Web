@@ -974,6 +974,44 @@ describe('due filtering, recovery and backup import', () => {
     ]);
   });
 
+  it('lists review diagnostics with submission ids and detects state-log drift', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    await seedStudyItem(database);
+    const first = await repository.submitReview(createReviewInput());
+    await repository.submitReview(
+      createReviewInput({
+        submissionId: 'submission-diagnostic-2',
+        rating: 'hard',
+        reviewedAt: Math.max(INITIAL_TIME + 60_000, first.state.dueAt),
+      }),
+    );
+
+    const history = await repository.listReviewHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      studyItem: { id: 'study-memory' },
+      wordEntry: { term: 'memory', meaning: '记忆' },
+      consistent: true,
+      issue: null,
+      logs: [
+        { submissionId: 'submission-1' },
+        { submissionId: 'submission-diagnostic-2' },
+      ],
+    });
+
+    await database.reviewStates.update('study-memory', {
+      dueAt: history[0]!.state.dueAt + 1,
+    });
+    await expect(repository.listReviewHistory()).resolves.toMatchObject([
+      {
+        consistent: false,
+        issue: '当前计划与最新正式复习日志不一致。',
+      },
+    ]);
+  });
+
   it('plans bounded new and due queues and honors a persisted pause', async () => {
     const database = createDatabase();
     const repository = createRepository(database);
