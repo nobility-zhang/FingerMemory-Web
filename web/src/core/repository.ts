@@ -205,6 +205,9 @@ export interface FingerMemoryRepository {
 }
 
 export type ReviewSubmissionRejectionReason =
+  | 'session-not-found'
+  | 'session-not-active'
+  | 'session-pending-mismatch'
   | 'study-item-not-found'
   | 'unsupported-direction'
   | 'rating-not-confirmed'
@@ -212,6 +215,7 @@ export type ReviewSubmissionRejectionReason =
   | 'hint-used'
   | 'answer-revealed'
   | 'abandoned'
+  | 'session-review-limit'
   | 'review-time-out-of-order';
 
 export class ReviewSubmissionRejectedError extends Error {

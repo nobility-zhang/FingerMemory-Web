@@ -1429,6 +1429,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     return this.database.transaction(
       'rw',
       [
+        this.database.practiceSessions,
         this.database.studyItems,
         this.database.words,
         this.database.reviewStates,
@@ -1469,6 +1470,38 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
         }
         if (input.abandoned) {
           throw new ReviewSubmissionRejectedError('abandoned');
+        }
+
+        if (input.sessionId !== null) {
+          const session = await this.database.practiceSessions.get(input.sessionId);
+          if (session === undefined) {
+            throw new ReviewSubmissionRejectedError('session-not-found');
+          }
+          if (session.status !== 'active') {
+            throw new ReviewSubmissionRejectedError('session-not-active');
+          }
+          const pendingAnswer = session.pendingAnswer;
+          if (
+            pendingAnswer === null ||
+            pendingAnswer.reviewSubmissionId !== input.submissionId ||
+            pendingAnswer.studyItemId !== input.studyItemId ||
+            pendingAnswer.response !== input.response ||
+            pendingAnswer.answerWasHidden !== input.answerWasHidden ||
+            pendingAnswer.hintUsed !== input.hintUsed ||
+            pendingAnswer.answerRevealed !== input.answerRevealed ||
+            pendingAnswer.submittedAt !== input.reviewedAt
+          ) {
+            throw new ReviewSubmissionRejectedError('session-pending-mismatch');
+          }
+          const sessionLogs = await this.database.reviewLogs.toArray();
+          const alreadyReviewed = sessionLogs.some(
+            (log) =>
+              log.sessionId === input.sessionId &&
+              log.studyItemId === input.studyItemId,
+          );
+          if (alreadyReviewed) {
+            throw new ReviewSubmissionRejectedError('session-review-limit');
+          }
         }
 
         const studyItem = await this.database.studyItems.get(input.studyItemId);

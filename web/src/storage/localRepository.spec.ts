@@ -856,6 +856,81 @@ describe('idempotency and transactional durability', () => {
       counts: { reviewLogs: 1 },
     });
   });
+
+  it('allows at most one formal review per study item in a session', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    await seedStudyItem(database);
+    const wordEntry = await database.words.get('word-memory');
+    const studyItem = await database.studyItems.get('study-memory');
+    if (wordEntry === undefined || studyItem === undefined) {
+      throw new Error('seed data missing');
+    }
+    await repository.savePracticeSession(
+      createPracticeSession({
+        id: 'session-one-review',
+        modeId: 'keyboard-recall',
+        items: [{ wordEntry, studyItem }],
+        now: INITIAL_TIME,
+        reduceMotion: false,
+      }),
+    );
+    const pendingAnswer = {
+      studyItemId: 'study-memory',
+      response: 'memory',
+      answerWasHidden: true,
+      hintUsed: false,
+      answerRevealed: false,
+      inputMatchedAnswer: true,
+      practiceAttemptId: 'practice-one-review',
+      reviewSubmissionId: 'submission-1',
+      submittedAt: INITIAL_TIME,
+    };
+    const session = await repository.getLatestPracticeSession();
+    if (session === undefined) {
+      throw new Error('practice session missing');
+    }
+    await repository.savePracticeSession({
+      ...session,
+      pendingAnswer,
+      updatedAt: INITIAL_TIME,
+    });
+
+    await expect(
+      repository.submitReview(
+        createReviewInput({ sessionId: 'session-one-review' }),
+      ),
+    ).resolves.toMatchObject({ outcome: 'created' });
+
+    const reviewedSession = await repository.getLatestPracticeSession();
+    if (reviewedSession === undefined || reviewedSession.pendingAnswer === null) {
+      throw new Error('reviewed session missing');
+    }
+    await repository.savePracticeSession({
+      ...reviewedSession,
+      pendingAnswer: {
+        ...reviewedSession.pendingAnswer,
+        reviewSubmissionId: 'submission-session-limit',
+        submittedAt: INITIAL_TIME + 60_000,
+      },
+      updatedAt: INITIAL_TIME + 60_000,
+    });
+
+    await expect(
+      repository.submitReview(
+        createReviewInput({
+          submissionId: 'submission-session-limit',
+          sessionId: 'session-one-review',
+          rating: 'easy',
+          reviewedAt: INITIAL_TIME + 60_000,
+        }),
+      ),
+    ).rejects.toMatchObject({ reason: 'session-review-limit' });
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { reviewStates: 1, reviewLogs: 1 },
+    });
+  });
 });
 
 describe('due filtering, recovery and backup import', () => {
