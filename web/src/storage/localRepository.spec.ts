@@ -1127,6 +1127,52 @@ describe('due filtering, recovery and backup import', () => {
     ).rejects.toThrow('at least one practice mode');
   });
 
+  it('persists and validates in-app reminder settings and state', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const initial = await repository.getInAppReminderRecord();
+    expect(initial.settings).toMatchObject({
+      enabled: true,
+      minIntervalMinutes: 30,
+      maxIntervalMinutes: 90,
+      dailyLimit: 3,
+      quietStart: '22:00',
+      quietEnd: '08:00',
+      snoozeMinutes: 15,
+    });
+
+    const changed = {
+      ...initial,
+      settings: {
+        ...initial.settings,
+        enabled: false,
+        dailyLimit: 2,
+        quietStart: '21:30',
+      },
+      state: {
+        ...initial.state,
+        dayKey: '2026-11-15',
+        shownToday: 1,
+        nextAt: INITIAL_TIME + 60_000,
+      },
+    };
+    await expect(
+      repository.saveInAppReminderRecord(changed, INITIAL_TIME),
+    ).resolves.toEqual(changed);
+    await expect(repository.getInAppReminderRecord()).resolves.toEqual(changed);
+
+    await expect(
+      repository.saveInAppReminderRecord(
+        {
+          ...changed,
+          settings: { ...changed.settings, minIntervalMinutes: 120 },
+        },
+        INITIAL_TIME + 1,
+      ),
+    ).rejects.toThrow('reminder interval');
+  });
+
   it('restores serialized state and logs and preserves duplicate protection', async () => {
     const sourceDatabase = createDatabase();
     const sourceRepository = createRepository(sourceDatabase);

@@ -4,6 +4,7 @@ import type { FingerMemoryRepository, StorageStatus } from '../core/repository';
 import DataWorkspace from './DataWorkspace.vue';
 import LexiconManager from './LexiconManager.vue';
 import PracticeWorkspace from './PracticeWorkspace.vue';
+import ReminderBanner from './ReminderBanner.vue';
 import ReviewWorkspace from './ReviewWorkspace.vue';
 
 const props = defineProps<{
@@ -64,6 +65,10 @@ const viewHeading = computed(() => {
 
 function handleDataRestored(status: StorageStatus): void {
   storageStatus.value = status;
+}
+
+function openReminderPractice(): void {
+  activeView.value = 'practice';
 }
 
 onMounted(async () => {
@@ -160,6 +165,12 @@ onBeforeUnmount(() => {
             {{ localBadgeText }}
           </span>
         </header>
+
+        <ReminderBanner
+          v-if="storageState === 'ready'"
+          :repository="repository"
+          @open-practice="openReminderPractice"
+        />
 
         <PracticeWorkspace
           v-if="storageState === 'ready' && activeView === 'practice'"

@@ -189,6 +189,30 @@ export interface PracticeModePreferences {
   disabledModeIds: PracticeModeId[];
 }
 
+export interface InAppReminderSettings {
+  enabled: boolean;
+  minIntervalMinutes: number;
+  maxIntervalMinutes: number;
+  dailyLimit: number;
+  quietStart: string;
+  quietEnd: string;
+  snoozeMinutes: number;
+}
+
+export interface InAppReminderState {
+  dayKey: string;
+  shownToday: number;
+  lastShownAt: TimestampMs | null;
+  nextAt: TimestampMs | null;
+  snoozedUntil: TimestampMs | null;
+  dismissedForDay: boolean;
+}
+
+export interface InAppReminderRecord {
+  settings: InAppReminderSettings;
+  state: InAppReminderState;
+}
+
 export interface StorageSnapshotTableData {
   appMeta: AppMetaRecord[];
   lexicons: Lexicon[];
@@ -248,6 +272,11 @@ export interface FingerMemoryRepository {
     preferences: PracticeModePreferences,
     now: TimestampMs,
   ): Promise<PracticeModePreferences>;
+  getInAppReminderRecord(): Promise<InAppReminderRecord>;
+  saveInAppReminderRecord(
+    record: InAppReminderRecord,
+    now: TimestampMs,
+  ): Promise<InAppReminderRecord>;
   listPracticeItems(limit?: number): Promise<PracticeItem[]>;
   listPracticeItemsByStudyItemIds(studyItemIds: string[]): Promise<PracticeItem[]>;
   getLatestPracticeSession(modeId?: PracticeModeId): Promise<PracticeSession | undefined>;

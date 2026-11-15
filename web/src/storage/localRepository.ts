@@ -21,6 +21,7 @@ import type {
   CreateStudyItemInput,
   ImportStudyItemsInput,
   ImportStudyItemsResult,
+  InAppReminderRecord,
   LexiconStudyItem,
   PracticeQueuePlan,
   PracticeQueueSettings,
@@ -114,6 +115,96 @@ const DEFAULT_PRACTICE_QUEUE_SETTINGS: PracticeQueueSettings = {
   reviewLimit: 50,
   paused: false,
 };
+
+const DEFAULT_IN_APP_REMINDER_RECORD: InAppReminderRecord = {
+  settings: {
+    enabled: true,
+    minIntervalMinutes: 30,
+    maxIntervalMinutes: 90,
+    dailyLimit: 3,
+    quietStart: '22:00',
+    quietEnd: '08:00',
+    snoozeMinutes: 15,
+  },
+  state: {
+    dayKey: '',
+    shownToday: 0,
+    lastShownAt: null,
+    nextAt: null,
+    snoozedUntil: null,
+    dismissedForDay: false,
+  },
+};
+
+function isClockTime(value: string): boolean {
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function assertInAppReminderRecord(record: InAppReminderRecord): void {
+  const { settings, state } = record;
+  if (typeof settings.enabled !== 'boolean') {
+    throw new TypeError('reminder enabled flag must be a boolean');
+  }
+  if (
+    !Number.isInteger(settings.minIntervalMinutes) ||
+    !Number.isInteger(settings.maxIntervalMinutes) ||
+    settings.minIntervalMinutes < 1 ||
+    settings.maxIntervalMinutes > 720 ||
+    settings.minIntervalMinutes > settings.maxIntervalMinutes
+  ) {
+    throw new TypeError('reminder interval must be ordered and between 1 and 720 minutes');
+  }
+  if (!Number.isInteger(settings.dailyLimit) || settings.dailyLimit < 1 || settings.dailyLimit > 20) {
+    throw new TypeError('reminder daily limit must be between 1 and 20');
+  }
+  if (!isClockTime(settings.quietStart) || !isClockTime(settings.quietEnd)) {
+    throw new TypeError('reminder quiet hours must use HH:mm');
+  }
+  if (!Number.isInteger(settings.snoozeMinutes) || settings.snoozeMinutes < 1 || settings.snoozeMinutes > 240) {
+    throw new TypeError('reminder snooze minutes must be between 1 and 240');
+  }
+  if (
+    !Number.isInteger(state.shownToday) ||
+    state.shownToday < 0 ||
+    state.shownToday > settings.dailyLimit
+  ) {
+    throw new TypeError('reminder shown count is out of range');
+  }
+  if (typeof state.dayKey !== 'string' || typeof state.dismissedForDay !== 'boolean') {
+    throw new TypeError('reminder state is invalid');
+  }
+  for (const [label, timestamp] of [
+    ['lastShownAt', state.lastShownAt],
+    ['nextAt', state.nextAt],
+    ['snoozedUntil', state.snoozedUntil],
+  ] as const) {
+    if (timestamp !== null && (!Number.isFinite(timestamp) || timestamp <= 0)) {
+      throw new TypeError(`reminder ${label} must be null or a positive timestamp`);
+    }
+  }
+}
+
+function readInAppReminderRecord(value: string | undefined): InAppReminderRecord {
+  if (value === undefined) {
+    return structuredClone(DEFAULT_IN_APP_REMINDER_RECORD);
+  }
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'settings' in parsed &&
+      'state' in parsed
+    ) {
+      const record = parsed as InAppReminderRecord;
+      assertInAppReminderRecord(record);
+      return structuredClone(record);
+    }
+  } catch {
+    return structuredClone(DEFAULT_IN_APP_REMINDER_RECORD);
+  }
+  return structuredClone(DEFAULT_IN_APP_REMINDER_RECORD);
+}
 
 const KNOWN_PRACTICE_MODE_IDS = new Set([
   'keyboard-recall',
@@ -1330,6 +1421,28 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     await this.database.open();
     await this.database.appMeta.put({
       key: APP_META_KEYS.practiceModePreferences,
+      value: JSON.stringify(normalized),
+      updatedAt: now,
+    });
+    return normalized;
+  }
+
+  async getInAppReminderRecord(): Promise<InAppReminderRecord> {
+    await this.database.open();
+    const record = await this.database.appMeta.get(APP_META_KEYS.inAppReminder);
+    return readInAppReminderRecord(record?.value);
+  }
+
+  async saveInAppReminderRecord(
+    record: InAppReminderRecord,
+    now: TimestampMs,
+  ): Promise<InAppReminderRecord> {
+    assertInAppReminderRecord(record);
+    assertTimestamp(now, 'reminder update time');
+    const normalized = structuredClone(record);
+    await this.database.open();
+    await this.database.appMeta.put({
+      key: APP_META_KEYS.inAppReminder,
       value: JSON.stringify(normalized),
       updatedAt: now,
     });

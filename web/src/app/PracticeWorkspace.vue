@@ -13,6 +13,7 @@ import type {
 } from '../core/repository';
 import SessionWorkbench from '../modes/SessionWorkbench.vue';
 import { TRUSTED_MODE_PLUGINS } from '../modes/registry';
+import ReminderSettings from './ReminderSettings.vue';
 import {
   abandonPracticeSession,
   createPracticeSession,
@@ -422,6 +423,8 @@ onMounted(() => {
         </label>
       </div>
     </section>
+
+    <ReminderSettings :repository="repository" />
   </section>
 </template>
 

@@ -22,6 +22,7 @@ export const APP_META_KEYS = {
   dataFormatVersion: 'data.formatVersion',
   practiceQueueSettings: 'practice.queueSettings',
   practiceModePreferences: 'practice.modePreferences',
+  inAppReminder: 'practice.inAppReminder',
 } as const;
 
 export const LEGACY_STORES_V1 = {

@@ -8,6 +8,11 @@ interface LocalDateParts {
   day: number;
 }
 
+interface LocalDateTimeParts extends LocalDateParts {
+  hour: number;
+  minute: number;
+}
+
 function partsAt(timestamp: TimestampMs, timeZone: string): LocalDateParts {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -27,8 +32,13 @@ function partsAt(timestamp: TimestampMs, timeZone: string): LocalDateParts {
   };
 }
 
-function wallClockToTimestamp(parts: LocalDateParts, timeZone: string): TimestampMs {
-  const target = Date.UTC(parts.year, parts.month - 1, parts.day);
+function wallClockToTimestamp(
+  parts: LocalDateParts | LocalDateTimeParts,
+  timeZone: string,
+): TimestampMs {
+  const hour = 'hour' in parts ? parts.hour : 0;
+  const minute = 'minute' in parts ? parts.minute : 0;
+  const target = Date.UTC(parts.year, parts.month - 1, parts.day, hour, minute);
   let guess = target;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -90,6 +100,33 @@ export function getLocalDayRange(
       timeZone,
     ),
   };
+}
+
+export function getZonedTimeTimestamp(
+  at: TimestampMs,
+  timeZone: string,
+  dayOffset: number,
+  hour: number,
+  minute: number,
+): TimestampMs {
+  if (!Number.isInteger(dayOffset) || !Number.isInteger(hour) || !Number.isInteger(minute)) {
+    throw new TypeError('Day offset, hour and minute must be integers');
+  }
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new RangeError('Hour and minute are out of range');
+  }
+  const current = partsAt(at, timeZone);
+  const date = new Date(Date.UTC(current.year, current.month - 1, current.day + dayOffset));
+  return wallClockToTimestamp(
+    {
+      year: date.getUTCFullYear(),
+      month: date.getUTCMonth() + 1,
+      day: date.getUTCDate(),
+      hour,
+      minute,
+    },
+    timeZone,
+  );
 }
 
 function calendarDaySerial(timestamp: TimestampMs, timeZone: string): number {
