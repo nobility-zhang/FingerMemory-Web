@@ -147,6 +147,49 @@ describe('SessionWorkbench modes', () => {
     });
   });
 
+  it('does not settle the answer when selecting another lyric or switching mode', async () => {
+    const { root } = await mountWorkbench();
+    const input = root.querySelector<HTMLInputElement>('#answer-input');
+    input!.value = 'mem';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+
+    root.querySelectorAll<HTMLButtonElement>('.lyric-line')[1]?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('#answer-title')?.textContent).toBe('光标');
+    });
+    buttonByText(root, '键盘对照')?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('#session-title')?.textContent).toBe('键盘对照');
+    });
+
+    await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+      currentStudyItemId: 'study-cursor',
+      pendingAnswer: null,
+    });
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
+    });
+  });
+
+  it('skips lyric transition for reduced motion without changing target input', async () => {
+    const { root } = await mountWorkbench();
+    const reduceMotion = root.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    reduceMotion!.click();
+
+    await vi.waitFor(() => {
+      expect(root.querySelector<HTMLElement>('.lyrics-track')?.style.transitionDuration).toBe(
+        '0ms',
+      );
+    });
+    expect(root.querySelector('#answer-title')?.textContent).toBe('记忆');
+    expect(root.querySelector<HTMLInputElement>('#answer-input')).not.toBeNull();
+    await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+      reduceMotion: true,
+      currentStudyItemId: 'study-memory',
+    });
+  });
+
   it('submits an explicit review in lyrics mode and reads the same state after switching to keyboard mode', async () => {
     const { root } = await mountWorkbench();
     const input = root.querySelector<HTMLInputElement>('#answer-input');
