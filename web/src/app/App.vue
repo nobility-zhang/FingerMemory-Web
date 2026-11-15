@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { FingerMemoryRepository, StorageStatus } from '../core/repository';
+import DataWorkspace from './DataWorkspace.vue';
 import LexiconManager from './LexiconManager.vue';
 import PracticeWorkspace from './PracticeWorkspace.vue';
 
@@ -12,7 +13,7 @@ type StorageState = 'initializing' | 'ready' | 'error';
 
 const storageState = ref<StorageState>('initializing');
 const storageStatus = ref<StorageStatus | null>(null);
-const activeView = ref<'practice' | 'library'>('practice');
+const activeView = ref<'practice' | 'library' | 'data'>('practice');
 let disposed = false;
 
 const stateLabel = computed(() => {
@@ -45,6 +46,16 @@ const localBadgeText = computed(() => {
   }
   const model = storageStatus.value.scheduler.modelVersion.toUpperCase();
   return `${model} · 数据 v${storageStatus.value.schemaVersion}`;
+});
+
+const viewHeading = computed(() => {
+  if (activeView.value === 'library') {
+    return { label: '词库', title: '词库管理' };
+  }
+  if (activeView.value === 'data') {
+    return { label: '数据', title: '数据管理' };
+  }
+  return { label: '概览', title: '学习工作台' };
 });
 
 onMounted(async () => {
@@ -105,6 +116,17 @@ onBeforeUnmount(() => {
           <li>
             <button type="button" class="nav-item" disabled>复习</button>
           </li>
+          <li>
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ 'nav-item--active': activeView === 'data' }"
+              :aria-current="activeView === 'data' ? 'page' : undefined"
+              @click="activeView = 'data'"
+            >
+              数据
+            </button>
+          </li>
         </ul>
         <div class="storage-note">
           <span class="storage-dot" aria-hidden="true"></span>
@@ -115,8 +137,8 @@ onBeforeUnmount(() => {
       <main class="workspace">
         <header class="workspace-heading">
           <div>
-            <p class="section-label">{{ activeView === 'practice' ? '概览' : '词库' }}</p>
-            <h1>{{ activeView === 'practice' ? '学习工作台' : '词库管理' }}</h1>
+            <p class="section-label">{{ viewHeading.label }}</p>
+            <h1>{{ viewHeading.title }}</h1>
           </div>
           <span class="local-badge" data-testid="storage-summary">
             {{ localBadgeText }}
@@ -129,6 +151,10 @@ onBeforeUnmount(() => {
         />
         <LexiconManager
           v-else-if="storageState === 'ready' && activeView === 'library'"
+          :repository="repository"
+        />
+        <DataWorkspace
+          v-else-if="storageState === 'ready' && activeView === 'data'"
           :repository="repository"
         />
         <section v-else class="empty-panel" aria-labelledby="empty-title">

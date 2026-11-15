@@ -120,6 +120,15 @@ describe('App', () => {
       expect(root.querySelector('h1')?.textContent).toBe('词库管理');
       expect(root.textContent).toContain('还没有词库');
     });
+
+    const dataButton = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '数据',
+    );
+    dataButton?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('h1')?.textContent).toBe('数据管理');
+      expect(root.textContent).toContain('下载完整备份');
+    });
   });
 
   it('shows a local storage error when initialization fails', async () => {
