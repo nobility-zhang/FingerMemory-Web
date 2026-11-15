@@ -76,6 +76,43 @@ export interface PracticeAttemptResult {
   attempt: PracticeAttempt;
 }
 
+export interface LexiconStudyItem {
+  membership: LexiconItem;
+  practiceItem: PracticeItem;
+}
+
+export interface CreateLexiconInput {
+  name: string;
+  description: string;
+  now: TimestampMs;
+}
+
+export interface UpdateLexiconInput {
+  id: string;
+  name: string;
+  description: string;
+  now: TimestampMs;
+}
+
+export interface CreateStudyItemInput {
+  lexiconId: string;
+  term: string;
+  meaning: string;
+  acceptedAnswers: string[];
+  hints: string[];
+  now: TimestampMs;
+}
+
+export interface UpdateStudyItemInput {
+  lexiconId: string;
+  studyItemId: string;
+  term: string;
+  meaning: string;
+  acceptedAnswers: string[];
+  hints: string[];
+  now: TimestampMs;
+}
+
 export interface DueReviewItem {
   studyItem: StudyItem;
   wordEntry: WordEntry;
@@ -107,7 +144,17 @@ export interface FingerMemoryRepository {
   initialize(): Promise<StorageStatus>;
   getStatus(): Promise<StorageStatus>;
   ensureStarterContent(): Promise<PracticeItem[]>;
+  listLexicons(includeArchived?: boolean): Promise<Lexicon[]>;
+  createLexicon(input: CreateLexiconInput): Promise<Lexicon>;
+  updateLexicon(input: UpdateLexiconInput): Promise<Lexicon>;
+  setLexiconArchived(id: string, archived: boolean, now: TimestampMs): Promise<Lexicon>;
+  deleteLexicon(id: string): Promise<void>;
+  listLexiconItems(lexiconId: string): Promise<LexiconStudyItem[]>;
+  createStudyItem(input: CreateStudyItemInput): Promise<LexiconStudyItem>;
+  updateStudyItem(input: UpdateStudyItemInput): Promise<LexiconStudyItem>;
+  removeStudyItemFromLexicon(lexiconId: string, studyItemId: string): Promise<void>;
   listPracticeItems(limit?: number): Promise<PracticeItem[]>;
+  listPracticeItemsByStudyItemIds(studyItemIds: string[]): Promise<PracticeItem[]>;
   getLatestPracticeSession(modeId?: PracticeModeId): Promise<PracticeSession | undefined>;
   savePracticeSession(session: PracticeSession): Promise<PracticeSession>;
   recordPracticeAttempt(input: PracticeAttemptInput): Promise<PracticeAttemptResult>;
@@ -161,5 +208,26 @@ export class InvalidStorageSnapshotError extends Error {
   constructor(message: string) {
     super(`Invalid storage snapshot: ${message}`);
     this.name = 'InvalidStorageSnapshotError';
+  }
+}
+
+export class LexiconNotFoundError extends Error {
+  constructor(readonly lexiconId: string) {
+    super(`Lexicon not found: ${lexiconId}`);
+    this.name = 'LexiconNotFoundError';
+  }
+}
+
+export class StudyItemNotFoundError extends Error {
+  constructor(readonly studyItemId: string) {
+    super(`Study item not found: ${studyItemId}`);
+    this.name = 'StudyItemNotFoundError';
+  }
+}
+
+export class StudyItemInUseError extends Error {
+  constructor(readonly studyItemId: string) {
+    super(`Study item is referenced by an unfinished practice session: ${studyItemId}`);
+    this.name = 'StudyItemInUseError';
   }
 }

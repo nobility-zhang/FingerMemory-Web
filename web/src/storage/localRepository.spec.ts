@@ -7,6 +7,7 @@ import {
   ReviewStateVersionMismatchError,
   ReviewSubmissionConflictError,
   ReviewSubmissionRejectedError,
+  StudyItemInUseError,
 } from '../core/repository';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
 import { createPracticeSession } from '../session/practiceSession';
@@ -206,6 +207,152 @@ describe('FingerMemoryDatabase', () => {
     await expect(database.appMeta.get(APP_META_KEYS.dataFormatVersion)).resolves.toMatchObject({
       value: String(DATA_FORMAT_VERSION),
     });
+  });
+});
+
+describe('lexicon and study item management', () => {
+  it('creates, edits, archives and deletes lexicon memberships without auto-merging duplicates', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '测试词库',
+      description: '初始说明',
+      now: INITIAL_TIME,
+    });
+
+    const first = await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: ['提示一'],
+      now: INITIAL_TIME + 1,
+    });
+    await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '内存',
+      acceptedAnswers: ['RAM'],
+      hints: [],
+      now: INITIAL_TIME + 2,
+    });
+    await expect(repository.listLexiconItems(lexicon.id)).resolves.toHaveLength(2);
+
+    const updated = await repository.updateStudyItem({
+      lexiconId: lexicon.id,
+      studyItemId: first.practiceItem.studyItem.id,
+      term: 'remember',
+      meaning: '记住',
+      acceptedAnswers: ['recall'],
+      hints: ['不是 memory'],
+      now: INITIAL_TIME + 3,
+    });
+    expect(updated.practiceItem.wordEntry).toMatchObject({
+      term: 'remember',
+      meaning: '记住',
+      normalizedTerm: 'remember',
+    });
+
+    await repository.setLexiconArchived(lexicon.id, true, INITIAL_TIME + 4);
+    await expect(repository.listPracticeItems()).resolves.toEqual([]);
+    await expect(repository.listLexicons(false)).resolves.toEqual([]);
+    await repository.setLexiconArchived(lexicon.id, false, INITIAL_TIME + 5);
+    await expect(repository.listPracticeItems()).resolves.toHaveLength(2);
+
+    await repository.removeStudyItemFromLexicon(
+      lexicon.id,
+      first.practiceItem.studyItem.id,
+    );
+    await expect(repository.listLexiconItems(lexicon.id)).resolves.toHaveLength(1);
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { words: 2, studyItems: 2, lexiconItems: 1 },
+    });
+
+    await repository.deleteLexicon(lexicon.id);
+    await expect(repository.listLexicons(true)).resolves.toEqual([]);
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { lexicons: 0, words: 2, studyItems: 2, lexiconItems: 0 },
+    });
+  });
+
+  it('rejects removing a study item referenced by an unfinished session', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const items = await repository.ensureStarterContent();
+    const lexicon = (await repository.listLexicons())[0];
+    if (lexicon === undefined || items[0] === undefined) {
+      throw new Error('starter data missing');
+    }
+    await repository.savePracticeSession(
+      createPracticeSession({
+        id: 'active-session',
+        modeId: 'lyrics-scroll',
+        items: [items[0]],
+        now: INITIAL_TIME,
+        reduceMotion: false,
+      }),
+    );
+
+    await expect(
+      repository.removeStudyItemFromLexicon(
+        lexicon.id,
+        items[0].studyItem.id,
+      ),
+    ).rejects.toBeInstanceOf(StudyItemInUseError);
+    await expect(repository.listLexiconItems(lexicon.id)).resolves.toHaveLength(10);
+  });
+
+  it('deleting a non-empty lexicon preserves study state and review history', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '历史词库',
+      description: '',
+      now: INITIAL_TIME,
+    });
+    const created = await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: INITIAL_TIME + 1,
+    });
+    await repository.submitReview(
+      createReviewInput({
+        studyItemId: created.practiceItem.studyItem.id,
+        reviewedAt: INITIAL_TIME + 2,
+      }),
+    );
+    await repository.savePracticeSession(
+      createPracticeSession({
+        id: 'historical-session',
+        modeId: 'lyrics-scroll',
+        items: [created.practiceItem],
+        now: INITIAL_TIME + 3,
+        reduceMotion: false,
+      }),
+    );
+
+    await repository.deleteLexicon(lexicon.id);
+
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { lexicons: 0, studyItems: 1, lexiconItems: 0, reviewStates: 1, reviewLogs: 1 },
+    });
+    await expect(
+      repository.getReviewState(created.practiceItem.studyItem.id),
+    ).resolves.toBeDefined();
+    await expect(
+      repository.listPracticeItemsByStudyItemIds([created.practiceItem.studyItem.id]),
+    ).resolves.toMatchObject([
+      {
+        studyItem: { id: created.practiceItem.studyItem.id },
+        wordEntry: { term: 'memory', meaning: '记忆' },
+      },
+    ]);
   });
 });
 

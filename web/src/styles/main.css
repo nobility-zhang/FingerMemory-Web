@@ -124,16 +124,30 @@ a {
 }
 
 .nav-item {
+  width: 100%;
   padding: 10px 12px;
+  border: 0;
   border-radius: 6px;
+  background: transparent;
   color: #5f6d65;
   font-size: 0.9rem;
   font-weight: 600;
+  text-align: left;
+  cursor: pointer;
 }
 
 .nav-item--active {
   background: #e3ece7;
   color: #18352a;
+}
+
+.nav-item:disabled {
+  cursor: not-allowed;
+}
+
+.nav-item:focus-visible {
+  outline: 3px solid rgb(45 113 83 / 28%);
+  outline-offset: 1px;
 }
 
 .storage-note {

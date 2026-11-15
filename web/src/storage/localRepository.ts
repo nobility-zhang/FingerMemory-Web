@@ -1,5 +1,7 @@
 import type {
   AppMetaRecord,
+  Lexicon,
+  LexiconItem,
   PracticeAttempt,
   PracticeItem,
   PracticeModeId,
@@ -13,19 +15,27 @@ import type {
 import type {
   DueReviewItem,
   FingerMemoryRepository,
+  CreateLexiconInput,
+  CreateStudyItemInput,
+  LexiconStudyItem,
   PracticeAttemptInput,
   PracticeAttemptResult,
   ReviewSubmissionInput,
   ReviewSubmissionResult,
   StorageSnapshot,
   StorageStatus,
+  UpdateLexiconInput,
+  UpdateStudyItemInput,
 } from '../core/repository';
 import {
   InvalidStorageSnapshotError,
+  LexiconNotFoundError,
   PracticeAttemptConflictError,
   ReviewStateVersionMismatchError,
   ReviewSubmissionConflictError,
   ReviewSubmissionRejectedError,
+  StudyItemInUseError,
+  StudyItemNotFoundError,
 } from '../core/repository';
 import type { ReviewScheduler } from '../core/scheduler';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
@@ -53,6 +63,7 @@ export class UnsupportedDataFormatVersionError extends Error {
 interface RepositoryOptions {
   scheduler?: Promise<ReviewScheduler>;
   clock?: () => TimestampMs;
+  idFactory?: () => string;
 }
 
 function assertIdentifier(value: string, label: string): void {
@@ -65,6 +76,10 @@ function assertTimestamp(value: TimestampMs, label: string): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new TypeError(`${label} must be a positive finite timestamp`);
   }
+}
+
+function normalizeStringList(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
 }
 
 function normalizeSpelling(value: string): string {
@@ -405,6 +420,7 @@ function validateSnapshotReferences(snapshot: StorageSnapshot): void {
 class DexieFingerMemoryRepository implements FingerMemoryRepository {
   private readonly scheduler: Promise<ReviewScheduler>;
   private readonly clock: () => TimestampMs;
+  private readonly idFactory: () => string;
 
   constructor(
     private readonly database: FingerMemoryDatabase,
@@ -412,6 +428,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   ) {
     this.scheduler = options.scheduler ?? createDefaultReviewScheduler();
     this.clock = options.clock ?? Date.now;
+    this.idFactory = options.idFactory ?? (() => crypto.randomUUID());
   }
 
   async initialize(): Promise<StorageStatus> {
@@ -534,6 +551,292 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     );
   }
 
+  async listLexicons(includeArchived = true): Promise<Lexicon[]> {
+    await this.database.open();
+    const lexicons = await this.database.lexicons.toArray();
+    return lexicons
+      .filter((lexicon) => includeArchived || lexicon.archivedAt === null)
+      .sort(
+        (left, right) =>
+          Number(left.archivedAt !== null) - Number(right.archivedAt !== null) ||
+          left.name.localeCompare(right.name) ||
+          left.id.localeCompare(right.id),
+      );
+  }
+
+  async createLexicon(input: CreateLexiconInput): Promise<Lexicon> {
+    const name = input.name.trim();
+    if (name.length === 0) {
+      throw new TypeError('lexicon name must not be empty');
+    }
+    assertTimestamp(input.now, 'lexicon creation time');
+    const lexicon: Lexicon = {
+      id: `lexicon:${this.idFactory()}`,
+      name,
+      description: input.description.trim(),
+      createdAt: input.now,
+      updatedAt: input.now,
+      archivedAt: null,
+    };
+    await this.database.open();
+    await this.database.lexicons.add(lexicon);
+    return lexicon;
+  }
+
+  async updateLexicon(input: UpdateLexiconInput): Promise<Lexicon> {
+    assertIdentifier(input.id, 'lexicon id');
+    const name = input.name.trim();
+    if (name.length === 0) {
+      throw new TypeError('lexicon name must not be empty');
+    }
+    assertTimestamp(input.now, 'lexicon update time');
+    await this.database.open();
+
+    return this.database.transaction('rw', this.database.lexicons, async () => {
+      const existing = await this.database.lexicons.get(input.id);
+      if (existing === undefined) {
+        throw new LexiconNotFoundError(input.id);
+      }
+      const updated: Lexicon = {
+        ...existing,
+        name,
+        description: input.description.trim(),
+        updatedAt: input.now,
+      };
+      await this.database.lexicons.put(updated);
+      return updated;
+    });
+  }
+
+  async setLexiconArchived(
+    id: string,
+    archived: boolean,
+    now: TimestampMs,
+  ): Promise<Lexicon> {
+    assertIdentifier(id, 'lexicon id');
+    assertTimestamp(now, 'lexicon archive time');
+    await this.database.open();
+
+    return this.database.transaction('rw', this.database.lexicons, async () => {
+      const existing = await this.database.lexicons.get(id);
+      if (existing === undefined) {
+        throw new LexiconNotFoundError(id);
+      }
+      const updated: Lexicon = {
+        ...existing,
+        archivedAt: archived ? now : null,
+        updatedAt: now,
+      };
+      await this.database.lexicons.put(updated);
+      return updated;
+    });
+  }
+
+  async deleteLexicon(id: string): Promise<void> {
+    assertIdentifier(id, 'lexicon id');
+    await this.database.open();
+
+    await this.database.transaction(
+      'rw',
+      [this.database.lexicons, this.database.lexiconItems],
+      async () => {
+        const existing = await this.database.lexicons.get(id);
+        if (existing === undefined) {
+          throw new LexiconNotFoundError(id);
+        }
+        await this.database.lexiconItems.where('lexiconId').equals(id).delete();
+        await this.database.lexicons.delete(id);
+      },
+    );
+  }
+
+  async listLexiconItems(lexiconId: string): Promise<LexiconStudyItem[]> {
+    assertIdentifier(lexiconId, 'lexicon id');
+    await this.database.open();
+
+    return this.database.transaction(
+      'r',
+      [
+        this.database.lexicons,
+        this.database.lexiconItems,
+        this.database.studyItems,
+        this.database.words,
+      ],
+      async () => {
+        if ((await this.database.lexicons.get(lexiconId)) === undefined) {
+          throw new LexiconNotFoundError(lexiconId);
+        }
+        const memberships = await this.database.lexiconItems
+          .where('lexiconId')
+          .equals(lexiconId)
+          .toArray();
+        memberships.sort((left, right) => left.order - right.order);
+
+        const result: LexiconStudyItem[] = [];
+        for (const membership of memberships) {
+          const studyItem = await this.database.studyItems.get(membership.studyItemId);
+          if (studyItem === undefined) {
+            throw new StudyItemNotFoundError(membership.studyItemId);
+          }
+          const wordEntry = await this.database.words.get(studyItem.wordEntryId);
+          if (wordEntry === undefined) {
+            throw new StudyItemNotFoundError(studyItem.id);
+          }
+          result.push({ membership, practiceItem: { studyItem, wordEntry } });
+        }
+        return result;
+      },
+    );
+  }
+
+  async createStudyItem(input: CreateStudyItemInput): Promise<LexiconStudyItem> {
+    assertIdentifier(input.lexiconId, 'lexicon id');
+    const term = input.term.trim();
+    const meaning = input.meaning.trim();
+    if (term.length === 0 || meaning.length === 0) {
+      throw new TypeError('study item term and meaning must not be empty');
+    }
+    assertTimestamp(input.now, 'study item creation time');
+    const entityId = this.idFactory();
+    const wordId = `word:${entityId}`;
+    const studyItemId = `study:${entityId}`;
+    await this.database.open();
+
+    return this.database.transaction(
+      'rw',
+      [
+        this.database.lexicons,
+        this.database.words,
+        this.database.studyItems,
+        this.database.lexiconItems,
+      ],
+      async () => {
+        if ((await this.database.lexicons.get(input.lexiconId)) === undefined) {
+          throw new LexiconNotFoundError(input.lexiconId);
+        }
+        const memberships = await this.database.lexiconItems
+          .where('lexiconId')
+          .equals(input.lexiconId)
+          .toArray();
+        const order = memberships.reduce((maximum, item) => Math.max(maximum, item.order), -1) + 1;
+        const wordEntry: WordEntry = {
+          id: wordId,
+          term,
+          meaning,
+          acceptedAnswers: normalizeStringList(input.acceptedAnswers),
+          hints: normalizeStringList(input.hints),
+          normalizedTerm: normalizeSpelling(term),
+          createdAt: input.now,
+          updatedAt: input.now,
+        };
+        const studyItem = {
+          id: studyItemId,
+          wordEntryId: wordId,
+          direction: 'meaning-to-spelling' as const,
+          createdAt: input.now,
+          updatedAt: input.now,
+        };
+        const membership: LexiconItem = {
+          lexiconId: input.lexiconId,
+          studyItemId,
+          order,
+          sourceHints: wordEntry.hints,
+        };
+
+        await this.database.words.add(wordEntry);
+        await this.database.studyItems.add(studyItem);
+        await this.database.lexiconItems.add(membership);
+        return { membership, practiceItem: { studyItem, wordEntry } };
+      },
+    );
+  }
+
+  async updateStudyItem(input: UpdateStudyItemInput): Promise<LexiconStudyItem> {
+    assertIdentifier(input.lexiconId, 'lexicon id');
+    assertIdentifier(input.studyItemId, 'study item id');
+    const term = input.term.trim();
+    const meaning = input.meaning.trim();
+    if (term.length === 0 || meaning.length === 0) {
+      throw new TypeError('study item term and meaning must not be empty');
+    }
+    assertTimestamp(input.now, 'study item update time');
+    await this.database.open();
+
+    return this.database.transaction(
+      'rw',
+      [
+        this.database.words,
+        this.database.studyItems,
+        this.database.lexiconItems,
+      ],
+      async () => {
+        const studyItem = await this.database.studyItems.get(input.studyItemId);
+        if (studyItem === undefined) {
+          throw new StudyItemNotFoundError(input.studyItemId);
+        }
+        const wordEntry = await this.database.words.get(studyItem.wordEntryId);
+        if (wordEntry === undefined) {
+          throw new StudyItemNotFoundError(input.studyItemId);
+        }
+        const membership = await this.database.lexiconItems.get([
+          input.lexiconId,
+          input.studyItemId,
+        ]);
+        if (membership === undefined) {
+          throw new StudyItemNotFoundError(input.studyItemId);
+        }
+
+        const updatedWord: WordEntry = {
+          ...wordEntry,
+          term,
+          meaning,
+          acceptedAnswers: normalizeStringList(input.acceptedAnswers),
+          hints: normalizeStringList(input.hints),
+          normalizedTerm: normalizeSpelling(term),
+          updatedAt: input.now,
+        };
+        const updatedStudyItem = { ...studyItem, updatedAt: input.now };
+        const updatedMembership = { ...membership, sourceHints: updatedWord.hints };
+        await this.database.words.put(updatedWord);
+        await this.database.studyItems.put(updatedStudyItem);
+        await this.database.lexiconItems.put(updatedMembership);
+        return {
+          membership: updatedMembership,
+          practiceItem: { studyItem: updatedStudyItem, wordEntry: updatedWord },
+        };
+      },
+    );
+  }
+
+  async removeStudyItemFromLexicon(
+    lexiconId: string,
+    studyItemId: string,
+  ): Promise<void> {
+    assertIdentifier(lexiconId, 'lexicon id');
+    assertIdentifier(studyItemId, 'study item id');
+    await this.database.open();
+
+    await this.database.transaction(
+      'rw',
+      [this.database.lexicons, this.database.lexiconItems, this.database.practiceSessions],
+      async () => {
+        if ((await this.database.lexicons.get(lexiconId)) === undefined) {
+          throw new LexiconNotFoundError(lexiconId);
+        }
+        const sessions = await this.database.practiceSessions.toArray();
+        const inUse = sessions.some(
+          (session) =>
+            session.status !== 'completed' &&
+            session.queue.some((item) => item.studyItemId === studyItemId),
+        );
+        if (inUse) {
+          throw new StudyItemInUseError(studyItemId);
+        }
+        await this.database.lexiconItems.delete([lexiconId, studyItemId]);
+      },
+    );
+  }
+
   async ensureStarterContent(): Promise<PracticeItem[]> {
     await this.database.open();
     const now = this.clock();
@@ -611,11 +914,30 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
 
     return this.database.transaction(
       'r',
-      [this.database.studyItems, this.database.words],
+      [
+        this.database.lexicons,
+        this.database.lexiconItems,
+        this.database.studyItems,
+        this.database.words,
+      ],
       async () => {
-        const studyItems = await this.database.studyItems.toArray();
+        const activeLexiconIds = new Set(
+          (await this.database.lexicons.toArray())
+            .filter((lexicon) => lexicon.archivedAt === null)
+            .map((lexicon) => lexicon.id),
+        );
+        const memberships = await this.database.lexiconItems.toArray();
+        const studyItemIds = new Set(
+          memberships
+            .filter((membership) => activeLexiconIds.has(membership.lexiconId))
+            .map((membership) => membership.studyItemId),
+        );
         const practiceItems: PracticeItem[] = [];
-        for (const studyItem of studyItems) {
+        for (const studyItemId of studyItemIds) {
+          const studyItem = await this.database.studyItems.get(studyItemId);
+          if (studyItem === undefined) {
+            throw new Error(`Study item ${studyItemId} has no persisted record`);
+          }
           const wordEntry = await this.database.words.get(studyItem.wordEntryId);
           if (wordEntry === undefined) {
             throw new Error(`Study item ${studyItem.id} has no word entry`);
@@ -628,6 +950,34 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
             left.studyItem.id.localeCompare(right.studyItem.id),
         );
         return practiceItems.slice(0, limit);
+      },
+    );
+  }
+
+  async listPracticeItemsByStudyItemIds(studyItemIds: string[]): Promise<PracticeItem[]> {
+    await this.database.open();
+    const uniqueIds = [...new Set(studyItemIds)];
+    if (uniqueIds.some((id) => id.trim().length === 0)) {
+      throw new TypeError('study item ids must not contain empty values');
+    }
+
+    return this.database.transaction(
+      'r',
+      [this.database.studyItems, this.database.words],
+      async () => {
+        const practiceItems: PracticeItem[] = [];
+        for (const studyItemId of uniqueIds) {
+          const studyItem = await this.database.studyItems.get(studyItemId);
+          if (studyItem === undefined) {
+            continue;
+          }
+          const wordEntry = await this.database.words.get(studyItem.wordEntryId);
+          if (wordEntry === undefined) {
+            continue;
+          }
+          practiceItems.push({ studyItem, wordEntry });
+        }
+        return practiceItems;
       },
     );
   }

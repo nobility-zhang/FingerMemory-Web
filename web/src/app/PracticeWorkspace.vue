@@ -15,6 +15,7 @@ const props = defineProps<{
 
 const items = ref<PracticeItem[]>([]);
 const latestSession = ref<PracticeSession>();
+const latestSessionItems = ref<PracticeItem[]>([]);
 const activeSession = ref<PracticeSession>();
 const loading = ref(true);
 const busy = ref(false);
@@ -25,10 +26,19 @@ const resumableSession = computed(() => {
   if (session === undefined || session.status === 'completed') {
     return undefined;
   }
-  const availableIds = new Set(items.value.map((item) => item.studyItem.id));
+  const availableIds = new Set(
+    latestSessionItems.value.map((item) => item.studyItem.id),
+  );
   return session.queue.every((item) => availableIds.has(item.studyItemId))
     ? session
     : undefined;
+});
+const workbenchItems = computed(() => {
+  const merged = new Map<string, PracticeItem>();
+  for (const item of [...items.value, ...latestSessionItems.value]) {
+    merged.set(item.studyItem.id, item);
+  }
+  return [...merged.values()];
 });
 
 function preferredReducedMotion(): boolean {
@@ -45,6 +55,12 @@ async function loadWorkspace(): Promise<void> {
     ]);
     items.value = practiceItems;
     latestSession.value = session;
+    latestSessionItems.value =
+      session === undefined || session.status === 'completed'
+        ? []
+        : await props.repository.listPracticeItemsByStudyItemIds(
+            session.queue.map((item) => item.studyItemId),
+          );
   } catch {
     error.value = '无法读取本地练习数据。';
   } finally {
@@ -82,6 +98,7 @@ async function startSession(modeId: PracticeModeId = 'lyrics-scroll'): Promise<v
     });
     const saved = await props.repository.savePracticeSession(session);
     latestSession.value = saved;
+    latestSessionItems.value = items.value;
     activeSession.value = saved;
   } catch {
     error.value = '无法创建练习会话。';
@@ -122,7 +139,7 @@ onMounted(() => {
   <SessionWorkbench
     v-else-if="activeSession !== undefined"
     :initial-session="activeSession"
-    :items="items"
+    :items="workbenchItems"
     :repository="repository"
     @updated="handleSessionUpdated"
     @exit="handleSessionExit"
@@ -139,9 +156,20 @@ onMounted(() => {
 
     <div v-if="items.length === 0" class="empty-actions">
       <p>本地还没有可练习的词条。</p>
-      <button type="button" class="primary-action" :disabled="busy" @click="loadStarterContent">
-        载入入门词库
-      </button>
+      <div class="new-session-actions">
+        <button
+          v-if="resumableSession !== undefined"
+          type="button"
+          class="continue-action"
+          :disabled="busy"
+          @click="continueSession"
+        >
+          打开上次会话 · {{ resumableSession.status === 'paused' ? '已暂停' : '进行中' }}
+        </button>
+        <button type="button" class="primary-action" :disabled="busy" @click="loadStarterContent">
+          载入入门词库
+        </button>
+      </div>
     </div>
     <div v-else class="start-actions">
       <p>{{ items.length }} 个学习目标已保存在本地。</p>

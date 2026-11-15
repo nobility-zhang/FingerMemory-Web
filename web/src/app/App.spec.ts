@@ -35,7 +35,27 @@ function createTestRepository(
     initialize,
     getStatus: async () => readyStatus,
     ensureStarterContent: async () => [],
+    listLexicons: async () => [],
+    createLexicon: async () => {
+      throw new Error('createLexicon is not used in this test');
+    },
+    updateLexicon: async () => {
+      throw new Error('updateLexicon is not used in this test');
+    },
+    setLexiconArchived: async () => {
+      throw new Error('setLexiconArchived is not used in this test');
+    },
+    deleteLexicon: async () => undefined,
+    listLexiconItems: async () => [],
+    createStudyItem: async () => {
+      throw new Error('createStudyItem is not used in this test');
+    },
+    updateStudyItem: async () => {
+      throw new Error('updateStudyItem is not used in this test');
+    },
+    removeStudyItemFromLexicon: async () => undefined,
     listPracticeItems: async () => [],
+    listPracticeItemsByStudyItemIds: async () => [],
     getLatestPracticeSession: async () => undefined,
     savePracticeSession: async (session) => session,
     recordPracticeAttempt: async () => {
@@ -85,6 +105,15 @@ describe('App', () => {
     );
     await vi.waitFor(() => {
       expect(root.textContent).toContain('本地还没有可练习的词条');
+    });
+
+    const libraryButton = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '词库',
+    );
+    libraryButton?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('h1')?.textContent).toBe('词库管理');
+      expect(root.textContent).toContain('还没有词库');
     });
   });
 
