@@ -1,11 +1,28 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import {
+  computed,
+  defineAsyncComponent,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+} from 'vue';
+import {
+  Activity,
+  Database,
+  Home,
+  Keyboard,
+  LibraryBig,
+  UserRound,
+} from '@lucide/vue';
 import type { FingerMemoryRepository, StorageStatus } from '../core/repository';
+import AccountWorkspace from './AccountWorkspace.vue';
 import DataWorkspace from './DataWorkspace.vue';
 import LexiconManager from './LexiconManager.vue';
 import PracticeWorkspace from './PracticeWorkspace.vue';
 import ReminderBanner from './ReminderBanner.vue';
 import ReviewWorkspace from './ReviewWorkspace.vue';
+
+const GameWorkspace = defineAsyncComponent(() => import('../game/GameWorkspace.vue'));
 
 const props = defineProps<{
   repository: FingerMemoryRepository;
@@ -15,7 +32,10 @@ type StorageState = 'initializing' | 'ready' | 'error';
 
 const storageState = ref<StorageState>('initializing');
 const storageStatus = ref<StorageStatus | null>(null);
-const activeView = ref<'practice' | 'library' | 'review' | 'data'>('practice');
+const gameFocusMode = ref(false);
+const activeView = ref<
+  'game' | 'practice' | 'library' | 'review' | 'data' | 'account'
+>('game');
 let disposed = false;
 
 const stateLabel = computed(() => {
@@ -60,7 +80,13 @@ const viewHeading = computed(() => {
   if (activeView.value === 'review') {
     return { label: '复习', title: '正式复习诊断' };
   }
-  return { label: '概览', title: '学习工作台' };
+  if (activeView.value === 'account') {
+    return { label: '账号', title: '跨设备学习空间' };
+  }
+  if (activeView.value === 'practice') {
+    return { label: '本地', title: '本地训练舱' };
+  }
+  return { label: '大厅', title: '训练大厅' };
 });
 
 function handleDataRestored(status: StorageStatus): void {
@@ -91,19 +117,31 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'game-focus-mode': gameFocusMode }">
     <header class="topbar">
       <a class="brand" href="/" aria-label="FingerMemory 首页">
         <span class="brand-mark" aria-hidden="true">F</span>
         <span>FingerMemory</span>
       </a>
-      <span class="stage-label">v1.0</span>
+      <span class="stage-label">V2.0 · P3</span>
     </header>
 
     <div class="app-layout">
       <nav class="primary-nav" aria-label="主导航">
-        <p class="nav-label">工作区</p>
+        <p class="nav-label">训练网络</p>
         <ul class="nav-list">
+          <li>
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ 'nav-item--active': activeView === 'game' }"
+              :aria-current="activeView === 'game' ? 'page' : undefined"
+              @click="activeView = 'game'"
+            >
+              <Home :size="17" aria-hidden="true" />
+              <span>大厅</span>
+            </button>
+          </li>
           <li>
             <button
               type="button"
@@ -112,7 +150,8 @@ onBeforeUnmount(() => {
               :aria-current="activeView === 'practice' ? 'page' : undefined"
               @click="activeView = 'practice'"
             >
-              学习
+              <Keyboard :size="17" aria-hidden="true" />
+              <span>本地训练</span>
             </button>
           </li>
           <li>
@@ -123,7 +162,8 @@ onBeforeUnmount(() => {
               :aria-current="activeView === 'library' ? 'page' : undefined"
               @click="activeView = 'library'"
             >
-              词库
+              <LibraryBig :size="17" aria-hidden="true" />
+              <span>词库</span>
             </button>
           </li>
           <li>
@@ -134,7 +174,8 @@ onBeforeUnmount(() => {
               :aria-current="activeView === 'review' ? 'page' : undefined"
               @click="activeView = 'review'"
             >
-              复习
+              <Activity :size="17" aria-hidden="true" />
+              <span>诊断</span>
             </button>
           </li>
           <li>
@@ -145,7 +186,20 @@ onBeforeUnmount(() => {
               :aria-current="activeView === 'data' ? 'page' : undefined"
               @click="activeView = 'data'"
             >
-              数据
+              <Database :size="17" aria-hidden="true" />
+              <span>数据</span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="nav-item"
+              :class="{ 'nav-item--active': activeView === 'account' }"
+              :aria-current="activeView === 'account' ? 'page' : undefined"
+              @click="activeView = 'account'"
+            >
+              <UserRound :size="17" aria-hidden="true" />
+              <span>账号</span>
             </button>
           </li>
         </ul>
@@ -155,8 +209,8 @@ onBeforeUnmount(() => {
         </div>
       </nav>
 
-      <main class="workspace">
-        <header class="workspace-heading">
+      <main class="workspace" :class="{ 'workspace--game': activeView === 'game' }">
+        <header v-if="activeView !== 'game'" class="workspace-heading">
           <div>
             <p class="section-label">{{ viewHeading.label }}</p>
             <h1>{{ viewHeading.title }}</h1>
@@ -167,13 +221,26 @@ onBeforeUnmount(() => {
         </header>
 
         <ReminderBanner
-          v-if="storageState === 'ready'"
+          v-if="storageState === 'ready' && activeView === 'practice'"
           :repository="repository"
           @open-practice="openReminderPractice"
         />
 
+        <Suspense v-if="activeView === 'game'">
+          <GameWorkspace @focus-mode="gameFocusMode = $event" />
+          <template #fallback>
+            <section class="empty-panel" aria-label="正在加载训练大厅">
+              <span class="panel-index" aria-hidden="true">00</span>
+              <div class="empty-copy">
+                <p class="section-label">训练网络</p>
+                <h2>正在加载大厅</h2>
+                <p>正在连接账号和今日队列。</p>
+              </div>
+            </section>
+          </template>
+        </Suspense>
         <PracticeWorkspace
-          v-if="storageState === 'ready' && activeView === 'practice'"
+          v-else-if="storageState === 'ready' && activeView === 'practice'"
           :repository="repository"
         />
         <LexiconManager
@@ -189,6 +256,9 @@ onBeforeUnmount(() => {
           :repository="repository"
           @restored="handleDataRestored"
         />
+        <AccountWorkspace
+          v-else-if="storageState === 'ready' && activeView === 'account'"
+        />
         <section v-else class="empty-panel" aria-labelledby="empty-title">
           <span class="panel-index" aria-hidden="true">01</span>
           <div class="empty-copy">
@@ -201,7 +271,7 @@ onBeforeUnmount(() => {
           </span>
         </section>
 
-        <footer class="workspace-footer">
+        <footer v-if="activeView !== 'game'" class="workspace-footer">
           <span>FingerMemory v1.0.0</span>
           <span>Keyboard-first vocabulary practice</span>
         </footer>

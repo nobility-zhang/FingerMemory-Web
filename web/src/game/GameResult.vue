@@ -1,0 +1,336 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import {
+  Home,
+  Keyboard,
+  RotateCcw,
+  Sparkles,
+  Target,
+  Timer,
+  Trophy,
+} from '@lucide/vue';
+import companion from '../assets/game/companion-navigator.png';
+import type { GameRunResult } from './types';
+
+const props = defineProps<{
+  result: GameRunResult;
+}>();
+
+const emit = defineEmits<{
+  again: [];
+  lobby: [];
+}>();
+
+const accuracy = computed(() => {
+  if (props.result.totalAnswerCount === 0) {
+    return 0;
+  }
+  return Math.round(
+    props.result.matchedCount / props.result.totalAnswerCount * 100,
+  );
+});
+const duration = computed(() => {
+  const seconds = Math.max(
+    0,
+    Math.round((props.result.endedAt - props.result.startedAt) / 1000),
+  );
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
+});
+const ratings = [
+  ['again', 'Again'],
+  ['hard', 'Hard'],
+  ['good', 'Good'],
+  ['easy', 'Easy'],
+] as const;
+</script>
+
+<template>
+  <section class="result-screen" aria-labelledby="result-title">
+    <div class="result-copy">
+      <p class="eyebrow">Training Debrief</p>
+      <span class="result-emblem" aria-hidden="true">
+        <Trophy :size="30" />
+      </span>
+      <h1 id="result-title">本次训练完成</h1>
+      <p class="result-lead">
+        以下数字来自本次与服务端会话对应的真实提交。拼写输入命中率仅作训练反馈，
+        不替代你的 FSRS 记忆评分。
+      </p>
+
+      <div class="result-stats">
+        <div>
+          <Sparkles :size="18" aria-hidden="true" />
+          <span>正式复习</span>
+          <strong>{{ result.reviewedCount }}</strong>
+        </div>
+        <div>
+          <Keyboard :size="18" aria-hidden="true" />
+          <span>练习记录</span>
+          <strong>{{ result.practiceCount }}</strong>
+        </div>
+        <div>
+          <Target :size="18" aria-hidden="true" />
+          <span>输入命中</span>
+          <strong>{{ accuracy }}%</strong>
+        </div>
+        <div>
+          <Timer :size="18" aria-hidden="true" />
+          <span>本次用时</span>
+          <strong>{{ duration }}</strong>
+        </div>
+      </div>
+
+      <div class="rating-summary" aria-label="本次评分分布">
+        <div v-for="[key, label] in ratings" :key="key">
+          <span>{{ label }}</span>
+          <strong>{{ result.ratings[key] }}</strong>
+          <i
+            :style="{
+              width: result.reviewedCount === 0
+                ? '0%'
+                : `${result.ratings[key] / result.reviewedCount * 100}%`,
+            }"
+            aria-hidden="true"
+          ></i>
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <button type="button" class="primary-action" @click="emit('again')">
+          <RotateCcw :size="18" />
+          再训练一次
+        </button>
+        <button type="button" @click="emit('lobby')">
+          <Home :size="18" />
+          返回大厅
+        </button>
+      </div>
+    </div>
+
+    <aside class="result-companion" aria-label="训练导航员结算">
+      <img :src="companion" alt="原创训练导航员半身像" />
+      <div>
+        <span>导航员记录</span>
+        <p>
+          {{
+            result.reviewedCount > 0
+              ? '正式复习已经写入云端，下次到期时间可以在下一轮队列中继续使用。'
+              : '本次只产生练习记录，没有推进正式复习状态。'
+          }}
+        </p>
+      </div>
+    </aside>
+  </section>
+</template>
+
+<style scoped>
+.result-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  gap: 24px;
+  min-height: calc(100vh - 164px);
+  align-items: stretch;
+}
+
+.result-copy {
+  align-self: center;
+  max-width: 760px;
+  padding: 20px 0;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #55d7e8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.result-emblem {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  margin-bottom: 15px;
+  border: 1px solid rgb(241 154 182 / 34%);
+  border-radius: 8px;
+  background: rgb(241 154 182 / 10%);
+  color: #f19ab6;
+}
+
+h1 {
+  margin: 0;
+  color: #f4fbff;
+  font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+  font-size: clamp(2.6rem, 5.4vw, 4.8rem);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.result-lead {
+  max-width: 62ch;
+  margin: 18px 0 0;
+  color: #b4c9d8;
+  font-size: 0.9rem;
+  line-height: 1.85;
+}
+
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 24px;
+  overflow: hidden;
+  border: 1px solid rgb(85 215 232 / 18%);
+  border-radius: 8px;
+  background: rgb(85 215 232 / 16%);
+}
+
+.result-stats > div {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  background: rgb(7 20 38 / 90%);
+  color: #55d7e8;
+}
+
+.result-stats span {
+  color: #8ca9c1;
+  font-size: 0.72rem;
+}
+
+.result-stats strong {
+  color: #f4fbff;
+  font-size: 1.45rem;
+}
+
+.rating-summary {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.rating-summary > div {
+  position: relative;
+  display: grid;
+  grid-template-columns: 80px auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 30px;
+  overflow: hidden;
+  padding: 0 10px;
+}
+
+.rating-summary span,
+.rating-summary strong {
+  position: relative;
+  z-index: 1;
+}
+
+.rating-summary span {
+  color: #9eb5c8;
+  font-size: 0.72rem;
+}
+
+.rating-summary strong {
+  color: #f4fbff;
+  font-size: 0.78rem;
+}
+
+.rating-summary i {
+  position: absolute;
+  inset: 4px auto 4px 0;
+  border-left: 2px solid rgb(85 215 232 / 50%);
+  background: rgb(85 215 232 / 10%);
+}
+
+.result-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.result-actions button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid rgb(158 181 200 / 30%);
+  border-radius: 6px;
+  background: rgb(16 36 58 / 76%);
+  color: #dcecf7;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.result-actions .primary-action {
+  border-color: #55d7e8;
+  background: #55d7e8;
+  color: #061426;
+}
+
+.result-companion {
+  display: flex;
+  min-height: 500px;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border: 1px solid rgb(241 154 182 / 22%);
+  border-radius: 8px;
+  background: rgb(9 24 42 / 52%);
+}
+
+.result-companion img {
+  width: 100%;
+  height: 82%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.result-companion > div {
+  padding: 13px 15px;
+  border-top: 1px solid rgb(241 154 182 / 22%);
+  background: rgb(7 20 38 / 88%);
+}
+
+.result-companion span {
+  color: #f19ab6;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.result-companion p {
+  margin: 5px 0 0;
+  color: #b8cad7;
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+button:focus-visible {
+  outline: 3px solid rgb(85 215 232 / 46%);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .result-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .result-companion {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .result-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+</style>

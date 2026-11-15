@@ -143,14 +143,18 @@ describe('App', () => {
 
     mountedApp.mount(root);
 
-    expect(root.querySelector('[data-testid="workspace-state"]')?.textContent?.trim()).toBe(
-      '初始化中',
-    );
+    expect(root.textContent).toContain('V2.0 · P3');
+    expect(root.querySelector('nav')?.textContent).toContain('大厅');
 
     await flushAsyncWork();
 
-    expect(root.querySelector('h1')?.textContent).toBe('学习工作台');
     expect(root.querySelector('nav')?.getAttribute('aria-label')).toBe('主导航');
+    const localButton = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '本地训练',
+    );
+    localButton?.click();
+    await flushAsyncWork();
+    expect(root.querySelector('h1')?.textContent).toBe('本地训练舱');
     expect(root.querySelector('[data-testid="storage-summary"]')?.textContent?.trim()).toBe(
       'FSRS-7 · 数据 v3',
     );
@@ -168,7 +172,7 @@ describe('App', () => {
     });
 
     const reviewButton = [...root.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === '复习',
+      (button) => button.textContent?.trim() === '诊断',
     );
     reviewButton?.click();
     await vi.waitFor(() => {
@@ -194,6 +198,11 @@ describe('App', () => {
     mountedApp = createApp(App, { repository });
 
     mountedApp.mount(root);
+    await flushAsyncWork();
+    const localButton = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '本地训练',
+    );
+    localButton?.click();
     await flushAsyncWork();
 
     expect(root.querySelector('[data-testid="workspace-state"]')?.textContent?.trim()).toBe(
