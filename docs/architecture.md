@@ -1,6 +1,6 @@
 # FingerMemory 技术方案
 
-状态：M0 技术提案，2026-11-14。依赖版本在这一天按 npm 页面和项目官方文档核对，实际锁定以 M1 生成的 `package-lock.json` 为准。
+状态：M4 歌词式滚动实施基线，2026-11-15。依赖版本按 npm 页面和项目官方文档核对，实际锁定以 `web/package-lock.json` 为准。
 
 ## 技术选择
 
@@ -18,13 +18,15 @@
 | Vue | 3.5.45 | MIT | Composition API 和单文件组件。 |
 | Vite | 8.3.8 | MIT | 本地开发、构建和静态产物；开发 Node 要求 20.19+ 或 22.12+。 |
 | @vitejs/plugin-vue | 6.0.10 | MIT | Vue SFC 编译。 |
-| TypeScript | 7.0.2 | Apache-2.0 | 领域类型和编译检查；版本在工程创建时固定。 |
+| TypeScript | 6.0.3 | Apache-2.0 | 领域类型和编译检查；锁定在 `typescript-eslint` 当前支持的 `<6.1.0` 范围内。 |
 | Dexie | 4.4.7 | Apache-2.0 | IndexedDB 封装、索引、事务和版本升级。 |
 | dexie-export-import | 4.4.2 | Apache-2.0 | 流式、事务式完整数据库备份和恢复，不另写 IndexedDB 序列化器。 |
 | Papa Parse | 5.7.1 | MIT | TSV/CSV 解析、引用和换行边界处理；导入规则由领域层校验。 |
 | ts-fsrs | 6.0.0 | MIT | M3 调度器，支持 FSRS-7；开发与构建环境要求 Node 24+，官方文档包含浏览器调度用法。 |
+| Zod | 4.6.7 | MIT | 备份快照运行时校验；领域对象和快照类型仍由 TypeScript 约束。 |
 | Vitest | 5.1.0 | MIT | 领域、导入、存储事务和调度适配测试。 |
 | fake-indexeddb | 6.2.8 | Apache-2.0 | Node 测试中的内存 IndexedDB；不能替代真实浏览器持久化验收。 |
+| jsdom | 30.1.3 | MIT | M1-01 组件壳 DOM 验证；后续涉及 IndexedDB 和键盘的真实行为仍在 Chromium 中验证。 |
 
 资料入口：
 
@@ -65,22 +67,26 @@ docs/                    # 新版产品、架构和进度文档
 
 ### M1 核心表
 
+M1-02 落地 schema v1；当前已通过 Dexie v3 迁移到词条、学习目标、练习会话、练习、复习状态和日志分离的结构。定义位于 `web/src/storage/database.ts`，页面只接收 repository 接口，不直接访问 Dexie 表。
+
 | 表 | 关键字段 | 说明 |
 | --- | --- | --- |
 | `appMeta` | `key`, `value` | 应用数据版本、最后备份时间等元数据。 |
 | `lexicons` | `id`, `name`, `description`, `createdAt`, `updatedAt`, `archivedAt` | 用户词库；归档不同于删除。 |
-| `studyItems` | `id`, `term`, `primaryAnswer`, `acceptedAnswers`, `normalization`, `createdAt`, `updatedAt` | 可被检索、练习和调度的学习目标。 |
+| `words` | `id`, `term`, `meaning`, `acceptedAnswers`, `hints`, `normalizedTerm`, `createdAt`, `updatedAt` | 静态词条；不直接保存正式掌握度。 |
+| `studyItems` | `id`, `wordEntryId`, `direction`, `createdAt`, `updatedAt` | 学习目标；首版方向固定为 `meaning-to-spelling`。 |
 | `lexiconItems` | `[lexiconId+studyItemId]`, `lexiconId`, `studyItemId`, `order`, `sourceHints` | 词库成员和顺序；同一学习目标可出现在多个词库。 |
 | `notes` | `id`, `studyItemId`, `content`, `createdAt`, `updatedAt` | 个人笔记，引用学习目标而不复制词义或复习状态。 |
+| `practiceAttempts` | `id`, `studyItemId`, `modeId`, `direction`, 作答与揭示标记 | 练习事实；写入时不改变正式复习状态。 |
+| `practiceSessions` | `id`, `modeId`, `status`, 队列快照, 当前目标, 草稿, 待评分答案, 速度/动画设置 | 支持暂停、后台切换、退出和再次进入；不保存掌握度。 |
+| `reviewStates` | `studyItemId`, FSRS 卡片字段, `dueAt`, 调度版本与配置快照 | 每个学习目标唯一一份正式调度状态。 |
+| `reviewLogs` | `submissionId`, 评分、作答证据、前后卡片和 ts-fsrs revlog | 不可变正式复习记录；主键天然保证提交幂等。 |
 
-### M2/M3 再增加的契约
+### M2/M3 预留契约
 
 | 表 | 用途 |
 | --- | --- |
-| `practiceSessions` | 模式、状态、配置快照、开始/结束时间和恢复位置。 |
-| `practiceAttempts` | 刺激、响应、结果、提示/显示答案/放弃标记和发生时间。 |
-| `reviewStates` | 每个学习目标唯一一份 FSRS 状态、模型版本和下次到期时间。 |
-| `reviewLogs` | 不可变正式复习日志，`submissionId` 唯一。 |
+| 无 | 当前会话结构已落地；随机新词/复习上限等队列策略仍待后续任务。 |
 
 时间点统一保存为 UTC epoch 毫秒，展示和“学习日”按用户当前时区转换。排序同时使用显式顺序和稳定 ID，不依赖对象插入顺序。
 
@@ -90,6 +96,9 @@ docs/                    # 新版产品、架构和进度文档
 - 正式复习使用 IndexedDB 事务同时写入 `reviewStates` 和 `reviewLogs`。
 - `reviewLogs.submissionId` 建立唯一索引；重复提交在事务内检测并返回已有结果，不再次调用调度推进。
 - `reviewStates` 保存 `schedulerPackageVersion` 和 `fsrsModelVersion`。升级库或模型不能静默重排已有卡片。
+- 同一提交 ID 但请求内容不同必须报冲突，不能返回一个看似成功但语义不同的结果。
+- 正式复习时间不得早于该学习目标已有的 `lastReviewAt`；练习记录与正式复习日志分别保存。
+- 会话队列必须引用存在的学习目标；当前索引必须对应队列中唯一 `currentStudyItemId`；待评分答案必须属于当前会话。
 - 备份和恢复使用完整数据库边界；恢复开始前保存当前数据，校验或写入失败时整体回滚。
 
 ## 导入与迁移
@@ -119,11 +128,20 @@ docs/                    # 新版产品、架构和进度文档
 ## 复习调度
 
 - `scheduler/` 是唯一可以调用 ts-fsrs 的边界；模式接收命令结果，不直接计算稳定度、难度或到期日。
+- 当前锁定 `ts-fsrs@6.0.0` 的异步 `DefaultScheduler()`、FSRS-7、`dateChrono`、`scheduler.newCard()` 和 `scheduler.review({ card, grade, now })` API；未使用已废弃的 v5 类与字段。
+- FSRS 卡片的时间点转换为 UTC 毫秒快照，调用库时再转换为 `Date`；状态保存 `stability`、`stabilityFast`、`difficulty`、`dueAt`、`lastReviewAt`、`state`、`scheduleStatus`、`reps`、`lapses`、`scheduledDays` 和 `learningStep`。
+- 调度配置快照保存模型/包版本、权重、期望留存率、学习/重学步骤、最大间隔、是否启用 fuzz 等字段；版本或配置不一致时拒绝继续推进已有状态。
 - M3 通过测试夹具固定输入时间、评分和模型参数，验证相同输入得到稳定结果；只断言能反映失败路径的字段，不复制整个第三方输出对象。
 - 评分使用 Again/Hard/Good/Easy 显式映射；输入正确性、输入速度、动画结果和提示状态只形成作答事实或正式复习门禁，不直接代替用户评分。
-- 正式复习门禁、提示语义和同会话重复规则未确认前，不编写会写 `reviewStates` 的接入代码。
+- 当前核心已按保守门禁写入 `reviewStates`：答案必须隐藏、未提示、未揭晓、未放弃且用户显式确认评分。A1/A3 仍会影响最终 UI 文案和同会话策略，在实现正式复习界面前需要确认。
 
 ## 模式插件边界
+
+当前只有最小内部模式边界，不声称已有 M5 插件系统：
+
+- `modes/types.ts` 定义共享视图输入和模式定义；`modes/registry.ts` 注册守信的键盘对照与歌词滚动组件。
+- 模式只负责呈现和选择目标；输入、提示、揭晓、跳过、评分提交、会话保存和资源清理由共享工作台统一处理。
+- `SessionWorkbench` 在卸载时移除 `visibilitychange` 监听，并尽力暂停保存；歌词定位使用 CSS transition，不创建 interval 或 `requestAnimationFrame`；当前模式没有音频资源。
 
 第一版插件是随项目构建、可信、同源的 TypeScript 模块，不是安全沙箱。最小契约：
 
