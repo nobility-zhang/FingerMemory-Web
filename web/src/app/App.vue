@@ -84,9 +84,9 @@ const viewHeading = computed(() => {
     return { label: '账号', title: '跨设备学习空间' };
   }
   if (activeView.value === 'practice') {
-    return { label: '本地', title: '本地训练舱' };
+    return { label: '经典卡片', title: '经典学习卡片' };
   }
-  return { label: '大厅', title: '训练大厅' };
+  return { label: '旅店', title: '暖灯旅店' };
 });
 
 function handleDataRestored(status: StorageStatus): void {
@@ -123,12 +123,12 @@ onBeforeUnmount(() => {
         <span class="brand-mark" aria-hidden="true">F</span>
         <span>FingerMemory</span>
       </a>
-      <span class="stage-label">V2.0 · P3</span>
+      <span class="stage-label">G1 · 暖灯旅店</span>
     </header>
 
     <div class="app-layout">
       <nav class="primary-nav" aria-label="主导航">
-        <p class="nav-label">训练网络</p>
+        <p class="nav-label">星灯旅团</p>
         <ul class="nav-list">
           <li>
             <button
@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
               @click="activeView = 'game'"
             >
               <Home :size="17" aria-hidden="true" />
-              <span>大厅</span>
+              <span>旅店</span>
             </button>
           </li>
           <li>
@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
               @click="activeView = 'practice'"
             >
               <Keyboard :size="17" aria-hidden="true" />
-              <span>本地训练</span>
+              <span>经典卡片</span>
             </button>
           </li>
           <li>
@@ -175,7 +175,7 @@ onBeforeUnmount(() => {
               @click="activeView = 'review'"
             >
               <Activity :size="17" aria-hidden="true" />
-              <span>诊断</span>
+              <span>复习诊断</span>
             </button>
           </li>
           <li>
@@ -232,9 +232,9 @@ onBeforeUnmount(() => {
             <section class="empty-panel" aria-label="正在加载训练大厅">
               <span class="panel-index" aria-hidden="true">00</span>
               <div class="empty-copy">
-                <p class="section-label">训练网络</p>
-                <h2>正在加载大厅</h2>
-                <p>正在连接账号和今日队列。</p>
+                <p class="section-label">暖灯旅店</p>
+                <h2>正在点亮旅店</h2>
+                <p>正在连接账号和今日旅途笔记。</p>
               </div>
             </section>
           </template>

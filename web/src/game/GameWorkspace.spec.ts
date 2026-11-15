@@ -205,7 +205,8 @@ async function mountGame(api: AccountClient) {
   mountedApp = app;
   app.mount(root);
   await vi.waitFor(() => {
-    expect(root.textContent).toContain('训练舱已就绪');
+    expect(root.textContent).toContain('今晚的火已经升起来了');
+    expect(root.textContent).toContain('莉娅');
   });
   return root;
 }

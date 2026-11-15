@@ -26,8 +26,8 @@ import {
   type SessionItemView,
   type UserView,
 } from '../api/client';
-import trainingBay from '../assets/game/training-bay.jpg';
-import GameLobby from './GameLobby.vue';
+import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
+import InnLobby from '../inn/InnLobby.vue';
 import GameResult from './GameResult.vue';
 import GameShortcutHelp from './GameShortcutHelp.vue';
 import GameTrainingStage from './GameTrainingStage.vue';
@@ -777,19 +777,19 @@ onBeforeUnmount(() => {
   <section
     class="game-workspace"
     :class="{ 'focus-background': focusMode }"
-    :style="{ '--training-bay': `url(${trainingBay})` }"
+    :style="{ '--game-backdrop': `url(${innBackground})` }"
   >
     <div v-if="initializing" class="game-loading" role="status">
       <span aria-hidden="true"></span>
-      <p>正在连接训练终端...</p>
+      <p>正在回到暖灯旅店...</p>
     </div>
 
     <div v-else-if="phase === 'login'" class="auth-stage">
       <div class="auth-copy">
-        <p class="eyebrow">FingerMemory Training Network</p>
-        <h1>登录后，开始今天的记忆训练。</h1>
+        <p class="eyebrow">Warm Lantern Inn</p>
+        <h1>登录后，回到暖灯旅店。</h1>
         <p>
-          正式复习历史、到期时间和会话断点由账号服务保存。本地模式仍保持独立。
+          莉娅会把正式笔记、到期时间和会话书签收在账号里。本地模式仍保持独立。
         </p>
         <div class="auth-feature-list">
           <div>
@@ -798,7 +798,7 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <RefreshCw :size="18" aria-hidden="true" />
-            <span>跨设备继续同一正式复习状态</span>
+            <span>跨设备续接同一份旅途笔记</span>
           </div>
         </div>
       </div>
@@ -862,13 +862,13 @@ onBeforeUnmount(() => {
           <button type="submit" class="primary-action" :disabled="busy">
             <UserPlus v-if="authMode === 'register'" :size="18" />
             <LogIn v-else :size="18" />
-            {{ authMode === 'register' ? '创建训练账号' : '进入训练大厅' }}
+            {{ authMode === 'register' ? '创建旅团账号' : '回到暖灯旅店' }}
           </button>
         </form>
       </div>
     </div>
 
-    <GameLobby
+    <InnLobby
       v-else-if="phase === 'lobby' && user"
       :user="user"
       :plan="plan"
@@ -944,12 +944,12 @@ onBeforeUnmount(() => {
   margin: calc(clamp(20px, 3vw, 34px) * -1);
   padding: clamp(20px, 3vw, 34px);
   overflow: hidden;
-  border: 1px solid rgb(85 215 232 / 12%);
+  border: 1px solid rgb(217 183 121 / 22%);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgb(5 15 29 / 40%), rgb(5 15 29 / 74%)),
-    var(--training-bay) center / cover no-repeat,
-    #071426;
+    linear-gradient(180deg, rgb(24 15 15 / 28%), rgb(20 12 14 / 66%)),
+    var(--game-backdrop) center / cover no-repeat,
+    #171014;
 }
 
 .game-workspace::before {
@@ -957,11 +957,9 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(rgb(85 215 232 / 4%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(85 215 232 / 4%) 1px, transparent 1px);
-  background-size: 32px 32px;
+    radial-gradient(circle at 21% 18%, rgb(235 200 142 / 8%), transparent 32%),
+    linear-gradient(90deg, rgb(21 13 14 / 22%), transparent 38% 72%, rgb(21 13 14 / 18%));
   content: "";
-  mask-image: linear-gradient(to bottom, rgb(0 0 0 / 70%), transparent 82%);
   pointer-events: none;
 }
 
@@ -980,14 +978,14 @@ onBeforeUnmount(() => {
   place-content: center;
   justify-items: center;
   gap: 14px;
-  color: #9eb5c8;
+  color: #c6b49d;
 }
 
 .game-loading span {
   width: 42px;
   height: 42px;
-  border: 2px solid rgb(85 215 232 / 18%);
-  border-top-color: #55d7e8;
+  border: 2px solid rgb(219 183 122 / 18%);
+  border-top-color: #d9b779;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -1013,7 +1011,7 @@ onBeforeUnmount(() => {
 
 .eyebrow {
   margin: 0 0 13px;
-  color: #55d7e8;
+  color: #d9b779;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -1022,7 +1020,7 @@ onBeforeUnmount(() => {
 
 .auth-copy h1 {
   margin: 0;
-  color: #f4fbff;
+  color: #fff0d7;
   font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
   font-size: clamp(2.8rem, 5.4vw, 5rem);
   font-weight: 600;
@@ -1034,7 +1032,7 @@ onBeforeUnmount(() => {
 .auth-copy > p:not(.eyebrow) {
   max-width: 56ch;
   margin: 20px 0 0;
-  color: #a9bfd0;
+  color: #d2c0a8;
   line-height: 1.85;
 }
 
@@ -1048,21 +1046,21 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #c6d9e6;
+  color: #d9c9b4;
   font-size: 0.8rem;
 }
 
 .auth-feature-list svg {
-  color: #55d7e8;
+  color: #d9b779;
 }
 
 .auth-card {
   padding: 22px;
-  border: 1px solid rgb(85 215 232 / 22%);
+  border: 1px solid rgb(217 183 121 / 30%);
   border-radius: 8px;
-  background: rgb(7 20 38 / 88%);
+  background: rgb(35 24 22 / 90%);
   backdrop-filter: blur(14px);
-  box-shadow: 0 24px 70px rgb(0 0 0 / 35%);
+  box-shadow: 0 24px 70px rgb(24 12 12 / 38%);
 }
 
 .auth-tabs {
@@ -1077,14 +1075,14 @@ onBeforeUnmount(() => {
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: #8ca9c1;
+  color: #b5a087;
   cursor: pointer;
 }
 
 .auth-tabs button.selected {
-  border-color: rgb(85 215 232 / 28%);
-  background: rgb(85 215 232 / 10%);
-  color: #edf8ff;
+  border-color: rgb(217 183 121 / 34%);
+  background: rgb(217 183 121 / 10%);
+  color: #ffebca;
 }
 
 .auth-card form {
@@ -1095,7 +1093,7 @@ onBeforeUnmount(() => {
 .auth-card label {
   display: grid;
   gap: 6px;
-  color: #9eb5c8;
+  color: #cbb79c;
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -1103,10 +1101,10 @@ onBeforeUnmount(() => {
 .auth-card input {
   min-height: 46px;
   padding: 0 12px;
-  border: 1px solid rgb(158 181 200 / 28%);
+  border: 1px solid rgb(195 165 119 / 32%);
   border-radius: 6px;
-  background: #f4fbff;
-  color: #071426;
+  background: #fff3df;
+  color: #2d211c;
 }
 
 .auth-error {
@@ -1128,10 +1126,10 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 8px;
   padding: 0 16px;
-  border: 1px solid #55d7e8;
+  border: 1px solid #d9b779;
   border-radius: 6px;
-  background: #55d7e8;
-  color: #061426;
+  background: #d9b779;
+  color: #302017;
   font-weight: 800;
   cursor: pointer;
 }
@@ -1151,17 +1149,17 @@ onBeforeUnmount(() => {
   height: 40px;
   place-items: center;
   padding: 0;
-  border: 1px solid rgb(158 181 200 / 26%);
+  border: 1px solid rgb(222 192 145 / 30%);
   border-radius: 50%;
-  background: rgb(7 20 38 / 84%);
-  color: #c8dce9;
+  background: rgb(34 23 22 / 84%);
+  color: #e4d0b2;
   cursor: pointer;
   backdrop-filter: blur(8px);
 }
 
 button:focus-visible,
 input:focus-visible {
-  outline: 3px solid rgb(85 215 232 / 48%);
+  outline: 3px solid rgb(231 195 132 / 54%);
   outline-offset: 2px;
 }
 
