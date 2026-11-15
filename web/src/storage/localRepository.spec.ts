@@ -663,6 +663,28 @@ describe('practice and formal review separation', () => {
     expect(status.counts).toMatchObject({ reviewStates: 1, reviewLogs: 1 });
   });
 
+  it('previews all four ratings without writing and matches the submitted plan', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    await seedStudyItem(database);
+
+    const previews = await repository.previewReviewIntervals({
+      studyItemId: 'study-memory',
+      reviewedAt: INITIAL_TIME,
+    });
+    expect(Object.keys(previews).sort()).toEqual(['again', 'easy', 'good', 'hard']);
+    expect(previews.again.dueAt).toBeLessThanOrEqual(previews.hard.dueAt);
+    expect(previews.hard.dueAt).toBeLessThanOrEqual(previews.good.dueAt);
+    expect(previews.good.dueAt).toBeLessThanOrEqual(previews.easy.dueAt);
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { reviewStates: 0, reviewLogs: 0 },
+    });
+
+    const submitted = await repository.submitReview(createReviewInput());
+    expect(submitted.state.dueAt).toBe(previews.good.dueAt);
+  });
+
   it('does not convert a keyboard typo into Again when the user confirms Hard', async () => {
     const database = createDatabase();
     const repository = createRepository(database);

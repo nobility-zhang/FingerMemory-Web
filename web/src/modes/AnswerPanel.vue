@@ -16,9 +16,15 @@ const props = withDefaults(
     busy: boolean;
     error: string | null;
     allowRetry?: boolean;
+    ratingPreviews?: Partial<Record<ReviewRating, string>>;
+    ratingPreviewLoading?: boolean;
+    ratingPreviewError?: string | null;
   }>(),
   {
     allowRetry: false,
+    ratingPreviews: () => ({}),
+    ratingPreviewLoading: false,
+    ratingPreviewError: null,
   },
 );
 
@@ -29,6 +35,7 @@ const emit = defineEmits<{
   submit: [];
   skip: [];
   rate: [rating: ReviewRating];
+  cancelRating: [];
   practice: [];
   retry: [];
 }>();
@@ -193,19 +200,37 @@ watch(
     <div v-if="pendingAnswer !== null" class="rating-section">
       <template v-if="formalEligible">
         <p class="rating-prompt">选择本次正式复习评分</p>
+        <p class="rating-preview-help">预计时间按当前学习日和锁定的 FSRS-7 参数计算。</p>
         <div class="rating-grid">
           <button
             v-for="rating in ratings"
             :key="rating.value"
             type="button"
             class="rating-button"
-            :disabled="busy || paused"
+            :disabled="busy || paused || ratingPreviews[rating.value] === undefined"
             @click="emit('rate', rating.value)"
           >
             <strong>{{ rating.label }}</strong>
             <span>{{ rating.description }}</span>
+            <small>
+              {{
+                ratingPreviews[rating.value] ??
+                  (ratingPreviewLoading ? '正在计算预计时间' : '预计时间不可用')
+              }}
+            </small>
           </button>
         </div>
+        <button
+          type="button"
+          class="cancel-rating"
+          :disabled="busy || paused"
+          @click="emit('cancelRating')"
+        >
+          返回修改
+        </button>
+        <p v-if="ratingPreviewError" class="preview-error" role="alert">
+          {{ ratingPreviewError }}
+        </p>
         <button
           v-if="!pendingAnswer.inputMatchedAnswer && allowRetry"
           type="button"
@@ -422,6 +447,18 @@ button:disabled {
   font-weight: 700;
 }
 
+.rating-preview-help,
+.preview-error {
+  margin: 0 0 10px;
+  color: #718078;
+  font-size: 0.74rem;
+}
+
+.preview-error {
+  margin: 10px 0 0;
+  color: #9e3e2c;
+}
+
 .rating-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -432,6 +469,10 @@ button:disabled {
   margin-top: 10px;
   border-color: #c38c76;
   color: #874a37;
+}
+
+.cancel-rating {
+  margin-top: 10px;
 }
 
 .practice-actions {
@@ -452,6 +493,12 @@ button:disabled {
   color: #718078;
   font-size: 0.7rem;
   font-weight: 500;
+}
+
+.rating-button small {
+  color: #315846;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .error-message {

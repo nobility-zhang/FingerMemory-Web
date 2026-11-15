@@ -59,6 +59,14 @@ export interface ReviewSubmissionResult {
   log: ReviewLog;
 }
 
+export interface ReviewRatingPreview {
+  rating: ReviewRating;
+  dueAt: TimestampMs;
+  scheduledDays: number;
+}
+
+export type ReviewRatingPreviews = Record<ReviewRating, ReviewRatingPreview>;
+
 export interface PracticeAttemptInput {
   id: string;
   studyItemId: string;
@@ -227,6 +235,10 @@ export interface FingerMemoryRepository {
   getLatestPracticeSession(modeId?: PracticeModeId): Promise<PracticeSession | undefined>;
   savePracticeSession(session: PracticeSession): Promise<PracticeSession>;
   recordPracticeAttempt(input: PracticeAttemptInput): Promise<PracticeAttemptResult>;
+  previewReviewIntervals(input: {
+    studyItemId: string;
+    reviewedAt: TimestampMs;
+  }): Promise<ReviewRatingPreviews>;
   submitReview(input: ReviewSubmissionInput): Promise<ReviewSubmissionResult>;
   getReviewState(studyItemId: string): Promise<ReviewState | undefined>;
   getReviewLog(submissionId: string): Promise<ReviewLog | undefined>;

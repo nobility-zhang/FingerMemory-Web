@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type {
   PendingAnswer,
   PracticeInteractionState,
@@ -8,7 +8,11 @@ import type {
   PracticeSession,
   ReviewRating,
 } from '../core/domain';
-import type { FingerMemoryRepository } from '../core/repository';
+import type {
+  FingerMemoryRepository,
+  ReviewRatingPreviews,
+} from '../core/repository';
+import { formatDueLabel } from '../core/due';
 import {
   abandonPracticeSession,
   completeCurrentSessionItem,
@@ -49,6 +53,10 @@ const session = ref<PracticeSession>({ ...props.initialSession });
 const busy = ref(false);
 const error = ref<string | null>(null);
 const confirmAbandon = ref(false);
+const ratingPreviews = ref<ReviewRatingPreviews>();
+const ratingPreviewLoading = ref(false);
+const ratingPreviewError = ref<string | null>(null);
+let ratingPreviewRequest = 0;
 const itemById = computed(
   () => new Map(props.items.map((item) => [item.studyItem.id, item])),
 );
@@ -72,6 +80,19 @@ const currentInteraction = computed<PracticeInteractionState>(() => {
   );
 });
 const isPaused = computed(() => session.value.status === 'paused');
+const ratingPreviewLabels = computed<Partial<Record<ReviewRating, string>>>(() => {
+  const previews = ratingPreviews.value;
+  if (previews === undefined) {
+    return {};
+  }
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  return Object.fromEntries(
+    Object.values(previews).map((preview) => [
+      preview.rating,
+      formatDueLabel(preview.dueAt, now(), timeZone),
+    ]),
+  );
+});
 const completedCount = computed(
   () => session.value.queue.filter((item) => item.status !== 'pending').length,
 );
@@ -200,6 +221,39 @@ async function submitAnswer(): Promise<void> {
   busy.value = false;
 }
 
+async function loadRatingPreviews(pendingAnswer: PendingAnswer): Promise<void> {
+  const request = ++ratingPreviewRequest;
+  ratingPreviews.value = undefined;
+  ratingPreviewError.value = null;
+  if (
+    !pendingAnswer.answerWasHidden ||
+    pendingAnswer.hintUsed ||
+    pendingAnswer.answerRevealed
+  ) {
+    ratingPreviewLoading.value = false;
+    return;
+  }
+
+  ratingPreviewLoading.value = true;
+  try {
+    const previews = await props.repository.previewReviewIntervals({
+      studyItemId: pendingAnswer.studyItemId,
+      reviewedAt: pendingAnswer.submittedAt,
+    });
+    if (request === ratingPreviewRequest) {
+      ratingPreviews.value = previews;
+    }
+  } catch {
+    if (request === ratingPreviewRequest) {
+      ratingPreviewError.value = '预计间隔暂不可用，评分未提交。';
+    }
+  } finally {
+    if (request === ratingPreviewRequest) {
+      ratingPreviewLoading.value = false;
+    }
+  }
+}
+
 async function completeItem(
   status: 'completed' | 'skipped',
   requeueCurrent = false,
@@ -212,7 +266,7 @@ async function completeItem(
 
 async function chooseRating(rating: ReviewRating): Promise<void> {
   const pendingAnswer = session.value.pendingAnswer;
-  if (pendingAnswer === null) {
+  if (pendingAnswer === null || ratingPreviewLabels.value[rating] === undefined) {
     return;
   }
 
@@ -239,6 +293,17 @@ async function chooseRating(rating: ReviewRating): Promise<void> {
   } finally {
     busy.value = false;
   }
+}
+
+async function returnToEditing(): Promise<void> {
+  if (session.value.pendingAnswer === null) {
+    return;
+  }
+  await persist({
+    ...session.value,
+    pendingAnswer: null,
+    updatedAt: now(),
+  });
 }
 
 async function recordPractice(requeueCurrent = false): Promise<void> {
@@ -340,6 +405,21 @@ onBeforeUnmount(() => {
       .catch(() => undefined);
   }
 });
+
+watch(
+  () => session.value.pendingAnswer,
+  (pendingAnswer) => {
+    if (pendingAnswer === null) {
+      ratingPreviewRequest += 1;
+      ratingPreviews.value = undefined;
+      ratingPreviewError.value = null;
+      ratingPreviewLoading.value = false;
+      return;
+    }
+    void loadRatingPreviews(pendingAnswer);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -439,12 +519,16 @@ onBeforeUnmount(() => {
         :busy="busy"
         :error="error"
         :allow-retry="allowRetry"
+        :rating-previews="ratingPreviewLabels"
+        :rating-preview-loading="ratingPreviewLoading"
+        :rating-preview-error="ratingPreviewError"
         @draft="updateDraft"
         @hint="revealHint"
         @reveal="revealAnswer"
         @submit="submitAnswer"
         @skip="skipCurrent"
         @rate="chooseRating"
+        @cancel-rating="returnToEditing"
         @practice="recordPractice"
         @retry="retryPractice"
       />

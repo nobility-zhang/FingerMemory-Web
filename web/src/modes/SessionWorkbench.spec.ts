@@ -158,6 +158,14 @@ describe('SessionWorkbench modes', () => {
       expect(buttonByText(root, 'Good')).toBeDefined();
     });
     expect(buttonByText(root, 'Again')).toBeDefined();
+    await vi.waitFor(() => {
+      expect(buttonByText(root, 'Good')?.disabled).toBe(false);
+    });
+    expect(
+      [...root.querySelectorAll('.rating-button small')].map((node) =>
+        node.textContent?.trim(),
+      ),
+    ).not.toContain('预计时间不可用');
     buttonByText(root, 'Good')?.click();
 
     await vi.waitFor(async () => {
@@ -291,6 +299,27 @@ describe('SessionWorkbench modes', () => {
     );
     await vi.waitFor(() => {
       expect(buttonByText(root, 'Good')).toBeDefined();
+    });
+  });
+
+  it('can return from rating preview to editing without writing a review', async () => {
+    const { root } = await mountWorkbench();
+    const input = root.querySelector<HTMLInputElement>('#answer-input');
+    input!.value = 'memory';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+    buttonByText(root, '提交')?.click();
+
+    await vi.waitFor(() => {
+      expect(buttonByText(root, '返回修改')?.disabled).toBe(false);
+    });
+    buttonByText(root, '返回修改')?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector<HTMLInputElement>('#answer-input')?.value).toBe('memory');
+      expect(buttonByText(root, 'Good')).toBeUndefined();
+    });
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
     });
   });
 

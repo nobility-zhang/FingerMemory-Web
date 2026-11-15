@@ -26,6 +26,7 @@ import type {
   PracticeQueueSettings,
   PracticeAttemptInput,
   PracticeAttemptResult,
+  ReviewRatingPreviews,
   ReviewSubmissionInput,
   ReviewSubmissionResult,
   SaveStudyNoteInput,
@@ -1750,6 +1751,62 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
         await this.database.reviewStates.put(state);
         await this.database.reviewLogs.add(log);
         return { outcome: 'created', state, log };
+      },
+    );
+  }
+
+  async previewReviewIntervals(input: {
+    studyItemId: string;
+    reviewedAt: TimestampMs;
+  }): Promise<ReviewRatingPreviews> {
+    assertIdentifier(input.studyItemId, 'study item id');
+    assertTimestamp(input.reviewedAt, 'review preview time');
+    const scheduler = await this.scheduler;
+
+    return this.database.transaction(
+      'r',
+      [this.database.studyItems, this.database.reviewStates],
+      async () => {
+        const studyItem = await this.database.studyItems.get(input.studyItemId);
+        if (studyItem === undefined) {
+          throw new ReviewSubmissionRejectedError('study-item-not-found');
+        }
+        if (studyItem.direction !== 'meaning-to-spelling') {
+          throw new ReviewSubmissionRejectedError('unsupported-direction');
+        }
+        const existingState = await this.database.reviewStates.get(input.studyItemId);
+        if (existingState !== undefined && !hasSameSchedulerConfig(existingState, scheduler)) {
+          throw new ReviewStateVersionMismatchError();
+        }
+        if (
+          existingState?.lastReviewAt !== null &&
+          existingState?.lastReviewAt !== undefined &&
+          input.reviewedAt < existingState.lastReviewAt
+        ) {
+          throw new ReviewSubmissionRejectedError('review-time-out-of-order');
+        }
+
+        const card = existingState === undefined
+          ? scheduler.createCard(input.studyItemId, input.reviewedAt)
+          : cardFromState(existingState);
+        const ratings = ['again', 'hard', 'good', 'easy'] as const;
+        return Object.fromEntries(
+          ratings.map((rating) => {
+            const result = scheduler.review({
+              card,
+              rating,
+              now: input.reviewedAt,
+            });
+            return [
+              rating,
+              {
+                rating,
+                dueAt: result.card.dueAt,
+                scheduledDays: result.card.scheduledDays,
+              },
+            ];
+          }),
+        ) as ReviewRatingPreviews;
       },
     );
   }

@@ -82,6 +82,9 @@ function createTestRepository(
     recordPracticeAttempt: async () => {
       throw new Error('recordPracticeAttempt is not used in this test');
     },
+    previewReviewIntervals: async () => {
+      throw new Error('previewReviewIntervals is not used in this test');
+    },
     submitReview: async () => {
       throw new Error('submitReview is not used in this test');
     },
