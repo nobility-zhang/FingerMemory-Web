@@ -251,6 +251,7 @@ export interface FingerMemoryRepository {
   submitReview(input: ReviewSubmissionInput): Promise<ReviewSubmissionResult>;
   getReviewState(studyItemId: string): Promise<ReviewState | undefined>;
   getReviewLog(submissionId: string): Promise<ReviewLog | undefined>;
+  listReviewStates(studyItemIds?: string[]): Promise<ReviewState[]>;
   listReviewHistory(): Promise<ReviewHistoryEntry[]>;
   listDueReviewItems(at: TimestampMs): Promise<DueReviewItem[]>;
   exportSnapshot(exportedAt: TimestampMs): Promise<StorageSnapshot>;

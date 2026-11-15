@@ -90,6 +90,7 @@ function createTestRepository(
     },
     getReviewState: async () => undefined,
     getReviewLog: async () => undefined,
+    listReviewStates: async () => [],
     listReviewHistory: async () => [],
     listDueReviewItems: async () => [],
     exportSnapshot: async () => {

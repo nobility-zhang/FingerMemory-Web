@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { createApp, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PracticeItem, PracticeSession } from '../core/domain';
+import { formatDueLabel } from '../core/due';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
 import { createPracticeSession } from '../session/practiceSession';
 import {
@@ -171,6 +172,12 @@ describe('SessionWorkbench modes', () => {
     await vi.waitFor(async () => {
       await expect(repository.getReviewState('study-memory')).resolves.toBeDefined();
     });
+    const reviewState = await repository.getReviewState('study-memory');
+    if (reviewState === undefined) {
+      throw new Error('review state missing');
+    }
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const dueLabel = formatDueLabel(reviewState.dueAt, now + 1, timeZone);
     expect(root.textContent).toContain('已完成 1 / 2');
 
     await vi.waitFor(() => {
@@ -179,6 +186,8 @@ describe('SessionWorkbench modes', () => {
     buttonByText(root, '键盘对照')?.click();
     await vi.waitFor(() => {
       expect(root.querySelector('#session-title')?.textContent).toBe('键盘对照');
+      expect(root.querySelector('.session-review-status')?.textContent).toContain(dueLabel);
+      expect(root.querySelector('.session-review-status')?.textContent).toContain('review');
     });
     await expect(repository.getStatus()).resolves.toMatchObject({
       schemaVersion: STORAGE_SCHEMA_VERSION,

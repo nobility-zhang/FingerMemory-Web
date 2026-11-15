@@ -7,6 +7,7 @@ import type {
   PracticeModeId,
   PracticeSession,
   ReviewRating,
+  ReviewState,
 } from '../core/domain';
 import type {
   FingerMemoryRepository,
@@ -56,7 +57,10 @@ const confirmAbandon = ref(false);
 const ratingPreviews = ref<ReviewRatingPreviews>();
 const ratingPreviewLoading = ref(false);
 const ratingPreviewError = ref<string | null>(null);
+const reviewStatesByStudyItemId = ref<Record<string, ReviewState>>({});
+const reviewStateLoading = ref(false);
 let ratingPreviewRequest = 0;
+let reviewStateRequest = 0;
 const itemById = computed(
   () => new Map(props.items.map((item) => [item.studyItem.id, item])),
 );
@@ -92,6 +96,23 @@ const ratingPreviewLabels = computed<Partial<Record<ReviewRating, string>>>(() =
       formatDueLabel(preview.dueAt, now(), timeZone),
     ]),
   );
+});
+const currentReviewState = computed(() => {
+  const studyItemId = session.value.currentStudyItemId;
+  return studyItemId === null ? undefined : reviewStatesByStudyItemId.value[studyItemId];
+});
+const sessionReviewStatuses = computed(() => {
+  const seen = new Set<string>();
+  return orderedItems.value.flatMap((item) => {
+    if (seen.has(item.studyItem.id)) {
+      return [];
+    }
+    seen.add(item.studyItem.id);
+    return [{
+      item,
+      state: reviewStatesByStudyItemId.value[item.studyItem.id],
+    }];
+  });
 });
 const completedCount = computed(
   () => session.value.queue.filter((item) => item.status !== 'pending').length,
@@ -254,6 +275,40 @@ async function loadRatingPreviews(pendingAnswer: PendingAnswer): Promise<void> {
   }
 }
 
+async function loadReviewStates(): Promise<void> {
+  const request = ++reviewStateRequest;
+  const ids = orderedItems.value.map((item) => item.studyItem.id);
+  if (ids.length === 0) {
+    reviewStatesByStudyItemId.value = {};
+    return;
+  }
+  reviewStateLoading.value = true;
+  try {
+    const states = await props.repository.listReviewStates(ids);
+    if (request === reviewStateRequest) {
+      reviewStatesByStudyItemId.value = Object.fromEntries(
+        states.map((state) => [state.studyItemId, state]),
+      );
+    }
+  } catch {
+    if (request === reviewStateRequest) {
+      error.value = '正式复习状态暂时无法读取。';
+    }
+  } finally {
+    if (request === reviewStateRequest) {
+      reviewStateLoading.value = false;
+    }
+  }
+}
+
+function reviewStateLabel(state: ReviewState | undefined): string {
+  if (state === undefined) {
+    return '尚未正式复习';
+  }
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  return `${formatDueLabel(state.dueAt, now(), timeZone)} · ${state.scheduleStatus} · ${state.reps} 次 · ${state.schedulerModelVersion.toUpperCase()}`;
+}
+
 async function completeItem(
   status: 'completed' | 'skipped',
   requeueCurrent = false,
@@ -273,7 +328,7 @@ async function chooseRating(rating: ReviewRating): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
-    await props.repository.submitReview({
+    const result = await props.repository.submitReview({
       submissionId: pendingAnswer.reviewSubmissionId,
       studyItemId: pendingAnswer.studyItemId,
       modeId: session.value.modeId,
@@ -287,6 +342,10 @@ async function chooseRating(rating: ReviewRating): Promise<void> {
       userConfirmedRating: true,
       reviewedAt: pendingAnswer.submittedAt,
     });
+    reviewStatesByStudyItemId.value = {
+      ...reviewStatesByStudyItemId.value,
+      [result.state.studyItemId]: result.state,
+    };
     await completeItem('completed');
   } catch {
     error.value = '正式复习未保存，当前答案仍保留，可重试。';
@@ -395,6 +454,7 @@ function handleVisibilityChange(): void {
 
 onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  void loadReviewStates();
 });
 
 onBeforeUnmount(() => {
@@ -419,6 +479,13 @@ watch(
     void loadRatingPreviews(pendingAnswer);
   },
   { immediate: true },
+);
+
+watch(
+  () => session.value.queue.length,
+  () => {
+    void loadReviewStates();
+  },
 );
 </script>
 
@@ -492,6 +559,23 @@ watch(
         减少动画
       </label>
     </div>
+
+    <section class="session-review-status" aria-labelledby="session-review-status-title">
+      <div>
+        <p id="session-review-status-title">正式复习状态</p>
+        <strong>{{ currentItem?.wordEntry.meaning ?? '当前目标' }}</strong>
+        <span>{{ reviewStateLoading ? '读取中...' : reviewStateLabel(currentReviewState) }}</span>
+      </div>
+      <details>
+        <summary>本次会话全部目标</summary>
+        <ul>
+          <li v-for="entry in sessionReviewStatuses" :key="entry.item.studyItem.id">
+            <span>{{ entry.item.wordEntry.meaning }}</span>
+            <strong>{{ reviewStateLabel(entry.state) }}</strong>
+          </li>
+        </ul>
+      </details>
+    </section>
 
     <div v-if="session.status === 'completed'" class="complete-panel" role="status">
       <p class="session-kicker">本轮结束</p>
@@ -654,6 +738,67 @@ input:focus-visible {
   background: #fff;
 }
 
+.session-review-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  align-items: start;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #d2dcd5;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+
+.session-review-status p {
+  margin: 0 0 3px;
+  color: #738078;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.session-review-status strong {
+  display: block;
+  color: #284236;
+  font-size: 0.82rem;
+}
+
+.session-review-status span {
+  color: #66766d;
+  font-size: 0.75rem;
+}
+
+.session-review-status details {
+  color: #576a5f;
+  font-size: 0.75rem;
+}
+
+.session-review-status summary {
+  color: #3f6452;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.session-review-status ul {
+  display: grid;
+  gap: 6px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session-review-status li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 260px;
+}
+
+.session-review-status li strong {
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
 .abandon-confirm {
   display: flex;
   align-items: center;
@@ -701,9 +846,16 @@ input:focus-visible {
 @media (max-width: 720px) {
   .session-header,
   .mode-toolbar,
-  .abandon-confirm {
+  .abandon-confirm,
+  .session-review-status {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .session-review-status li {
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
   }
 
   .mode-toolbar {

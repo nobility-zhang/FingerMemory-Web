@@ -1822,6 +1822,18 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     return this.database.reviewLogs.get(submissionId);
   }
 
+  async listReviewStates(studyItemIds?: string[]): Promise<ReviewState[]> {
+    await this.database.open();
+    const allowedIds = studyItemIds === undefined ? undefined : new Set(studyItemIds);
+    const states = await this.database.reviewStates.toArray();
+    return states
+      .filter((state) => allowedIds === undefined || allowedIds.has(state.studyItemId))
+      .sort(
+        (left, right) =>
+          left.dueAt - right.dueAt || left.studyItemId.localeCompare(right.studyItemId),
+      );
+  }
+
   async listReviewHistory(): Promise<ReviewHistoryEntry[]> {
     await this.database.open();
 

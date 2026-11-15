@@ -685,6 +685,21 @@ describe('practice and formal review separation', () => {
     expect(submitted.state.dueAt).toBe(previews.good.dueAt);
   });
 
+  it('returns the same formal state for every mode query', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    await seedStudyItem(database);
+    const submitted = await repository.submitReview(
+      createReviewInput({ modeId: 'lyrics-scroll' }),
+    );
+
+    await expect(repository.listReviewStates(['study-memory'])).resolves.toEqual([
+      submitted.state,
+    ]);
+    await expect(repository.listReviewStates(['missing-study'])).resolves.toEqual([]);
+  });
+
   it('does not convert a keyboard typo into Again when the user confirms Hard', async () => {
     const database = createDatabase();
     const repository = createRepository(database);
