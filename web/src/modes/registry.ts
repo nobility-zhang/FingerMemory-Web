@@ -1,4 +1,5 @@
 import type { Component } from 'vue';
+import CardRainMode from './CardRainMode.vue';
 import DanmakuMode from './DanmakuMode.vue';
 import KeyboardMode from './KeyboardMode.vue';
 import LyricsMode from './LyricsMode.vue';
@@ -65,6 +66,12 @@ export const TRUSTED_MODE_PLUGINS: readonly TrustedPracticeModePlugin[] = [
     label: '弹幕模式',
     capabilities: ['target-selection', 'animated-presentation'],
     component: DanmakuMode,
+  }),
+  createBuiltinPlugin({
+    id: 'card-rain',
+    label: '卡片雨',
+    capabilities: ['target-selection', 'animated-presentation'],
+    component: CardRainMode,
   }),
 ];
 

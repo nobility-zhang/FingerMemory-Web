@@ -85,6 +85,11 @@ describe('TrustedModeRegistry', () => {
         version: '1.0.0',
         defaultConfig: { speed: 1, reduceMotion: false },
       },
+      {
+        id: 'card-rain',
+        version: '1.0.0',
+        defaultConfig: { speed: 1, reduceMotion: false },
+      },
     ]);
   });
 

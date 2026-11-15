@@ -1115,7 +1115,12 @@ describe('due filtering, recovery and backup import', () => {
     await expect(
       repository.savePracticeModePreferences(
         {
-          disabledModeIds: ['danmaku-stream', 'keyboard-recall', 'lyrics-scroll'],
+          disabledModeIds: [
+            'card-rain',
+            'danmaku-stream',
+            'keyboard-recall',
+            'lyrics-scroll',
+          ],
         },
         INITIAL_TIME + 1,
       ),

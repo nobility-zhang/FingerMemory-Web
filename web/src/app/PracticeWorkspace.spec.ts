@@ -44,7 +44,9 @@ describe('PracticeWorkspace', () => {
       now: Date.now() + 1,
     });
     await repository.savePracticeModePreferences(
-      { disabledModeIds: ['danmaku-stream', 'keyboard-recall'] },
+      {
+        disabledModeIds: ['card-rain', 'danmaku-stream', 'keyboard-recall'],
+      },
       Date.now() + 2,
     );
 
@@ -66,7 +68,7 @@ describe('PracticeWorkspace', () => {
       expect(root.textContent).toContain('至少保留一个练习模式');
     });
     await expect(repository.getPracticeModePreferences()).resolves.toEqual({
-      disabledModeIds: ['danmaku-stream', 'keyboard-recall'],
+      disabledModeIds: ['card-rain', 'danmaku-stream', 'keyboard-recall'],
     });
 
     await vi.waitFor(() => {

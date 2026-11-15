@@ -230,6 +230,47 @@ describe('SessionWorkbench modes', () => {
     });
   });
 
+  it('waits in card rain without recording and advances only by explicit Good', async () => {
+    session = createPracticeSession({
+      id: 'session-card-rain',
+      modeId: 'card-rain',
+      items,
+      now,
+      reduceMotion: false,
+    });
+    await repository.savePracticeSession(session);
+    const { root } = await mountWorkbench();
+
+    await vi.waitFor(() => {
+      expect(root.querySelector('#card-rain-title')?.textContent).toBe('记忆');
+      expect(root.querySelectorAll('.falling-card')).toHaveLength(2);
+    });
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
+    });
+
+    const input = root.querySelector<HTMLInputElement>('#answer-input');
+    input!.value = 'memory';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+    buttonByText(root, '提交')?.click();
+    await vi.waitFor(() => {
+      expect(buttonByText(root, 'Good')?.disabled).toBe(false);
+    });
+    buttonByText(root, 'Good')?.click();
+
+    await vi.waitFor(async () => {
+      await expect(repository.getStatus()).resolves.toMatchObject({
+        counts: { practiceAttempts: 0, reviewStates: 1, reviewLogs: 1 },
+      });
+    });
+    await expect(repository.getReviewLog('review:test')).resolves.toMatchObject({
+      modeId: 'card-rain',
+      rating: 'good',
+      afterCard: { cardId: 'study-memory' },
+    });
+  });
+
   it('submits an explicit review in lyrics mode and reads the same state after switching to keyboard mode', async () => {
     const { root } = await mountWorkbench();
     const input = root.querySelector<HTMLInputElement>('#answer-input');

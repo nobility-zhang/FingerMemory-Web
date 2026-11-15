@@ -170,6 +170,7 @@ M5 已落地随项目构建、可信、同源的 TypeScript 插件注册表，�
 - `appMeta['practice.modePreferences']` 保存禁用的模式 ID，并保证至少一个模式可用；禁用后保留全部学习数据。
 - `SessionWorkbench` 在卸载时停止并销毁当前插件，移除 `visibilitychange` 监听并尽力暂停保存；歌词定位使用 CSS transition，不创建 interval 或 `requestAnimationFrame`。
 - 弹幕模式使用 CSS 横向漂移和点击选目标；减少动画时改为静态标签布局，不监听动画事件，也不把命中、离开屏幕或超时映射为评分。
+- 卡片雨模式使用 CSS 纵向下落和点击选目标；减少动画时改为静态卡片网格，等待、落地或消失均不产生作答，只有共享评分命令能推进 FSRS。
 
 远程安装、动态 `eval`、第三方脚本和跨站 iframe 不属于第一版。
 

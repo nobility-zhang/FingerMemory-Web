@@ -13,7 +13,8 @@ export type ReviewScheduleStatus = 'new' | 'learning' | 'review';
 export type PracticeModeId =
   | 'keyboard-recall'
   | 'lyrics-scroll'
-  | 'danmaku-stream';
+  | 'danmaku-stream'
+  | 'card-rain';
 
 export type PracticeSessionStatus = 'active' | 'paused' | 'completed';
 

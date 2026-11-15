@@ -119,6 +119,7 @@ const KNOWN_PRACTICE_MODE_IDS = new Set([
   'keyboard-recall',
   'lyrics-scroll',
   'danmaku-stream',
+  'card-rain',
 ]);
 
 function assertPracticeModePreferences(preferences: PracticeModePreferences): void {
