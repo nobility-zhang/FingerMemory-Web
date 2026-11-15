@@ -190,6 +190,46 @@ describe('SessionWorkbench modes', () => {
     });
   });
 
+  it('renders danmaku as presentation only and records explicit practice without review', async () => {
+    session = createPracticeSession({
+      id: 'session-danmaku',
+      modeId: 'danmaku-stream',
+      items,
+      now,
+      reduceMotion: false,
+    });
+    await repository.savePracticeSession(session);
+    const { root } = await mountWorkbench();
+
+    await vi.waitFor(() => {
+      expect(root.querySelector('#danmaku-title')?.textContent).toBe('记忆');
+      expect(root.querySelectorAll('.danmaku-bullet')).toHaveLength(2);
+    });
+    root.querySelectorAll<HTMLButtonElement>('.danmaku-bullet')[1]?.click();
+    await vi.waitFor(() => {
+      expect(root.querySelector('#danmaku-title')?.textContent).toBe('光标');
+    });
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
+    });
+
+    buttonByText(root, '提示')?.click();
+    const input = root.querySelector<HTMLInputElement>('#answer-input');
+    input!.value = 'cursor';
+    input!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+    buttonByText(root, '提交')?.click();
+    await vi.waitFor(() => {
+      expect(buttonByText(root, '记录练习并继续')).toBeDefined();
+    });
+    buttonByText(root, '记录练习并继续')?.click();
+    await vi.waitFor(async () => {
+      await expect(repository.getStatus()).resolves.toMatchObject({
+        counts: { practiceAttempts: 1, reviewStates: 0, reviewLogs: 0 },
+      });
+    });
+  });
+
   it('submits an explicit review in lyrics mode and reads the same state after switching to keyboard mode', async () => {
     const { root } = await mountWorkbench();
     const input = root.querySelector<HTMLInputElement>('#answer-input');

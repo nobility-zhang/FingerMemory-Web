@@ -80,6 +80,11 @@ describe('TrustedModeRegistry', () => {
         version: '1.0.0',
         defaultConfig: { speed: 1, reduceMotion: false },
       },
+      {
+        id: 'danmaku-stream',
+        version: '1.0.0',
+        defaultConfig: { speed: 1, reduceMotion: false },
+      },
     ]);
   });
 

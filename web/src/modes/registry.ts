@@ -1,4 +1,5 @@
 import type { Component } from 'vue';
+import DanmakuMode from './DanmakuMode.vue';
 import KeyboardMode from './KeyboardMode.vue';
 import LyricsMode from './LyricsMode.vue';
 import type {
@@ -58,6 +59,12 @@ export const TRUSTED_MODE_PLUGINS: readonly TrustedPracticeModePlugin[] = [
     label: '键盘对照',
     capabilities: ['keyboard-input'],
     component: KeyboardMode,
+  }),
+  createBuiltinPlugin({
+    id: 'danmaku-stream',
+    label: '弹幕模式',
+    capabilities: ['target-selection', 'animated-presentation'],
+    component: DanmakuMode,
   }),
 ];
 

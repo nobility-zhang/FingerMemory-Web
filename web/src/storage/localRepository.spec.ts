@@ -1114,7 +1114,9 @@ describe('due filtering, recovery and backup import', () => {
     });
     await expect(
       repository.savePracticeModePreferences(
-        { disabledModeIds: ['keyboard-recall', 'lyrics-scroll'] },
+        {
+          disabledModeIds: ['danmaku-stream', 'keyboard-recall', 'lyrics-scroll'],
+        },
         INITIAL_TIME + 1,
       ),
     ).rejects.toThrow('at least one practice mode');

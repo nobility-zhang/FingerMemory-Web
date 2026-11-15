@@ -10,7 +10,10 @@ export type ReviewLifecycleState = 'new' | 'learning' | 'review' | 'relearning';
 
 export type ReviewScheduleStatus = 'new' | 'learning' | 'review';
 
-export type PracticeModeId = 'keyboard-recall' | 'lyrics-scroll';
+export type PracticeModeId =
+  | 'keyboard-recall'
+  | 'lyrics-scroll'
+  | 'danmaku-stream';
 
 export type PracticeSessionStatus = 'active' | 'paused' | 'completed';
 

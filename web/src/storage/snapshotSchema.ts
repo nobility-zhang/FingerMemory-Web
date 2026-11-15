@@ -227,7 +227,7 @@ const pendingAnswerSchema = z
 const practiceSessionSchema = z
   .object({
     id: idSchema,
-    modeId: z.enum(['keyboard-recall', 'lyrics-scroll']),
+    modeId: z.enum(['keyboard-recall', 'lyrics-scroll', 'danmaku-stream']),
     status: z.enum(['active', 'paused', 'completed']),
     queue: z.array(practiceSessionQueueItemSchema).min(1),
     currentIndex: z.number().int().nonnegative(),

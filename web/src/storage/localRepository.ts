@@ -118,6 +118,7 @@ const DEFAULT_PRACTICE_QUEUE_SETTINGS: PracticeQueueSettings = {
 const KNOWN_PRACTICE_MODE_IDS = new Set([
   'keyboard-recall',
   'lyrics-scroll',
+  'danmaku-stream',
 ]);
 
 function assertPracticeModePreferences(preferences: PracticeModePreferences): void {
