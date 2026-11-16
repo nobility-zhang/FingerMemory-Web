@@ -6,7 +6,6 @@ import type {
   PracticeItem,
   PracticeModeId,
   PracticeSession,
-  ReviewCardSnapshot,
   ReviewLog,
   ReviewState,
   StudyItem,
@@ -42,7 +41,6 @@ import type {
 import { getLocalDayRange } from '../core/due';
 import {
   ImportBatchConflictError,
-  InvalidStorageSnapshotError,
   LexiconNotFoundError,
   PracticeAttemptConflictError,
   ReviewStateVersionMismatchError,
@@ -73,7 +71,13 @@ import {
   storePracticeModePreferences,
   storePracticeQueueSettings,
 } from './practicePreferences';
-import { parseStorageSnapshot } from './snapshotSchema';
+import { LocalSnapshotStore } from './localSnapshotStore';
+import {
+  cardsHaveSameSchedulingState,
+  hasSameSchedulerConfig,
+  reviewCardFromState,
+  reviewStateFromLog,
+} from './reviewStateRecords';
 import {
   STARTER_LEXICON_ID,
   STARTER_WORDS,
@@ -236,34 +240,6 @@ function practiceFingerprint(input: PracticeAttemptInput): string {
   ]);
 }
 
-function cardFromState(state: ReviewState): ReviewCardSnapshot {
-  return {
-    cardId: state.cardId,
-    stability: state.stability,
-    stabilityFast: state.stabilityFast,
-    difficulty: state.difficulty,
-    dueAt: state.dueAt,
-    lastReviewAt: state.lastReviewAt,
-    state: state.state,
-    scheduleStatus: state.scheduleStatus,
-    reps: state.reps,
-    lapses: state.lapses,
-    scheduledDays: state.scheduledDays,
-    learningStep: state.learningStep,
-  };
-}
-
-function stateFromReviewLog(log: ReviewLog): ReviewState {
-  return {
-    studyItemId: log.studyItemId,
-    ...log.afterCard,
-    schedulerConfig: log.schedulerConfig,
-    schedulerPackageVersion: log.schedulerPackageVersion,
-    schedulerModelVersion: log.schedulerModelVersion,
-    updatedAt: log.reviewedAt,
-  };
-}
-
 function plainPracticeSession(session: PracticeSession): PracticeSession {
   return {
     ...session,
@@ -279,296 +255,11 @@ function plainPracticeSession(session: PracticeSession): PracticeSession {
   };
 }
 
-function arraysEqual<T>(left: readonly T[], right: readonly T[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function recordsEqual(
-  left: Record<string, number>,
-  right: Record<string, number>,
-): boolean {
-  const leftEntries = Object.entries(left).sort(([a], [b]) => a.localeCompare(b));
-  const rightEntries = Object.entries(right).sort(([a], [b]) => a.localeCompare(b));
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(
-      ([key, value], index) =>
-        rightEntries[index]?.[0] === key && rightEntries[index]?.[1] === value,
-    )
-  );
-}
-
-function schedulerConfigsEqual(
-  left: ReviewState['schedulerConfig'],
-  right: ReviewState['schedulerConfig'],
-): boolean {
-  return (
-    left.packageVersion === right.packageVersion &&
-    left.modelVersion === right.modelVersion &&
-    arraysEqual(left.weights, right.weights) &&
-    left.fractionalDays === right.fractionalDays &&
-    recordsEqual(left.desiredRetention, right.desiredRetention) &&
-    left.enableFuzz === right.enableFuzz &&
-    left.maximumInterval === right.maximumInterval &&
-    left.clearStatsOnForget === right.clearStatsOnForget &&
-    left.enableShortTerm === right.enableShortTerm &&
-    arraysEqual(left.learningSteps, right.learningSteps) &&
-    arraysEqual(left.relearningSteps, right.relearningSteps) &&
-    left.graduatingInterval === right.graduatingInterval &&
-    left.allowModelOverride === right.allowModelOverride
-  );
-}
-
-function hasSameSchedulerConfig(
-  state: ReviewState,
-  scheduler: ReviewScheduler,
-): boolean {
-  return (
-    state.schedulerPackageVersion === scheduler.packageVersion &&
-    state.schedulerModelVersion === scheduler.modelVersion &&
-    schedulerConfigsEqual(state.schedulerConfig, scheduler.config)
-  );
-}
-
-function assertUniqueIds(values: string[], label: string): void {
-  if (new Set(values).size !== values.length) {
-    throw new InvalidStorageSnapshotError(`${label} contains duplicate ids`);
-  }
-}
-
-function cardsHaveSameSchedulingState(
-  left: ReviewCardSnapshot,
-  right: ReviewCardSnapshot,
-): boolean {
-  return (
-    left.cardId === right.cardId &&
-    left.stability === right.stability &&
-    left.stabilityFast === right.stabilityFast &&
-    left.difficulty === right.difficulty &&
-    left.dueAt === right.dueAt &&
-    left.lastReviewAt === right.lastReviewAt &&
-    left.state === right.state &&
-    left.scheduleStatus === right.scheduleStatus &&
-    left.reps === right.reps &&
-    left.lapses === right.lapses &&
-    left.scheduledDays === right.scheduledDays &&
-    left.learningStep === right.learningStep
-  );
-}
-
-function validateSnapshotReferences(snapshot: StorageSnapshot): void {
-  const { tables } = snapshot;
-  const dataFormatRecord = tables.appMeta.find(
-    (record) => record.key === APP_META_KEYS.dataFormatVersion,
-  );
-  if (dataFormatRecord?.value !== String(DATA_FORMAT_VERSION)) {
-    throw new InvalidStorageSnapshotError('data format metadata is missing or incompatible');
-  }
-
-  assertUniqueIds(tables.appMeta.map((record) => record.key), 'appMeta');
-  assertUniqueIds(tables.lexicons.map((record) => record.id), 'lexicons');
-  assertUniqueIds(tables.words.map((record) => record.id), 'words');
-  assertUniqueIds(tables.studyItems.map((record) => record.id), 'studyItems');
-  assertUniqueIds(tables.notes.map((record) => record.id), 'notes');
-  assertUniqueIds(tables.practiceAttempts.map((record) => record.id), 'practiceAttempts');
-  assertUniqueIds(tables.practiceSessions.map((record) => record.id), 'practiceSessions');
-  assertUniqueIds(
-    tables.reviewStates.map((record) => record.studyItemId),
-    'reviewStates',
-  );
-  assertUniqueIds(
-    tables.reviewLogs.map((record) => record.submissionId),
-    'reviewLogs',
-  );
-  assertUniqueIds(
-    tables.lexiconItems.map((record) => `${record.lexiconId}\u0000${record.studyItemId}`),
-    'lexiconItems',
-  );
-
-  const lexiconIds = new Set(tables.lexicons.map((record) => record.id));
-  const wordIds = new Set(tables.words.map((record) => record.id));
-  const studyItemsById = new Map(tables.studyItems.map((record) => [record.id, record]));
-  const studyItemIds = new Set(studyItemsById.keys());
-  const practiceSessionIds = new Set(tables.practiceSessions.map((record) => record.id));
-  const logsByStudyItem = new Map<string, ReviewLog[]>();
-
-  for (const item of tables.studyItems) {
-    if (!wordIds.has(item.wordEntryId)) {
-      throw new InvalidStorageSnapshotError(
-        `study item ${item.id} references a missing word entry`,
-      );
-    }
-  }
-  for (const item of tables.lexiconItems) {
-    if (!lexiconIds.has(item.lexiconId) || !studyItemIds.has(item.studyItemId)) {
-      throw new InvalidStorageSnapshotError('lexicon item references missing data');
-    }
-  }
-  const noteStudyItemIds = new Set<string>();
-  for (const note of tables.notes) {
-    if (!studyItemIds.has(note.studyItemId)) {
-      throw new InvalidStorageSnapshotError(`note ${note.id} references a missing study item`);
-    }
-    if (noteStudyItemIds.has(note.studyItemId)) {
-      throw new InvalidStorageSnapshotError(
-        `study item ${note.studyItemId} contains multiple notes`,
-      );
-    }
-    noteStudyItemIds.add(note.studyItemId);
-  }
-  for (const attempt of tables.practiceAttempts) {
-    if (
-      !studyItemIds.has(attempt.studyItemId) ||
-      (attempt.sessionId !== null && !practiceSessionIds.has(attempt.sessionId))
-    ) {
-      throw new InvalidStorageSnapshotError(
-        `practice attempt ${attempt.id} references a missing study item`,
-      );
-    }
-  }
-  for (const state of tables.reviewStates) {
-    if (!studyItemIds.has(state.studyItemId) || state.cardId !== state.studyItemId) {
-      throw new InvalidStorageSnapshotError(
-        `review state ${state.studyItemId} references invalid study data`,
-      );
-    }
-  }
-  for (const log of tables.reviewLogs) {
-    const studyItem = studyItemsById.get(log.studyItemId);
-    if (
-      studyItem === undefined ||
-      studyItem.wordEntryId !== log.wordEntryId ||
-      studyItem.direction !== log.direction ||
-      (log.sessionId !== null && !practiceSessionIds.has(log.sessionId)) ||
-      log.afterCard.cardId !== log.studyItemId ||
-      log.srsRevlog.cardId !== log.studyItemId ||
-      (log.beforeCard !== null && log.beforeCard.cardId !== log.studyItemId)
-    ) {
-      throw new InvalidStorageSnapshotError(
-        `review log ${log.submissionId} references invalid study data`,
-      );
-    }
-    const itemLogs = logsByStudyItem.get(log.studyItemId) ?? [];
-    itemLogs.push(log);
-    logsByStudyItem.set(log.studyItemId, itemLogs);
-  }
-
-  for (const session of tables.practiceSessions) {
-    if (session.queue.length === 0 || session.currentIndex >= session.queue.length) {
-      throw new InvalidStorageSnapshotError(
-        `practice session ${session.id} has an invalid queue position`,
-      );
-    }
-    const currentItem = session.queue[session.currentIndex];
-    if (
-      session.status !== 'completed' &&
-      currentItem?.studyItemId !== session.currentStudyItemId
-    ) {
-      throw new InvalidStorageSnapshotError(
-        `practice session ${session.id} current item does not match its queue`,
-      );
-    }
-    const sessionStudyItemIds = new Set<string>();
-    for (const queueItem of session.queue) {
-      const studyItem = studyItemsById.get(queueItem.studyItemId);
-      if (studyItem === undefined || studyItem.wordEntryId !== queueItem.wordEntryId) {
-        throw new InvalidStorageSnapshotError(
-          `practice session ${session.id} references invalid study data`,
-        );
-      }
-      sessionStudyItemIds.add(queueItem.studyItemId);
-    }
-    for (const studyItemId of Object.keys(session.interactions)) {
-      if (!sessionStudyItemIds.has(studyItemId)) {
-        throw new InvalidStorageSnapshotError(
-          `practice session ${session.id} has an invalid interaction`,
-        );
-      }
-    }
-    if (
-      session.pendingAnswer !== null &&
-      !sessionStudyItemIds.has(session.pendingAnswer.studyItemId)
-    ) {
-      throw new InvalidStorageSnapshotError(
-        `practice session ${session.id} has an invalid pending answer`,
-      );
-    }
-  }
-
-  for (const state of tables.reviewStates) {
-    const itemLogs = (logsByStudyItem.get(state.studyItemId) ?? []).sort(
-      (left, right) =>
-        left.reviewedAt - right.reviewedAt ||
-        left.submissionId.localeCompare(right.submissionId),
-    );
-    const latestLog = itemLogs.at(-1);
-    if (latestLog === undefined) {
-      throw new InvalidStorageSnapshotError(
-        `review state ${state.studyItemId} has no formal review log`,
-      );
-    }
-
-    for (let index = 1; index < itemLogs.length; index += 1) {
-      const previous = itemLogs[index - 1];
-      const current = itemLogs[index];
-      if (
-        previous === undefined ||
-        current === undefined ||
-        current.beforeCard === null ||
-        !cardsHaveSameSchedulingState(previous.afterCard, current.beforeCard)
-      ) {
-        throw new InvalidStorageSnapshotError(
-          `review log chain is inconsistent for study item ${state.studyItemId}`,
-        );
-      }
-    }
-
-    if (!cardsHaveSameSchedulingState(latestLog.afterCard, cardFromState(state))) {
-      throw new InvalidStorageSnapshotError(
-        `review state ${state.studyItemId} does not match its latest review log`,
-      );
-    }
-  }
-}
-
-function parseAndValidateSnapshot(input: unknown): StorageSnapshot {
-  let snapshot: StorageSnapshot;
-  try {
-    snapshot = parseStorageSnapshot(input);
-  } catch (error) {
-    throw new InvalidStorageSnapshotError(
-      error instanceof Error ? error.message : 'snapshot schema validation failed',
-    );
-  }
-  validateSnapshotReferences(snapshot);
-  return snapshot;
-}
-
-function snapshotPreview(snapshot: StorageSnapshot): StorageSnapshotPreview {
-  const counts = snapshot.tables;
-  return {
-    snapshotVersion: snapshot.snapshotVersion,
-    schemaVersion: snapshot.schemaVersion,
-    dataFormatVersion: snapshot.dataFormatVersion,
-    exportedAt: snapshot.exportedAt,
-    counts: {
-      lexicons: counts.lexicons.length,
-      words: counts.words.length,
-      studyItems: counts.studyItems.length,
-      lexiconItems: counts.lexiconItems.length,
-      notes: counts.notes.length,
-      practiceAttempts: counts.practiceAttempts.length,
-      practiceSessions: counts.practiceSessions.length,
-      reviewStates: counts.reviewStates.length,
-      reviewLogs: counts.reviewLogs.length,
-    },
-  };
-}
-
 class DexieFingerMemoryRepository implements FingerMemoryRepository {
   private readonly scheduler: Promise<ReviewScheduler>;
   private readonly clock: () => TimestampMs;
   private readonly idFactory: () => string;
+  private readonly snapshots: LocalSnapshotStore;
 
   constructor(
     private readonly database: FingerMemoryDatabase,
@@ -577,6 +268,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     this.scheduler = options.scheduler ?? createDefaultReviewScheduler();
     this.clock = options.clock ?? Date.now;
     this.idFactory = options.idFactory ?? (() => crypto.randomUUID());
+    this.snapshots = new LocalSnapshotStore(database);
   }
 
   async initialize(): Promise<StorageStatus> {
@@ -1604,7 +1296,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
           }
           return {
             outcome: 'duplicate',
-            state: stateFromReviewLog(existingLog),
+            state: reviewStateFromLog(existingLog),
             log: existingLog,
           };
         }
@@ -1683,7 +1375,9 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
         }
 
         const beforeCard =
-          existingState === undefined ? null : cardFromState(existingState);
+          existingState === undefined
+            ? null
+            : reviewCardFromState(existingState);
         const card =
           beforeCard ?? scheduler.createCard(studyItem.id, input.reviewedAt);
         const scheduled = scheduler.review({
@@ -1763,7 +1457,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
 
         const card = existingState === undefined
           ? scheduler.createCard(input.studyItemId, input.reviewedAt)
-          : cardFromState(existingState);
+          : reviewCardFromState(existingState);
         const ratings = ['again', 'hard', 'good', 'easy'] as const;
         return Object.fromEntries(
           ratings.map((rating) => {
@@ -1855,7 +1549,10 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
               previous === undefined ||
               current === undefined ||
               current.beforeCard === null ||
-              !cardsHaveSameSchedulingState(previous.afterCard, current.beforeCard)
+              !cardsHaveSameSchedulingState(
+                previous.afterCard,
+                current.beforeCard,
+              )
             ) {
               issue = '相邻正式复习日志的前后卡片状态不连续。';
             }
@@ -1864,7 +1561,10 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
           if (
             issue === null &&
             (latestLog === undefined ||
-              !cardsHaveSameSchedulingState(latestLog.afterCard, cardFromState(state)))
+              !cardsHaveSameSchedulingState(
+                latestLog.afterCard,
+                reviewCardFromState(state),
+              ))
           ) {
             issue = '当前计划与最新正式复习日志不一致。';
           }
@@ -1923,92 +1623,15 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async exportSnapshot(exportedAt: TimestampMs): Promise<StorageSnapshot> {
-    assertTimestamp(exportedAt, 'snapshot export time');
-    await this.database.open();
-
-    return this.database.transaction(
-      'r',
-      [
-        this.database.appMeta,
-        this.database.lexicons,
-        this.database.words,
-        this.database.studyItems,
-        this.database.lexiconItems,
-        this.database.notes,
-        this.database.practiceAttempts,
-        this.database.practiceSessions,
-        this.database.reviewStates,
-        this.database.reviewLogs,
-      ],
-      async () => ({
-        snapshotVersion: 1,
-        schemaVersion: STORAGE_SCHEMA_VERSION,
-        dataFormatVersion: DATA_FORMAT_VERSION,
-        exportedAt,
-        tables: {
-          appMeta: await this.database.appMeta.toArray(),
-          lexicons: await this.database.lexicons.toArray(),
-          words: await this.database.words.toArray(),
-          studyItems: await this.database.studyItems.toArray(),
-          lexiconItems: await this.database.lexiconItems.toArray(),
-          notes: await this.database.notes.toArray(),
-          practiceAttempts: await this.database.practiceAttempts.toArray(),
-          practiceSessions: await this.database.practiceSessions.toArray(),
-          reviewStates: await this.database.reviewStates.toArray(),
-          reviewLogs: await this.database.reviewLogs.toArray(),
-        },
-      }),
-    );
+    return this.snapshots.exportSnapshot(exportedAt);
   }
 
   async previewSnapshot(snapshot: unknown): Promise<StorageSnapshotPreview> {
-    return snapshotPreview(parseAndValidateSnapshot(snapshot));
+    return this.snapshots.previewSnapshot(snapshot);
   }
 
   async importSnapshot(snapshot: unknown): Promise<StorageStatus> {
-    const parsedSnapshot = parseAndValidateSnapshot(snapshot);
-    await this.database.open();
-
-    await this.database.transaction(
-      'rw',
-      [
-        this.database.appMeta,
-        this.database.lexicons,
-        this.database.words,
-        this.database.studyItems,
-        this.database.lexiconItems,
-        this.database.notes,
-        this.database.practiceAttempts,
-        this.database.practiceSessions,
-        this.database.reviewStates,
-        this.database.reviewLogs,
-      ],
-      async () => {
-        await this.database.appMeta.clear();
-        await this.database.lexicons.clear();
-        await this.database.words.clear();
-        await this.database.studyItems.clear();
-        await this.database.lexiconItems.clear();
-        await this.database.notes.clear();
-        await this.database.practiceAttempts.clear();
-        await this.database.practiceSessions.clear();
-        await this.database.reviewStates.clear();
-        await this.database.reviewLogs.clear();
-
-        const { tables } = parsedSnapshot;
-        await this.database.appMeta.bulkPut(tables.appMeta);
-        await this.database.lexicons.bulkPut(tables.lexicons);
-        await this.database.words.bulkPut(tables.words);
-        await this.database.studyItems.bulkPut(tables.studyItems);
-        await this.database.lexiconItems.bulkPut(tables.lexiconItems);
-        await this.database.notes.bulkPut(tables.notes);
-        await this.database.practiceAttempts.bulkPut(tables.practiceAttempts);
-        await this.database.practiceSessions.bulkPut(tables.practiceSessions);
-        await this.database.reviewStates.bulkPut(tables.reviewStates);
-        await this.database.reviewLogs.bulkPut(tables.reviewLogs);
-      },
-    );
-
+    await this.snapshots.importSnapshot(snapshot);
     return this.getStatus();
   }
 }
