@@ -8,7 +8,6 @@ import com.fingermemory.server.common.ApiError;
 import com.fingermemory.server.common.ApiErrorWriter;
 import com.fingermemory.server.user.UserMapper;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Locale;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -19,7 +18,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
-import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 public class SecurityConfig {
@@ -35,21 +33,16 @@ public class SecurityConfig {
             UserMapper userMapper,
             ApiErrorWriter errorWriter,
             JsonAuthenticationHandlers authenticationHandlers) throws Exception {
-        RequestMatcher bearerRequest = request -> {
-            String authorization = request.getHeader("Authorization");
-            return authorization != null && authorization.toLowerCase(Locale.ROOT).startsWith("bearer ");
-        };
-
         http
                 .csrf(csrf -> csrf
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers(bearerRequest))
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
                 .requestCache(cache -> cache.disable())
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
+                        .requestMatchers("/api/v1/gm/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .formLogin(form -> form

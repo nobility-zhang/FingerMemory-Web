@@ -7,6 +7,9 @@ public class UserAccount {
     private String displayName;
     private String passwordHash;
     private String status;
+    private String role;
+    private String accountKind;
+    private boolean mustChangePassword;
     private long createdAtMs;
     private long updatedAtMs;
     private Long lastLoginAtMs;
@@ -58,6 +61,30 @@ public class UserAccount {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getAccountKind() {
+        return accountKind;
+    }
+
+    public void setAccountKind(String accountKind) {
+        this.accountKind = accountKind;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 
     public long getCreatedAtMs() {

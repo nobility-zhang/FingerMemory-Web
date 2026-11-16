@@ -46,6 +46,12 @@ management:
         enabled: true
 
 app:
+  admin:
+    bootstrap:
+      enabled: ${APP_ADMIN_BOOTSTRAP_ENABLED:false}
+      username: ${APP_ADMIN_BOOTSTRAP_USERNAME:admin}
+      password: ${APP_ADMIN_BOOTSTRAP_PASSWORD:}
+      display-name: ${APP_ADMIN_BOOTSTRAP_DISPLAY_NAME:管理员}
   auth:
     registration-enabled: ${REGISTRATION_ENABLED:true}
     login-attempts-per-minute: ${LOGIN_ATTEMPTS_PER_MINUTE:10}

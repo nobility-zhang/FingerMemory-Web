@@ -30,12 +30,14 @@ public final class AuthDtos {
             String id,
             String username,
             String displayName,
+            boolean mustChangePassword,
             PreferencesView preferences) {
         public static UserView from(FmUserPrincipal principal, UserPreferences preferences) {
             return new UserView(
                     principal.id(),
                     principal.getUsername(),
                     principal.displayName(),
+                    principal.mustChangePassword(),
                     new PreferencesView(
                             preferences.getNickname(),
                             preferences.getAvatarKey(),

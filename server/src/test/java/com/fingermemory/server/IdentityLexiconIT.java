@@ -37,11 +37,14 @@ class IdentityLexiconIT {
     void cleanDatabase() {
         jdbcTemplate.update("DELETE FROM SPRING_SESSION_ATTRIBUTES");
         jdbcTemplate.update("DELETE FROM SPRING_SESSION");
+        jdbcTemplate.update("DELETE FROM fm_gm_action_receipt");
+        jdbcTemplate.update("DELETE FROM fm_gm_audit_event");
         jdbcTemplate.update("DELETE FROM fm_review_receipt");
         jdbcTemplate.update("DELETE FROM fm_reward_event");
         jdbcTemplate.update("DELETE FROM fm_migration_receipt");
         jdbcTemplate.update("DELETE FROM fm_backup_receipt");
         jdbcTemplate.update("DELETE FROM fm_import_id_map");
+        jdbcTemplate.update("DELETE FROM fm_admin_bootstrap_receipt");
         jdbcTemplate.update("DELETE FROM fm_user_data");
         jdbcTemplate.update("DELETE FROM fm_lexicon");
         jdbcTemplate.update("DELETE FROM fm_user_preferences");

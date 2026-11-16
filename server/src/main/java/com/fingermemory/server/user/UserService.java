@@ -36,6 +36,12 @@ public class UserService {
 
     @Transactional
     public UserAccount register(RegisterRequest request) {
+        return createAccount(request, "USER", "standard", false);
+    }
+
+    @Transactional
+    public UserAccount createAccount(RegisterRequest request, String role, String accountKind,
+                                     boolean mustChangePassword) {
         validatePassword(request.password());
         String normalized = request.username().trim().toLowerCase(Locale.ROOT);
         if (userMapper.findByNormalizedUsername(normalized) != null) {
@@ -53,6 +59,9 @@ public class UserService {
         user.setDisplayName(displayName);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setStatus("active");
+        user.setRole(role);
+        user.setAccountKind(accountKind);
+        user.setMustChangePassword(mustChangePassword);
         user.setCreatedAtMs(now);
         user.setUpdatedAtMs(now);
         user.setLastLoginAtMs(null);
@@ -107,12 +116,23 @@ public class UserService {
 
     @Transactional
     public void resetPassword(String userId, String password) {
-        replacePassword(userId, password);
+        replacePassword(userId, password, true);
     }
 
     private void replacePassword(String userId, String password) {
+        replacePassword(userId, password, false);
+    }
+
+    private void replacePassword(String userId, String password, boolean mustChangePassword) {
         validatePassword(password);
-        userMapper.updatePassword(userId, passwordEncoder.encode(password), Instant.now().toEpochMilli());
+        int updated = userMapper.updatePassword(
+                userId,
+                passwordEncoder.encode(password),
+                mustChangePassword,
+                Instant.now().toEpochMilli());
+        if (updated != 1) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED", "请先登录");
+        }
     }
 
     private void validatePassword(String password) {

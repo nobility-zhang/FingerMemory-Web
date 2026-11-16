@@ -6,6 +6,7 @@ info:
     FingerMemory Web 与 CLI 的共享 HTTP 契约。所有时间为 UTC epoch 毫秒，ID 为不透明字符串。
     P2 已实现在线队列、服务端会话、正式复习、本地 v4 迁移和用户级备份；
     P3 增加游戏流程使用的练习完成命令和共享快捷键契约。
+    H0-04 已实现默认管理员一次性初始化、首次改密门禁和 GM 账号/审计基础。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
   - url: /api/v1
@@ -143,8 +144,8 @@ components:
         mustChangePassword:
           type: boolean
           readOnly: true
-          x-implementation-status: planned
-          description: GM 初始化扩展；缺失视为旧客户端状态。实施时由服务端限制未改密账号的操作，不能只靠前端隐藏。
+          x-implementation-status: implemented
+          description: 为 true 时，服务端仅允许读取自身状态、改密和退出；缺失视为旧客户端状态。
         preferences:
           $ref: '#/components/schemas/UserPreferences'
     Lexicon:
@@ -1956,7 +1957,7 @@ paths:
       tags:
       - GM
       summary: 当前管理员权限；普通 PAT 不可调用
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []
@@ -1976,7 +1977,7 @@ paths:
       tags:
       - GM
       summary: 分页查询账号元信息，不含私人学习数据
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []
@@ -2007,7 +2008,7 @@ paths:
       tags:
       - GM
       summary: 创建普通或测试账号，角色由管理员显式选择
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []
@@ -2040,7 +2041,7 @@ paths:
       tags:
       - GM
       summary: 改角色或启停账号；禁止移除最后一个可用管理员
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []
@@ -2244,7 +2245,7 @@ paths:
       tags:
       - GM
       summary: 分页查询脱敏管理审计
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []

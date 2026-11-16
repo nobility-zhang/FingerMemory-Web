@@ -11,6 +11,7 @@ import org.apache.ibatis.annotations.Update;
 public interface UserMapper {
     @Select("""
             SELECT id, username, username_normalized, display_name, password_hash, status,
+                   role, account_kind, must_change_password,
                    created_at_ms, updated_at_ms, last_login_at_ms, version
             FROM fm_user
             WHERE username_normalized = #{usernameNormalized}
@@ -19,6 +20,7 @@ public interface UserMapper {
 
     @Select("""
             SELECT id, username, username_normalized, display_name, password_hash, status,
+                   role, account_kind, must_change_password,
                    created_at_ms, updated_at_ms, last_login_at_ms, version
             FROM fm_user
             WHERE id = #{id}
@@ -33,7 +35,15 @@ public interface UserMapper {
     String findStatusById(String id);
 
     @Select("""
+            SELECT id, status, role, account_kind, must_change_password, version
+            FROM fm_user
+            WHERE id = #{id}
+            """)
+    UserAccess findAccessById(String id);
+
+    @Select("""
             SELECT id, username, username_normalized, display_name, password_hash, status,
+                   role, account_kind, must_change_password,
                    created_at_ms, updated_at_ms, last_login_at_ms, version
             FROM fm_user
             ORDER BY username_normalized ASC
@@ -43,9 +53,11 @@ public interface UserMapper {
     @Insert("""
             INSERT INTO fm_user (
               id, username, username_normalized, display_name, password_hash, status,
+              role, account_kind, must_change_password,
               created_at_ms, updated_at_ms, last_login_at_ms, version
             ) VALUES (
               #{id}, #{username}, #{usernameNormalized}, #{displayName}, #{passwordHash}, #{status},
+              #{role}, #{accountKind}, #{mustChangePassword},
               #{createdAtMs}, #{updatedAtMs}, #{lastLoginAtMs}, #{version}
             )
             """)
@@ -60,10 +72,12 @@ public interface UserMapper {
 
     @Update("""
             UPDATE fm_user
-            SET password_hash = #{passwordHash}, updated_at_ms = #{atMs}, version = version + 1
+            SET password_hash = #{passwordHash}, must_change_password = #{mustChangePassword},
+                updated_at_ms = #{atMs}, version = version + 1
             WHERE id = #{id} AND status = 'active'
             """)
     int updatePassword(@Param("id") String id, @Param("passwordHash") String passwordHash,
+                       @Param("mustChangePassword") boolean mustChangePassword,
                        @Param("atMs") long atMs);
 
     @Update("""
@@ -72,5 +86,24 @@ public interface UserMapper {
             WHERE id = #{id}
             """)
     int updateStatus(@Param("id") String id, @Param("status") String status,
+                     @Param("atMs") long atMs);
+
+    @Select("""
+            SELECT id
+            FROM fm_user
+            WHERE role = 'ADMIN'
+            ORDER BY id
+            FOR UPDATE
+            """)
+    List<String> lockAdminIds();
+
+    @Update("""
+            UPDATE fm_user
+            SET role = #{role}, status = #{status}, updated_at_ms = #{atMs},
+                version = version + 1
+            WHERE id = #{id} AND version = #{expectedVersion}
+            """)
+    int updateAccess(@Param("id") String id, @Param("role") String role,
+                     @Param("status") String status, @Param("expectedVersion") long expectedVersion,
                      @Param("atMs") long atMs);
 }

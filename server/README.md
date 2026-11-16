@@ -4,24 +4,26 @@ Spring Boot 4.1.2、Java 21、MyBatis、MySQL 8.4 和 Spring Session JDBC 构成
 
 ## 本地开发
 
-1. 启动 MySQL 测试实例：
+使用开发入口会启动隔离的测试 MySQL/FSRS worker，在忽略目录生成或复用
+`.local/secrets/admin.env`，并在 `127.0.0.1:8081` 启动服务：
 
-   ```sh
-   docker compose -f compose.test.yaml -f compose.dev.yaml up -d mysql fsrs-worker
-   ```
+```sh
+cd server
+./scripts/dev-server.sh
+```
 
-2. 设置测试数据库环境变量后启动服务：
+入口只输出凭据文件路径，不输出密码。首次登录用户名 `admin`，密码从该文件读取；
+页面 `/gm` 会要求先修改初始密码。不要在日志、聊天或提交中复制密码。
 
-   ```sh
-   DB_URL='jdbc:mysql://127.0.0.1:3306/finger_memory_test?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC' \
-   DB_USERNAME=finger_memory_test \
-   DB_PASSWORD=finger_memory_test_only \
-   ./mvnw spring-boot:run
-   ```
+Web 开发服务器代理到该隔离端口：
 
-`compose.dev.yaml` 只把测试 MySQL 发布到回环 `127.0.0.1:3306`，不得用于共享或现有数据库。
+```sh
+cd web
+VITE_API_TARGET=http://127.0.0.1:8081 npm run dev
+```
 
-Web 开发服务器通过 Vite `/api` 代理访问 `http://127.0.0.1:8080`。
+`compose.dev.yaml` 只把测试 MySQL/worker 发布到回环端口，不得用于共享或现有数据库。
+默认开发端口使用 `8081`，避免误连或覆盖本机已有的 `8080` 实例。
 
 在仓库根目录执行 worker 与前端的制品检查：
 
@@ -93,6 +95,17 @@ docker compose run --rm app \
 
 支持的 `app.admin.command` 为 `create`、`reset-password`、`disable`、`enable`、`list`。数据库连接环境变量必须与应用运行时一致。
 密码按 BCrypt 的 72 字节 UTF-8 上限校验，避免多字节密码被静默截断。
+
+## GM 与默认管理员
+
+- `/gm` 使用 ADMIN Cookie 会话和 CSRF；普通用户、匿名请求以及伪造 Bearer
+  头不能取得管理权限。
+- 开发启动入口通过一次性初始化回执创建默认管理员。重启不会重置密码或重新提权；
+  同名普通账号不会被自动提升。
+- 首次登录必须改密。管理员可创建普通/测试账号、授予或撤销角色、启停账号并查看
+  脱敏审计；测试账号不能持有 ADMIN 角色。
+- 当前已实现账号管理与审计基础。内容预览、发布和隔离测试沙盒仍按
+  [开发路线](../docs/development/roadmap.md) 在后续任务实现。
 
 
 ## 相关规范
