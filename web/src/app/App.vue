@@ -227,7 +227,10 @@ onBeforeUnmount(() => {
         />
 
         <Suspense v-if="activeView === 'game'">
-          <GameWorkspace @focus-mode="gameFocusMode = $event" />
+          <GameWorkspace
+            @focus-mode="gameFocusMode = $event"
+            @classic-study="activeView = 'practice'"
+          />
           <template #fallback>
             <section class="empty-panel" aria-label="正在加载训练大厅">
               <span class="panel-index" aria-hidden="true">00</span>

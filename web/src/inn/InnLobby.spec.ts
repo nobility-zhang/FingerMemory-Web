@@ -50,6 +50,8 @@ describe('InnLobby', () => {
     document.body.append(root);
     mountedApp = createApp(InnLobby, {
       companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
       user,
       plan: { ...plan, selected: [] },
       lexiconsCount: 4,
@@ -77,6 +79,8 @@ describe('InnLobby', () => {
     document.body.append(root);
     mountedApp = createApp(InnLobby, {
       companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
       user,
       plan: {
         ...plan,
@@ -141,6 +145,8 @@ describe('InnLobby', () => {
     document.body.append(root);
     mountedApp = createApp(InnLobby, {
       companion: serin,
+      companionDensity: 'standard',
+      reduceMotion: false,
       user,
       plan,
       lexiconsCount: 1,
@@ -159,5 +165,42 @@ describe('InnLobby', () => {
     );
     liaChoice?.click();
     expect(selectCompanion).toHaveBeenCalledWith('lia');
+  });
+
+  it('exposes density and classic-card entries without hiding the queue', async () => {
+    const selectDensity = vi.fn();
+    const classicStudy = vi.fn();
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(InnLobby, {
+      companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: true,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      loading: false,
+      error: null,
+      onSelectDensity: selectDensity,
+      onClassicStudy: classicStudy,
+    });
+    mountedApp.mount(root);
+    await nextTick();
+
+    const quiet = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '安静',
+    );
+    quiet?.click();
+    expect(selectDensity).toHaveBeenCalledWith('quiet');
+
+    const classic = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '经典卡片',
+    );
+    classic?.click();
+    expect(classicStudy).toHaveBeenCalledOnce();
+    expect(root.textContent).toContain('等待回想');
+    expect(root.querySelector('.companion-portrait')?.classList.contains('reduce-motion'))
+      .toBe(true);
   });
 });

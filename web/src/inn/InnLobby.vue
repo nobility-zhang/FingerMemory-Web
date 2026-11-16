@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CircleHelp,
   Clock3,
+  Feather,
   NotebookTabs,
   ScrollText,
   Target,
@@ -26,6 +27,8 @@ import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 
 const props = defineProps<{
   companion: CompanionProfile;
+  companionDensity: 'quiet' | 'standard' | 'rich';
+  reduceMotion: boolean;
   user: UserView;
   plan?: QueuePlanView;
   lexiconsCount: number;
@@ -40,8 +43,11 @@ const emit = defineEmits<{
   resume: [session: SessionEnvelope];
   help: [];
   'select-companion': [companionId: CompanionId];
+  'select-density': [density: 'quiet' | 'standard' | 'rich'];
+  'classic-study': [];
 }>();
 
+const densities = ['quiet', 'standard', 'rich'] as const;
 const selectedCount = computed(() => props.plan?.selected.length ?? 0);
 const completedInSession = computed(
   () => props.activeSession?.session.queue.filter(
@@ -67,6 +73,11 @@ const dialogue = computed(() => {
   }
   return `${props.companion.dialogue.rest} 今晚没有待复习的词，也可以先整理词库。`;
 });
+const visibleDialogue = computed(
+  () => props.companionDensity === 'quiet'
+    ? `${props.companion.name}安静地陪着你。`
+    : dialogue.value,
+);
 
 const actionLabel = computed(() => {
   if (props.activeSession) {
@@ -120,6 +131,22 @@ const actionLabel = computed(() => {
         </button>
       </div>
 
+      <div class="companion-density">
+        <span>陪伴密度</span>
+        <div role="group" aria-label="选择陪伴密度">
+          <button
+            v-for="density in densities"
+            :key="density"
+            type="button"
+            :class="{ selected: density === companionDensity }"
+            :aria-pressed="density === companionDensity"
+            @click="emit('select-density', density)"
+          >
+            {{ density === 'quiet' ? '安静' : density === 'standard' ? '标准' : '丰富' }}
+          </button>
+        </div>
+      </div>
+
       <details class="mobile-companion">
         <summary>
           <img
@@ -128,7 +155,7 @@ const actionLabel = computed(() => {
           />
           <span class="mobile-companion-copy">
             <strong>{{ companion.name }}</strong>
-            <span>{{ dialogue }}</span>
+            <span>{{ visibleDialogue }}</span>
           </span>
           <ChevronDown :size="18" aria-hidden="true" />
         </summary>
@@ -136,6 +163,7 @@ const actionLabel = computed(() => {
           <CompanionPortrait
             :companion="companion"
             :expression="expression"
+            :reduce-motion="reduceMotion"
           />
         </div>
       </details>
@@ -195,6 +223,14 @@ const actionLabel = computed(() => {
           <CircleHelp :size="19" aria-hidden="true" />
           <span>快捷键</span>
         </button>
+        <button
+          type="button"
+          class="quiet-cta"
+          @click="emit('classic-study')"
+        >
+          <Feather :size="19" aria-hidden="true" />
+          <span>经典卡片</span>
+        </button>
       </div>
 
       <p class="session-note">
@@ -209,10 +245,18 @@ const actionLabel = computed(() => {
       <CompanionPortrait
         :companion="companion"
         :expression="expression"
+        :reduce-motion="reduceMotion"
       />
-      <div class="companion-dialogue" aria-live="polite">
+      <div
+        v-if="companionDensity !== 'quiet'"
+        class="companion-dialogue"
+        aria-live="polite"
+      >
         <span>{{ companion.name }} · {{ companion.epithet }}</span>
-        <p>{{ dialogue }}</p>
+        <p>{{ visibleDialogue }}</p>
+        <small v-if="companionDensity === 'rich'">
+          {{ companion.dialogue.training }}
+        </small>
       </div>
     </div>
 
@@ -305,6 +349,43 @@ h1 span {
   display: flex;
   gap: 8px;
   margin-top: 20px;
+}
+
+.companion-density {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.companion-density > span {
+  color: #9f8a70;
+  font-size: 0.69rem;
+}
+
+.companion-density > div {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgb(217 183 121 / 16%);
+  border-radius: 6px;
+  background: rgb(27 19 19 / 52%);
+}
+
+.companion-density button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #a99479;
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.companion-density button.selected {
+  background: rgb(207 168 105 / 20%);
+  color: #f0d7ad;
 }
 
 .companion-choice {
@@ -528,6 +609,14 @@ h1 span {
   line-height: 1.7;
 }
 
+.companion-dialogue small {
+  display: block;
+  margin-top: 5px;
+  color: #bda88e;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
 .chapter-footer {
   grid-column: 1 / -1;
   display: flex;
@@ -630,6 +719,11 @@ h1 span {
 
   .companion-choice {
     min-width: 0;
+  }
+
+  .companion-density {
+    align-items: flex-start;
+    justify-content: space-between;
   }
 
   .mobile-companion summary {

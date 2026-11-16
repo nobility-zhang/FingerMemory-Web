@@ -31,6 +31,7 @@ import {
   type CompanionId,
   type CompanionProfile,
 } from '../companions/catalog';
+import CompanionPortrait from '../companions/CompanionPortrait.vue';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 import InnLobby from '../inn/InnLobby.vue';
 import GameResult from './GameResult.vue';
@@ -54,10 +55,14 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'focus-mode': [enabled: boolean];
+  'classic-study': [];
 }>();
 
 const user = ref<UserView | null>(null);
 const selectedCompanionId = ref<CompanionId>(loadCompanionPreference());
+const companionDensity = ref<'quiet' | 'standard' | 'rich'>(
+  loadCompanionDensity(),
+);
 const phase = ref<GamePhase>('login');
 const initializing = ref(true);
 const busy = ref(false);
@@ -165,6 +170,26 @@ function selectCompanion(companionId: CompanionId): void {
   }
 }
 
+function loadCompanionDensity(): 'quiet' | 'standard' | 'rich' {
+  try {
+    const stored = localStorage.getItem('fm.companionDensity');
+    return stored === 'quiet' || stored === 'rich' ? stored : 'standard';
+  } catch {
+    return 'standard';
+  }
+}
+
+function selectCompanionDensity(
+  density: 'quiet' | 'standard' | 'rich',
+): void {
+  companionDensity.value = density;
+  try {
+    localStorage.setItem('fm.companionDensity', density);
+  } catch {
+    // The current session can still use the preference without persistence.
+  }
+}
+
 function resetPageScroll(): void {
   document.documentElement.scrollTop = 0;
   document.body.scrollTop = 0;
@@ -236,6 +261,9 @@ async function loadLobby(): Promise<void> {
 
 async function loadCurrentUser(): Promise<void> {
   initializing.value = true;
+  reduceMotion.value = window.matchMedia?.(
+    '(prefers-reduced-motion: reduce)',
+  ).matches ?? false;
   try {
     user.value = await props.api.loadCurrentUser();
     if (user.value === null) {
@@ -896,6 +924,12 @@ onBeforeUnmount(() => {
           </button>
         </form>
       </div>
+      <CompanionPortrait
+        class="auth-companion"
+        :companion="selectedCompanion"
+        expression="welcome"
+        :reduce-motion="reduceMotion"
+      />
     </div>
 
     <InnLobby
@@ -906,12 +940,16 @@ onBeforeUnmount(() => {
       :lexicons-count="lexicons.length"
       :active-session="activeSession"
       :session-count="sessions.length"
+      :companion-density="companionDensity"
+      :reduce-motion="reduceMotion"
       :loading="busy"
       :error="lobbyError"
       @start="startTraining"
       @resume="enterSession"
       @help="toggleHelp"
       @select-companion="selectCompanion"
+      @select-density="selectCompanionDensity"
+      @classic-study="emit('classic-study')"
     />
 
     <GameTrainingStage
@@ -1033,9 +1071,10 @@ onBeforeUnmount(() => {
 }
 
 .auth-stage {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(330px, 0.85fr);
-  gap: clamp(28px, 6vw, 84px);
+  grid-template-columns: minmax(330px, 1fr) minmax(300px, 360px) minmax(210px, 280px);
+  gap: clamp(20px, 3vw, 42px);
   min-height: calc(100vh - 210px);
   align-items: center;
   max-width: 1180px;
@@ -1098,6 +1137,14 @@ onBeforeUnmount(() => {
   background: rgb(35 24 22 / 90%);
   backdrop-filter: blur(14px);
   box-shadow: 0 24px 70px rgb(24 12 12 / 38%);
+}
+
+.auth-companion {
+  width: min(100%, 280px);
+  height: calc(100vh - 220px);
+  align-self: end;
+  justify-self: center;
+  opacity: 0.9;
 }
 
 .auth-tabs {
@@ -1216,6 +1263,23 @@ input:focus-visible {
   .auth-card {
     width: min(100%, 540px);
   }
+
+  .auth-companion {
+    position: absolute;
+    right: -18px;
+    bottom: -18px;
+    display: block;
+    width: 130px;
+    height: 190px;
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .auth-copy,
+  .auth-card {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 @media (max-width: 620px) {
@@ -1228,6 +1292,13 @@ input:focus-visible {
 
   .auth-copy h1 {
     font-size: 2.55rem;
+  }
+
+  .auth-companion {
+    right: -24px;
+    width: 104px;
+    height: 152px;
+    opacity: 0.32;
   }
 }
 

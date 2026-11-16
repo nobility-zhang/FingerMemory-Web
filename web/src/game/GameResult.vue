@@ -62,13 +62,13 @@ const completionLine = computed(() => {
 <template>
   <section class="result-screen" aria-labelledby="result-title">
     <div class="result-copy">
-      <p class="eyebrow">Training Debrief</p>
+      <p class="eyebrow">旅途手记</p>
       <span class="result-emblem" aria-hidden="true">
         <Trophy :size="30" />
       </span>
-      <h1 id="result-title">本次训练完成</h1>
+      <h1 id="result-title">今天的旅途笔记收好了</h1>
       <p class="result-lead">
-        以下数字来自本次与服务端会话对应的真实提交。拼写输入命中率仅作训练反馈，
+        以下数字来自本次与服务端会话对应的真实提交。拼写输入命中率仅作练习反馈，
         不替代你的 FSRS 记忆评分。
       </p>
 
@@ -113,11 +113,11 @@ const completionLine = computed(() => {
       <div class="result-actions">
         <button type="button" class="primary-action" @click="emit('again')">
           <RotateCcw :size="18" />
-          再训练一次
+          再复习一轮
         </button>
         <button type="button" @click="emit('lobby')">
           <Home :size="18" />
-          返回大厅
+          返回旅店
         </button>
       </div>
     </div>
@@ -158,7 +158,7 @@ const completionLine = computed(() => {
 
 .eyebrow {
   margin: 0 0 12px;
-  color: #55d7e8;
+  color: #d8b171;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -171,15 +171,15 @@ const completionLine = computed(() => {
   height: 58px;
   place-items: center;
   margin-bottom: 15px;
-  border: 1px solid rgb(241 154 182 / 34%);
+  border: 1px solid rgb(201 141 145 / 34%);
   border-radius: 8px;
-  background: rgb(241 154 182 / 10%);
-  color: #f19ab6;
+  background: rgb(201 141 145 / 10%);
+  color: #c98d91;
 }
 
 h1 {
   margin: 0;
-  color: #f4fbff;
+  color: #fff0d8;
   font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
   font-size: clamp(2.6rem, 5.4vw, 4.8rem);
   font-weight: 600;
@@ -201,26 +201,26 @@ h1 {
   gap: 1px;
   margin-top: 24px;
   overflow: hidden;
-  border: 1px solid rgb(85 215 232 / 18%);
+  border: 1px solid rgb(216 177 113 / 18%);
   border-radius: 8px;
-  background: rgb(85 215 232 / 16%);
+  background: rgb(216 177 113 / 16%);
 }
 
 .result-stats > div {
   display: grid;
   gap: 7px;
   padding: 14px;
-  background: rgb(7 20 38 / 90%);
-  color: #55d7e8;
+  background: rgb(32 23 21 / 90%);
+  color: #d8b171;
 }
 
 .result-stats span {
-  color: #8ca9c1;
+  color: #b09b82;
   font-size: 0.72rem;
 }
 
 .result-stats strong {
-  color: #f4fbff;
+  color: #fff0d8;
   font-size: 1.45rem;
 }
 
@@ -248,20 +248,20 @@ h1 {
 }
 
 .rating-summary span {
-  color: #9eb5c8;
+  color: #c1ae94;
   font-size: 0.72rem;
 }
 
 .rating-summary strong {
-  color: #f4fbff;
+  color: #fff0d8;
   font-size: 0.78rem;
 }
 
 .rating-summary i {
   position: absolute;
   inset: 4px auto 4px 0;
-  border-left: 2px solid rgb(85 215 232 / 50%);
-  background: rgb(85 215 232 / 10%);
+  border-left: 2px solid rgb(216 177 113 / 50%);
+  background: rgb(216 177 113 / 10%);
 }
 
 .result-actions {
@@ -277,18 +277,18 @@ h1 {
   align-items: center;
   gap: 8px;
   padding: 0 15px;
-  border: 1px solid rgb(158 181 200 / 30%);
+  border: 1px solid rgb(197 174 140 / 30%);
   border-radius: 6px;
-  background: rgb(16 36 58 / 76%);
+  background: rgb(48 35 29 / 76%);
   color: #dcecf7;
   font-weight: 750;
   cursor: pointer;
 }
 
 .result-actions .primary-action {
-  border-color: #55d7e8;
-  background: #55d7e8;
-  color: #061426;
+  border-color: #d8b171;
+  background: #d8b171;
+  color: #2d2018;
 }
 
 .result-companion {
@@ -297,9 +297,9 @@ h1 {
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
-  border: 1px solid rgb(241 154 182 / 22%);
+  border: 1px solid rgb(201 141 145 / 22%);
   border-radius: 8px;
-  background: rgb(9 24 42 / 52%);
+  background: rgb(38 28 25 / 52%);
 }
 
 .result-companion :deep(.companion-portrait) {
@@ -315,12 +315,12 @@ h1 {
 
 .result-companion > div {
   padding: 13px 15px;
-  border-top: 1px solid rgb(241 154 182 / 22%);
-  background: rgb(7 20 38 / 88%);
+  border-top: 1px solid rgb(201 141 145 / 22%);
+  background: rgb(32 23 21 / 88%);
 }
 
 .result-companion span {
-  color: #f19ab6;
+  color: #c98d91;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -334,7 +334,7 @@ h1 {
 }
 
 button:focus-visible {
-  outline: 3px solid rgb(85 215 232 / 46%);
+  outline: 3px solid rgb(216 177 113 / 46%);
   outline-offset: 2px;
 }
 

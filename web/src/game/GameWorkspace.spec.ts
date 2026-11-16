@@ -261,7 +261,7 @@ describe('GameWorkspace', () => {
           rating: 'good',
         }),
       );
-      expect(root.textContent).toContain('本次训练完成');
+      expect(root.textContent).toContain('今天的旅途笔记收好了');
       expect(root.textContent).toContain('正式复习');
       expect(root.textContent).not.toContain('经验值');
     });

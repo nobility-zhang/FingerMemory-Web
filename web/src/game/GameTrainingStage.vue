@@ -174,8 +174,8 @@ defineExpose({ focusAnswer });
         <button
           type="button"
           class="icon-button"
-          title="返回大厅"
-          aria-label="暂停并返回大厅"
+          title="返回旅店"
+          aria-label="暂停并返回旅店"
           @click="emit('exit')"
         >
           <ChevronLeft :size="18" />
@@ -213,8 +213,8 @@ defineExpose({ focusAnswer });
           v-else
           type="button"
           class="icon-button"
-          title="继续训练"
-          aria-label="继续训练"
+          title="继续笔记"
+          aria-label="继续笔记"
           @click="emit('resume')"
         >
           <Play :size="18" />
@@ -230,12 +230,12 @@ defineExpose({ focusAnswer });
       <main class="word-console">
         <div class="console-label">
           <Target :size="17" aria-hidden="true" />
-          <span>中文释义 → 英文拼写</span>
+          <span>旅途笔记 · 中文释义 → 英文拼写</span>
           <strong>{{ reviewedCount }} 正式 · {{ practiceCount }} 练习</strong>
         </div>
 
         <div v-if="item" class="word-stage">
-          <p class="word-kicker">Recall Target</p>
+          <p class="word-kicker">回想路标</p>
           <h1 id="training-title">{{ item.wordEntry.meaning }}</h1>
 
           <div v-if="hintText" class="hint-line">
@@ -364,14 +364,14 @@ defineExpose({ focusAnswer });
 
     <div v-if="phase === 'paused'" class="pause-overlay" role="status">
       <Pause :size="24" aria-hidden="true" />
-      <h2>训练已暂停</h2>
-      <p>当前队列没有丢失。按 Enter 或点击继续恢复。</p>
+      <h2>旅途暂歇</h2>
+      <p>当前笔记没有丢失。按 Enter 或点击继续恢复。</p>
       <button type="button" class="primary-action" @click="emit('resume')">
         <Play :size="17" />
-        继续训练
+        继续笔记
       </button>
       <button type="button" class="secondary-action" @click="emit('exit')">
-        返回大厅
+        返回旅店
       </button>
     </div>
 
@@ -401,7 +401,7 @@ defineExpose({ focusAnswer });
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 18px;
-  color: #9eb5c8;
+  color: #c1ae94;
 }
 
 .training-status,
@@ -421,8 +421,8 @@ defineExpose({ focusAnswer });
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #55d7e8;
-  box-shadow: 0 0 12px rgb(85 215 232 / 75%);
+  background: #d8b171;
+  box-shadow: 0 0 12px rgb(216 177 113 / 75%);
 }
 
 .icon-button {
@@ -431,9 +431,9 @@ defineExpose({ focusAnswer });
   height: 36px;
   place-items: center;
   padding: 0;
-  border: 1px solid rgb(158 181 200 / 28%);
+  border: 1px solid rgb(197 174 140 / 28%);
   border-radius: 6px;
-  background: rgb(7 20 38 / 72%);
+  background: rgb(32 23 21 / 72%);
   color: #d8ecf7;
   cursor: pointer;
 }
@@ -442,14 +442,14 @@ defineExpose({ focusAnswer });
   height: 4px;
   overflow: hidden;
   border-radius: 2px;
-  background: rgb(158 181 200 / 16%);
+  background: rgb(197 174 140 / 16%);
 }
 
 .progress-rail span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #55d7e8, #72e6c1);
+  background: linear-gradient(90deg, #d8b171, #8ca98a);
   transition: width 260ms ease;
 }
 
@@ -466,11 +466,11 @@ defineExpose({ focusAnswer });
   flex-direction: column;
   min-width: 0;
   padding: clamp(20px, 4vw, 38px);
-  border: 1px solid rgb(85 215 232 / 22%);
+  border: 1px solid rgb(216 177 113 / 22%);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgb(9 26 45 / 88%), rgb(7 20 38 / 94%)),
-    rgb(7 20 38 / 90%);
+    linear-gradient(180deg, rgb(50 37 31 / 88%), rgb(32 23 21 / 94%)),
+    rgb(32 23 21 / 90%);
   box-shadow: inset 0 1px rgb(255 255 255 / 3%);
 }
 
@@ -484,7 +484,7 @@ defineExpose({ focusAnswer });
 
 .console-label strong {
   margin-left: auto;
-  color: #f19ab6;
+  color: #c98d91;
   font-size: 0.7rem;
 }
 
@@ -501,7 +501,7 @@ defineExpose({ focusAnswer });
 
 .word-kicker {
   margin: 0;
-  color: #55d7e8;
+  color: #d8b171;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -510,7 +510,7 @@ defineExpose({ focusAnswer });
 
 .word-stage h1 {
   margin: 0;
-  color: #f4fbff;
+  color: #fff0d8;
   font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
   font-size: clamp(2.4rem, 6vw, 4.8rem);
   font-weight: 600;
@@ -536,7 +536,7 @@ defineExpose({ focusAnswer });
 }
 
 .answer-console label {
-  color: #8ca9c1;
+  color: #b09b82;
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -551,10 +551,10 @@ defineExpose({ focusAnswer });
   width: 100%;
   min-height: 60px;
   padding: 0 18px;
-  border: 1px solid rgb(85 215 232 / 34%);
+  border: 1px solid rgb(216 177 113 / 34%);
   border-radius: 7px;
-  background: #f4fbff;
-  color: #071426;
+  background: #fff0d8;
+  color: #2b211d;
   font-size: clamp(1.15rem, 2.6vw, 1.65rem);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -565,10 +565,10 @@ defineExpose({ focusAnswer });
   place-items: center;
   min-height: 60px;
   padding: 0;
-  border: 1px solid #55d7e8;
+  border: 1px solid #d8b171;
   border-radius: 7px;
-  background: #55d7e8;
-  color: #061426;
+  background: #d8b171;
+  color: #2d2018;
   cursor: pointer;
 }
 
@@ -588,7 +588,7 @@ defineExpose({ focusAnswer });
 }
 
 .practice-reveal strong {
-  color: #f4fbff;
+  color: #fff0d8;
   font-size: 1.6rem;
 }
 
@@ -601,7 +601,7 @@ defineExpose({ focusAnswer });
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #9eb5c8;
+  color: #c1ae94;
   font-size: 0.78rem;
 }
 
@@ -618,21 +618,21 @@ defineExpose({ focusAnswer });
   justify-items: start;
   gap: 4px;
   padding: 12px;
-  border: 1px solid rgb(158 181 200 / 24%);
+  border: 1px solid rgb(197 174 140 / 24%);
   border-radius: 7px;
-  background: rgb(18 43 67 / 76%);
+  background: rgb(65 48 37 / 76%);
   color: #edf8ff;
   text-align: left;
   cursor: pointer;
 }
 
 .rating-button:hover:not(:disabled) {
-  border-color: rgb(85 215 232 / 55%);
-  background: rgb(23 50 76 / 90%);
+  border-color: rgb(216 177 113 / 55%);
+  background: rgb(78 57 43 / 90%);
 }
 
 .rating-button kbd {
-  color: #55d7e8;
+  color: #d8b171;
   font: 800 0.7rem/1 "SFMono-Regular", Consolas, monospace;
 }
 
@@ -642,7 +642,7 @@ defineExpose({ focusAnswer });
 
 .rating-button span,
 .rating-button small {
-  color: #8ca9c1;
+  color: #b09b82;
   font-size: 0.68rem;
 }
 
@@ -650,7 +650,7 @@ defineExpose({ focusAnswer });
   justify-self: start;
   min-height: 34px;
   padding: 0 11px;
-  border: 1px solid rgb(158 181 200 / 26%);
+  border: 1px solid rgb(197 174 140 / 26%);
   border-radius: 6px;
   background: transparent;
   color: #c9dce9;
@@ -669,10 +669,10 @@ defineExpose({ focusAnswer });
   align-items: center;
   gap: 7px;
   padding: 0 10px;
-  border: 1px solid rgb(158 181 200 / 22%);
+  border: 1px solid rgb(197 174 140 / 22%);
   border-radius: 6px;
   background: transparent;
-  color: #9eb5c8;
+  color: #c1ae94;
   cursor: pointer;
 }
 
@@ -691,9 +691,9 @@ defineExpose({ focusAnswer });
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
-  border: 1px solid rgb(241 154 182 / 20%);
+  border: 1px solid rgb(201 141 145 / 20%);
   border-radius: 8px;
-  background: rgb(9 24 42 / 58%);
+  background: rgb(38 28 25 / 58%);
 }
 
 .training-companion :deep(.companion-portrait) {
@@ -711,12 +711,12 @@ defineExpose({ focusAnswer });
   position: relative;
   z-index: 1;
   padding: 12px;
-  border-top: 1px solid rgb(241 154 182 / 20%);
-  background: rgb(7 20 38 / 86%);
+  border-top: 1px solid rgb(201 141 145 / 20%);
+  background: rgb(32 23 21 / 86%);
 }
 
 .training-companion span {
-  color: #f19ab6;
+  color: #c98d91;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -735,7 +735,7 @@ defineExpose({ focusAnswer });
 }
 
 .word-stage.empty p {
-  color: #9eb5c8;
+  color: #c1ae94;
 }
 
 .training-error {
@@ -771,19 +771,19 @@ defineExpose({ focusAnswer });
   gap: 8px;
   padding: 24px;
   border-radius: 8px;
-  background: rgb(4 13 26 / 86%);
+  background: rgb(19 13 14 / 86%);
   backdrop-filter: blur(12px);
   text-align: center;
 }
 
 .pause-overlay h2 {
   margin: 0;
-  color: #f4fbff;
+  color: #fff0d8;
 }
 
 .pause-overlay p {
   margin: 0 0 10px;
-  color: #9eb5c8;
+  color: #c1ae94;
   font-size: 0.82rem;
 }
 
@@ -793,10 +793,10 @@ defineExpose({ focusAnswer });
   align-items: center;
   gap: 8px;
   padding: 0 15px;
-  border: 1px solid #55d7e8;
+  border: 1px solid #d8b171;
   border-radius: 6px;
-  background: #55d7e8;
-  color: #061426;
+  background: #d8b171;
+  color: #2d2018;
   font-weight: 800;
   cursor: pointer;
 }
@@ -804,7 +804,7 @@ defineExpose({ focusAnswer });
 .secondary-action {
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid rgb(158 181 200 / 28%);
+  border: 1px solid rgb(197 174 140 / 28%);
   border-radius: 6px;
   background: transparent;
   color: #d8e8f3;
@@ -820,10 +820,10 @@ defineExpose({ focusAnswer });
   align-items: center;
   gap: 6px;
   padding: 7px 8px 7px 11px;
-  border: 1px solid rgb(85 215 232 / 24%);
+  border: 1px solid rgb(216 177 113 / 24%);
   border-radius: 999px;
-  background: rgb(7 20 38 / 88%);
-  color: #55d7e8;
+  background: rgb(32 23 21 / 88%);
+  color: #d8b171;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -838,7 +838,7 @@ defineExpose({ focusAnswer });
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgb(85 215 232 / 12%);
+  background: rgb(216 177 113 / 12%);
   color: inherit;
   cursor: pointer;
 }
@@ -849,7 +849,7 @@ defineExpose({ focusAnswer });
 
 button:focus-visible,
 input:focus-visible {
-  outline: 3px solid rgb(85 215 232 / 48%);
+  outline: 3px solid rgb(216 177 113 / 48%);
   outline-offset: 2px;
 }
 
