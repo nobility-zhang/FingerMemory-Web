@@ -9,11 +9,14 @@ import {
   Timer,
   Trophy,
 } from '@lucide/vue';
-import companion from '../assets/game/companion-navigator.png';
+import CompanionPortrait from '../companions/CompanionPortrait.vue';
+import type { CompanionProfile } from '../companions/catalog';
 import type { GameRunResult } from './types';
 
 const props = defineProps<{
+  companion: CompanionProfile;
   result: GameRunResult;
+  reduceMotion: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -44,6 +47,12 @@ const ratings = [
   ['good', 'Good'],
   ['easy', 'Easy'],
 ] as const;
+const completionLine = computed(() => {
+  if (props.result.reviewedCount > 0) {
+    return props.companion.dialogue.result;
+  }
+  return props.companion.dialogue.practice;
+});
 </script>
 
 <template>
@@ -109,17 +118,18 @@ const ratings = [
       </div>
     </div>
 
-    <aside class="result-companion" aria-label="训练导航员结算">
-      <img :src="companion" alt="原创训练导航员半身像" />
+    <aside
+      class="result-companion"
+      :aria-label="`${companion.name}的旅途结算`"
+    >
+      <CompanionPortrait
+        :companion="companion"
+        :expression="result.reviewedCount > 0 ? 'relief' : 'welcome'"
+        :reduce-motion="reduceMotion"
+      />
       <div>
-        <span>导航员记录</span>
-        <p>
-          {{
-            result.reviewedCount > 0
-              ? '正式复习已经写入云端，下次到期时间可以在下一轮队列中继续使用。'
-              : '本次只产生练习记录，没有推进正式复习状态。'
-          }}
-        </p>
+        <span>{{ companion.name }} · {{ companion.epithet }}</span>
+        <p>{{ completionLine }}</p>
       </div>
     </aside>
   </section>
@@ -286,9 +296,13 @@ h1 {
   background: rgb(9 24 42 / 52%);
 }
 
-.result-companion img {
+.result-companion :deep(.companion-portrait) {
   width: 100%;
   height: 82%;
+  opacity: 0.94;
+}
+
+.result-companion :deep(.companion-portrait img) {
   object-fit: contain;
   object-position: center bottom;
 }

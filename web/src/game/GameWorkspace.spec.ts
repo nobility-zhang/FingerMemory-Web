@@ -229,9 +229,17 @@ describe('GameWorkspace', () => {
     const api = baseApi();
     const root = await mountGame(api);
 
+    const serinChoice = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('瑟琳'),
+    );
+    serinChoice?.click();
+    await nextTick();
+    expect(root.querySelector('[data-companion="serin"]')).not.toBeNull();
+
     press(window, 'Enter');
     await vi.waitFor(() => {
       expect(root.textContent).toContain('记忆');
+      expect(root.textContent).toContain('瑟琳');
     });
     const input = root.querySelector<HTMLInputElement>('#online-answer');
     input!.value = 'memory';

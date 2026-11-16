@@ -17,10 +17,15 @@ import type {
   UserView,
 } from '../api/client';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
-import { lia } from '../companions/catalog';
+import {
+  companions,
+  type CompanionId,
+  type CompanionProfile,
+} from '../companions/catalog';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 
 const props = defineProps<{
+  companion: CompanionProfile;
   user: UserView;
   plan?: QueuePlanView;
   lexiconsCount: number;
@@ -34,6 +39,7 @@ const emit = defineEmits<{
   start: [];
   resume: [session: SessionEnvelope];
   help: [];
+  'select-companion': [companionId: CompanionId];
 }>();
 
 const selectedCount = computed(() => props.plan?.selected.length ?? 0);
@@ -45,15 +51,21 @@ const completedInSession = computed(
 const sessionTotal = computed(
   () => props.activeSession?.session.queue.length ?? 0,
 );
+const expression = computed(() => {
+  if (props.activeSession) {
+    return 'welcome';
+  }
+  return selectedCount.value > 0 ? 'cheer' : 'relief';
+});
 
 const dialogue = computed(() => {
   if (props.activeSession) {
-    return `上次的笔记还夹在这里，已经整理到 ${completedInSession.value}/${sessionTotal.value}。要从书签处继续吗？`;
+    return `${props.companion.dialogue.welcome} 上次的笔记已经整理到 ${completedInSession.value}/${sessionTotal.value}。`;
   }
   if (selectedCount.value > 0) {
-    return `热茶刚好。今天的旅途笔记里有 ${selectedCount.value} 个待回想的词，我会陪你一项项收好。`;
+    return `${props.companion.dialogue.welcome} 今天有 ${selectedCount.value} 个待回想的词。`;
   }
-  return '今晚的灯还亮着。没有待复习的词也没关系，可以先整理词库，或者看看旧笔记。';
+  return `${props.companion.dialogue.rest} 今晚没有待复习的词，也可以先整理词库。`;
 });
 
 const actionLabel = computed(() => {
@@ -86,22 +98,44 @@ const actionLabel = computed(() => {
         信纸边缘又淡了一角。莉娅把暖灯放在桌沿，替你留出靠近炉火的位置。
       </p>
 
+      <div class="companion-switcher" role="group" aria-label="选择带队伙伴">
+        <button
+          v-for="candidate in companions"
+          :key="candidate.id"
+          type="button"
+          class="companion-choice"
+          :class="{ selected: candidate.id === companion.id }"
+          :aria-pressed="candidate.id === companion.id"
+          @click="emit('select-companion', candidate.id)"
+        >
+          <img
+            :src="candidate.portraits.neutral"
+            alt=""
+            aria-hidden="true"
+          />
+          <span>
+            <strong>{{ candidate.name }}</strong>
+            <small>{{ candidate.id === 'lia' ? '暖灯照料' : '记事与指引' }}</small>
+          </span>
+        </button>
+      </div>
+
       <details class="mobile-companion">
         <summary>
           <img
-            :src="lia.portraits[activeSession ? 'welcome' : selectedCount > 0 ? 'cheer' : 'relief']"
+            :src="companion.portraits[expression]"
             alt=""
           />
           <span class="mobile-companion-copy">
-            <strong>{{ lia.name }}</strong>
+            <strong>{{ companion.name }}</strong>
             <span>{{ dialogue }}</span>
           </span>
           <ChevronDown :size="18" aria-hidden="true" />
         </summary>
         <div class="mobile-companion-portrait">
           <CompanionPortrait
-            :companion="lia"
-            :expression="activeSession ? 'welcome' : selectedCount > 0 ? 'cheer' : 'relief'"
+            :companion="companion"
+            :expression="expression"
           />
         </div>
       </details>
@@ -173,11 +207,11 @@ const actionLabel = computed(() => {
     <div class="lia-stage">
       <div class="lamp-glow" aria-hidden="true"></div>
       <CompanionPortrait
-        :companion="lia"
-        :expression="activeSession ? 'welcome' : selectedCount > 0 ? 'cheer' : 'relief'"
+        :companion="companion"
+        :expression="expression"
       />
       <div class="companion-dialogue" aria-live="polite">
-        <span>{{ lia.name }} · {{ lia.epithet }}</span>
+        <span>{{ companion.name }} · {{ companion.epithet }}</span>
         <p>{{ dialogue }}</p>
       </div>
     </div>
@@ -265,6 +299,68 @@ h1 span {
   color: #d4c2aa;
   font-size: 0.94rem;
   line-height: 1.85;
+}
+
+.companion-switcher {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.companion-choice {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  min-width: 164px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px 7px 7px;
+  border: 1px solid rgb(217 183 121 / 18%);
+  border-radius: 7px;
+  background: rgb(33 23 23 / 60%);
+  color: #d8c5aa;
+  text-align: left;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.companion-choice img {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgb(217 183 121 / 26%);
+  border-radius: 50%;
+  background: #392926;
+  object-fit: cover;
+  object-position: 50% 10%;
+}
+
+.companion-choice > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.companion-choice strong {
+  color: #f3e1c5;
+  font-size: 0.78rem;
+}
+
+.companion-choice small {
+  overflow: hidden;
+  color: #9f8a70;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.companion-choice.selected {
+  border-color: rgb(233 196 133 / 56%);
+  background: rgb(78 53 43 / 76%);
+  box-shadow: inset 0 0 0 1px rgb(255 228 177 / 8%);
+}
+
+.companion-choice:focus-visible {
+  outline: 3px solid rgb(246 214 158 / 44%);
+  outline-offset: 2px;
 }
 
 .inn-error {
@@ -524,6 +620,16 @@ h1 span {
     border-radius: 7px;
     background: rgb(31 21 21 / 78%);
     backdrop-filter: blur(10px);
+  }
+
+  .companion-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 16px;
+  }
+
+  .companion-choice {
+    min-width: 0;
   }
 
   .mobile-companion summary {

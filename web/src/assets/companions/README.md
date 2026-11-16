@@ -56,3 +56,45 @@ modern equipment, or neon.
 
 The full source PNG files are intentionally retained for later edits. The six
 runtime portraits plus the runtime background total approximately 2.4 MiB.
+
+## Serin
+
+Serin is an original adult traveling priestess and note-keeper: silver-green
+braided hair, teal-green eyes, moss-green shawl, ivory-white dress, leaf
+ornament, old leather journal, and a wooden traveling staff.
+
+- Generation and edit mode: built-in ImageGen, transparent background.
+- Reference role: Lia's neutral source image was used only for rendering style,
+  linework, lighting, and canvas consistency. Serin has an independent face,
+  silhouette, outfit, props, and palette.
+- Identity method: one `1024x1536` neutral anchor; every expression was edited
+  from that exact anchor with identity, outfit, staff, journal, pose, lighting,
+  and canvas invariants.
+- Runtime method: macOS `sips -Z 720`, preserving RGBA alpha and a shared
+  `480x720` canvas.
+- Expressions: `neutral`, `welcome`, `cheer`, `concern`, `relief`, `surprise`.
+
+Source SHA256:
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `efb713d1e9928d28b34af079ce9815aad9ef37c66b4cb1e2c47d844203a61e69` |
+| welcome | `b088000d18f93c83527756e7801a5123af6a0f47b6bde2458dc4b50f452fcdcf` |
+| cheer | `8f0c1b4dff9cfc5da75bcaee16c03b448fb276eb10f093dcdd7dcd19b285addf` |
+| concern | `c8a25cd3250bb231f5057942842ba75cc4b01c1d11c02f8e40fb0eda13929345` |
+| relief | `1d9b3fbbd38e2ecc17b12df91cd6c6d23e770315b54d77bc752315c42ac47bf2` |
+| surprise | `b8a42ba6f43278626e70204ab3dcdc3b9a1e9ea248918824dcbf398beb9bf598` |
+
+Runtime SHA256:
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `781c4461a11e87c2f3f597c540c662610fae8a2e1e54534485dc3a94910a8455` |
+| welcome | `1b8471f91e46bf58ef707072b1a08e629dda5a74f2f79091057acbba6a57768a` |
+| cheer | `a416c8d52bddc7c5caa3fd3d0d144f7e2c481a12319f660d7a3dbab7097e1801` |
+| concern | `420e7f452a0b8e359776af78958f47990ae4da51b8f24cafb89171e83dc740b9` |
+| relief | `2a0c7862a7408b3b46e7d9f2293a3830d12b8a49b5792360557a753d838b48ab` |
+| surprise | `4db661d29a3471b88d73bc5b2b8be18197942ba1cfc685d895a4fa93f82fd94f` |
+
+The two characters keep separate source and runtime trees. Their first-screen
+runtime files total approximately 4.6 MiB including the inn JPEG.

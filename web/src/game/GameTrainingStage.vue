@@ -14,13 +14,17 @@ import {
   Target,
   X,
 } from '@lucide/vue';
-import companion from '../assets/game/companion-navigator.png';
 import type {
   PendingAnswerView,
   ReviewPreviewView,
   SessionEnvelope,
   SessionItemView,
 } from '../api/client';
+import CompanionPortrait from '../companions/CompanionPortrait.vue';
+import type {
+  CompanionExpression,
+  CompanionProfile,
+} from '../companions/catalog';
 import type { GamePhase } from './shortcutStateMachine';
 
 const props = defineProps<{
@@ -40,6 +44,8 @@ const props = defineProps<{
   practiceCount: number;
   focusMode: boolean;
   reduceMotion: boolean;
+  companion: CompanionProfile;
+  lastRating?: 'again' | 'hard' | 'good' | 'easy';
 }>();
 
 const emit = defineEmits<{
@@ -68,6 +74,33 @@ const queueTotal = computed(() => props.session.session.queue.length);
 const progress = computed(
   () => queueTotal.value === 0 ? 0 : queueCompleted.value / queueTotal.value * 100,
 );
+const companionExpression = computed<CompanionExpression>(() => {
+  if (props.phase === 'paused' || props.phase === 'answer-ready') {
+    return 'concern';
+  }
+  if (props.lastRating === 'again') {
+    return 'concern';
+  }
+  if (props.lastRating === 'good' || props.lastRating === 'easy') {
+    return 'relief';
+  }
+  return props.phase === 'rating' ? 'neutral' : 'welcome';
+});
+const companionLine = computed(() => {
+  if (props.phase === 'paused') {
+    return props.companion.dialogue.rest;
+  }
+  if (props.phase === 'answer-ready') {
+    return props.companion.dialogue.practice;
+  }
+  if (props.phase === 'typing' && props.lastRating === 'again') {
+    return props.companion.dialogue.again;
+  }
+  if (props.phase === 'rating') {
+    return '作答已经封存。按 1–4 明确选择这次回忆的真实感受，不需要追求夸奖。';
+  }
+  return props.companion.dialogue.training;
+});
 const ratings = [
   {
     value: 'again',
@@ -313,22 +346,18 @@ defineExpose({ focusAnswer });
         </p>
       </main>
 
-      <aside class="training-companion" aria-label="训练导航员">
-        <img :src="companion" alt="" />
+      <aside
+        class="training-companion"
+        :aria-label="`${companion.name}的陪伴提示`"
+      >
+        <CompanionPortrait
+          :companion="companion"
+          :expression="companionExpression"
+          :reduce-motion="reduceMotion"
+        />
         <div>
-          <span>导航提示</span>
-          <p v-if="phase === 'typing'">
-            只输入英文拼写。Enter 提交，数字键会正常进入答案。
-          </p>
-          <p v-else-if="phase === 'rating'">
-            数字 1-4 只在当前评分状态生效。
-          </p>
-          <p v-else-if="phase === 'paused'">
-            草稿和队列仍在服务端会话中，Enter 继续。
-          </p>
-          <p v-else>
-            本次答案已经封存，不会因动画或输错自动评分。
-          </p>
+          <span>{{ companion.name }} · {{ companion.epithet }}</span>
+          <p>{{ companionLine }}</p>
         </div>
       </aside>
     </div>
@@ -667,12 +696,15 @@ defineExpose({ focusAnswer });
   background: rgb(9 24 42 / 58%);
 }
 
-.training-companion img {
+.training-companion :deep(.companion-portrait) {
   width: 100%;
   height: 78%;
+  opacity: 0.92;
+}
+
+.training-companion :deep(.companion-portrait img) {
   object-fit: contain;
   object-position: center bottom;
-  opacity: 0.92;
 }
 
 .training-companion > div {

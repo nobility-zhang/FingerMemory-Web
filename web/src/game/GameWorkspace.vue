@@ -26,6 +26,11 @@ import {
   type SessionItemView,
   type UserView,
 } from '../api/client';
+import {
+  companionById,
+  type CompanionId,
+  type CompanionProfile,
+} from '../companions/catalog';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 import InnLobby from '../inn/InnLobby.vue';
 import GameResult from './GameResult.vue';
@@ -52,6 +57,7 @@ const emit = defineEmits<{
 }>();
 
 const user = ref<UserView | null>(null);
+const selectedCompanionId = ref<CompanionId>(loadCompanionPreference());
 const phase = ref<GamePhase>('login');
 const initializing = ref(true);
 const busy = ref(false);
@@ -92,9 +98,13 @@ const ratings = ref<Record<'again' | 'hard' | 'good' | 'easy', number>>({
 });
 const startedAt = ref(0);
 const endedAt = ref(0);
+const lastRating = ref<'again' | 'hard' | 'good' | 'easy'>();
 const trainingStage = ref<InstanceType<typeof GameTrainingStage>>();
 let generation = 0;
 
+const selectedCompanion = computed<CompanionProfile>(
+  () => companionById[selectedCompanionId.value],
+);
 const currentItem = computed<SessionItemView | undefined>(() => {
   const studyItemId = session.value?.session.currentStudyItemId;
   if (studyItemId === null || studyItemId === undefined) {
@@ -138,6 +148,23 @@ function currentTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
+function loadCompanionPreference(): CompanionId {
+  try {
+    return localStorage.getItem('fm.companion') === 'serin' ? 'serin' : 'lia';
+  } catch {
+    return 'lia';
+  }
+}
+
+function selectCompanion(companionId: CompanionId): void {
+  selectedCompanionId.value = companionId;
+  try {
+    localStorage.setItem('fm.companion', companionId);
+  } catch {
+    // Keeping the in-memory choice is enough when storage is unavailable.
+  }
+}
+
 function resetPageScroll(): void {
   document.documentElement.scrollTop = 0;
   document.body.scrollTop = 0;
@@ -174,6 +201,7 @@ function resetRun(): void {
   ratings.value = { again: 0, hard: 0, good: 0, easy: 0 };
   startedAt.value = 0;
   endedAt.value = 0;
+  lastRating.value = undefined;
 }
 
 async function loadLobby(): Promise<void> {
@@ -494,6 +522,7 @@ async function rateReview(
     });
     reviewedCount.value += 1;
     ratings.value[rating] += 1;
+    lastRating.value = rating;
     await refreshCurrentSession();
   } catch (cause) {
     sessionError.value = errorMessage(cause);
@@ -531,6 +560,7 @@ async function completePractice(outcome: 'completed' | 'skipped'): Promise<void>
     }
     practiceCount.value += 1;
     combo.value = 0;
+    lastRating.value = undefined;
     session.value = await props.api.getSession(current.session.id);
     await afterItemCompleted();
   } catch (cause) {
@@ -870,6 +900,7 @@ onBeforeUnmount(() => {
 
     <InnLobby
       v-else-if="phase === 'lobby' && user"
+      :companion="selectedCompanion"
       :user="user"
       :plan="plan"
       :lexicons-count="lexicons.length"
@@ -880,6 +911,7 @@ onBeforeUnmount(() => {
       @start="startTraining"
       @resume="enterSession"
       @help="toggleHelp"
+      @select-companion="selectCompanion"
     />
 
     <GameTrainingStage
@@ -901,6 +933,8 @@ onBeforeUnmount(() => {
       :practice-count="practiceCount"
       :focus-mode="focusMode"
       :reduce-motion="reduceMotion"
+      :companion="selectedCompanion"
+      :last-rating="lastRating"
       @update:answer="answer = $event"
       @submit="submitFormalAnswer"
       @hint="showNextHint"
@@ -918,7 +952,9 @@ onBeforeUnmount(() => {
 
     <GameResult
       v-else-if="phase === 'result'"
+      :companion="selectedCompanion"
       :result="result"
+      :reduce-motion="reduceMotion"
       @again="trainAgain"
       @lobby="returnToLobby"
     />
