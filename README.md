@@ -74,6 +74,7 @@ npm run build
 - [产品说明](docs/product.md)
 - [技术方案](docs/architecture.md)
 - [进度与任务](docs/progress.md)
+- [会话交接](docs/handoff-2026-11-16.md)
 - [1.0.0 发布说明](docs/release.md)
 - [OpenAPI 契约](docs/openapi.yaml)
 - [FSRS-7 兼容性](docs/fsrs-compatibility.md)
