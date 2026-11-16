@@ -87,6 +87,7 @@ function baseApi(): AccountClient {
     login: vi.fn(),
     register: vi.fn(),
     logout: vi.fn(),
+    changePassword: vi.fn(),
     listLexicons: async () => [{
       id: 'lexicon-game',
       name: '游戏词库',
@@ -187,6 +188,11 @@ function baseApi(): AccountClient {
     exportAccountBackup: vi.fn(),
     previewAccountBackup: vi.fn(),
     restoreAccountBackup: vi.fn(),
+    loadGmContext: vi.fn(),
+    listGmUsers: vi.fn(),
+    createGmUser: vi.fn(),
+    updateGmUser: vi.fn(),
+    listGmAudit: vi.fn(),
   };
 }
 

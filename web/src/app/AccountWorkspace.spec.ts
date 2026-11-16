@@ -47,6 +47,7 @@ describe('AccountWorkspace', () => {
       logout: vi.fn(async () => {
         currentUser = null;
       }),
+      changePassword: vi.fn(),
       listLexicons: async () => [...lexicons],
       createLexicon: vi.fn(async (name: string, description: string) => {
         const lexicon: LexiconView = {
@@ -110,6 +111,11 @@ describe('AccountWorkspace', () => {
       restoreAccountBackup: vi.fn(async () => {
         throw new Error('not used');
       }),
+      loadGmContext: vi.fn(),
+      listGmUsers: vi.fn(),
+      createGmUser: vi.fn(),
+      updateGmUser: vi.fn(),
+      listGmAudit: vi.fn(),
     };
 
     const root = document.createElement('div');
@@ -239,6 +245,7 @@ describe('AccountWorkspace', () => {
       login: vi.fn(),
       register: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
       listLexicons: async () => [],
       createLexicon: vi.fn(),
       loadQueuePlan: async () => ({
@@ -274,6 +281,11 @@ describe('AccountWorkspace', () => {
       exportAccountBackup: vi.fn(),
       previewAccountBackup: vi.fn(),
       restoreAccountBackup: vi.fn(),
+      loadGmContext: vi.fn(),
+      listGmUsers: vi.fn(),
+      createGmUser: vi.fn(),
+      updateGmUser: vi.fn(),
+      listGmAudit: vi.fn(),
     } as AccountClient;
     const root = document.createElement('div');
     document.body.append(root);

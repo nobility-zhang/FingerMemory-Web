@@ -12,6 +12,7 @@ export interface UserView {
   id: string;
   username: string;
   displayName: string;
+  mustChangePassword?: boolean;
   preferences: UserPreferencesView;
 }
 
@@ -218,6 +219,61 @@ export interface BackupRestoreResult {
   counts: Record<string, number>;
 }
 
+export interface GmContext {
+  role: 'ADMIN';
+  capabilities: Array<
+    'manage-users' | 'manage-content' | 'manage-sandboxes' | 'read-audit'
+  >;
+}
+
+export interface GmUser {
+  id: string;
+  username: string;
+  displayName: string;
+  role: 'USER' | 'ADMIN';
+  status: 'active' | 'disabled';
+  accountKind: 'standard' | 'test';
+  version: number;
+}
+
+export interface GmUserPage {
+  items: GmUser[];
+  nextCursor: string | null;
+}
+
+export interface GmCreateUserInput {
+  username: string;
+  displayName: string;
+  password: string;
+  role: 'USER' | 'ADMIN';
+  accountKind: 'standard' | 'test';
+  reason: string;
+}
+
+export interface GmUpdateUserInput {
+  expectedVersion: number;
+  reason: string;
+  role?: 'USER' | 'ADMIN';
+  status?: 'active' | 'disabled';
+}
+
+export interface GmAuditEvent {
+  id: string;
+  actorId: string;
+  action: string;
+  target: string;
+  scope: string;
+  occurredAtMs: number;
+  requestId: string;
+  reason: string;
+  outcome: 'success' | 'rejected' | 'failed';
+}
+
+export interface GmAuditPage {
+  items: GmAuditEvent[];
+  nextCursor: string | null;
+}
+
 export interface AccountClient {
   loadCurrentUser(): Promise<UserView | null>;
   login(username: string, password: string): Promise<UserView>;
@@ -226,6 +282,10 @@ export interface AccountClient {
     password: string,
     displayName: string,
   ): Promise<UserView>;
+  changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void>;
   logout(): Promise<void>;
   listLexicons(): Promise<LexiconView[]>;
   createLexicon(name: string, description: string): Promise<LexiconView>;
@@ -297,4 +357,16 @@ export interface AccountClient {
     idempotencyKey: string,
     backup: AccountBackup,
   ): Promise<BackupRestoreResult>;
+  loadGmContext(): Promise<GmContext>;
+  listGmUsers(limit?: number, cursor?: string): Promise<GmUserPage>;
+  createGmUser(
+    idempotencyKey: string,
+    input: GmCreateUserInput,
+  ): Promise<GmUser>;
+  updateGmUser(
+    userId: string,
+    idempotencyKey: string,
+    input: GmUpdateUserInput,
+  ): Promise<GmUser>;
+  listGmAudit(limit?: number): Promise<GmAuditPage>;
 }

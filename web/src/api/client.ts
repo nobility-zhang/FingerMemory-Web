@@ -3,6 +3,12 @@ import type {
   AccountClient,
   BackupPreview,
   BackupRestoreResult,
+  GmAuditPage,
+  GmContext,
+  GmCreateUserInput,
+  GmUpdateUserInput,
+  GmUser,
+  GmUserPage,
   LexiconView,
   MigrationPreview,
   MigrationResult,
@@ -65,6 +71,17 @@ export class AccountApi implements AccountClient {
   async logout(): Promise<void> {
     await this.transport.request<void>('/auth/logout', { method: 'POST' });
     this.transport.clearCsrfToken();
+  }
+
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    await this.transport.request<void>('/auth/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
   }
 
   async listLexicons(): Promise<LexiconView[]> {
@@ -311,6 +328,56 @@ export class AccountApi implements AccountClient {
       },
       body: JSON.stringify({ backup }),
     });
+  }
+
+  async loadGmContext(): Promise<GmContext> {
+    return this.transport.request<GmContext>('/gm/context');
+  }
+
+  async listGmUsers(limit = 20, cursor?: string): Promise<GmUserPage> {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (cursor !== undefined && cursor.length > 0) {
+      query.set('cursor', cursor);
+    }
+    return this.transport.request<GmUserPage>(`/gm/users?${query.toString()}`);
+  }
+
+  async createGmUser(
+    idempotencyKey: string,
+    input: GmCreateUserInput,
+  ): Promise<GmUser> {
+    return this.transport.request<GmUser>('/gm/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateGmUser(
+    userId: string,
+    idempotencyKey: string,
+    input: GmUpdateUserInput,
+  ): Promise<GmUser> {
+    return this.transport.request<GmUser>(
+      `/gm/users/${encodeURIComponent(userId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(input),
+      },
+    );
+  }
+
+  async listGmAudit(limit = 20): Promise<GmAuditPage> {
+    return this.transport.request<GmAuditPage>(
+      `/gm/audit?limit=${encodeURIComponent(String(limit))}`,
+    );
   }
 
 }

@@ -163,4 +163,47 @@ describe('AccountApi', () => {
       },
     });
   });
+
+  it('keeps CSRF and idempotency on GM account commands', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (String(url).endsWith('/auth/csrf')) {
+        return jsonResponse({
+          headerName: 'X-CSRF-TOKEN',
+          parameterName: '_csrf',
+          token: 'csrf-gm',
+        });
+      }
+      return jsonResponse({
+        id: 'managed-user',
+        username: 'sandbox-user',
+        displayName: 'Sandbox User',
+        role: 'USER',
+        status: 'active',
+        accountKind: 'test',
+        version: 0,
+      }, 201);
+    });
+    const api = new AccountApi(fetchMock as typeof fetch, '/api/v1');
+
+    await api.createGmUser('gm-create-1', {
+      username: 'sandbox-user',
+      displayName: 'Sandbox User',
+      password: 'sandbox horse battery',
+      role: 'USER',
+      accountKind: 'test',
+      reason: 'create isolated sandbox account',
+    });
+
+    const createCall = calls.find((call) => call.url.endsWith('/gm/users'));
+    const headers = new Headers(createCall?.init?.headers);
+    expect(headers.get('Idempotency-Key')).toBe('gm-create-1');
+    expect(headers.get('X-CSRF-TOKEN')).toBe('csrf-gm');
+    expect(JSON.parse(String(createCall?.init?.body))).toMatchObject({
+      username: 'sandbox-user',
+      accountKind: 'test',
+      role: 'USER',
+    });
+  });
 });

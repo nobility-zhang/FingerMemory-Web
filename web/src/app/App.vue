@@ -15,6 +15,7 @@ import {
   UserRound,
 } from '@lucide/vue';
 import type { FingerMemoryRepository, StorageStatus } from '../core/repository';
+import GmWorkspace from '../admin/GmWorkspace.vue';
 import AccountWorkspace from './AccountWorkspace.vue';
 import DataWorkspace from './DataWorkspace.vue';
 import LexiconManager from './LexiconManager.vue';
@@ -33,6 +34,8 @@ type StorageState = 'initializing' | 'ready' | 'error';
 const storageState = ref<StorageState>('initializing');
 const storageStatus = ref<StorageStatus | null>(null);
 const gameFocusMode = ref(false);
+const isGmRoute = window.location.pathname === '/gm'
+  || window.location.pathname === '/gm/';
 const activeView = ref<
   'game' | 'practice' | 'library' | 'review' | 'data' | 'account'
 >('game');
@@ -98,6 +101,9 @@ function openReminderPractice(): void {
 }
 
 onMounted(async () => {
+  if (isGmRoute) {
+    return;
+  }
   try {
     const status = await props.repository.initialize();
     if (!disposed) {
@@ -117,7 +123,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'game-focus-mode': gameFocusMode }">
+  <GmWorkspace v-if="isGmRoute" />
+  <div v-else class="app-shell" :class="{ 'game-focus-mode': gameFocusMode }">
     <header class="topbar">
       <a class="brand" href="/" aria-label="FingerMemory 首页">
         <span class="brand-mark" aria-hidden="true">F</span>
