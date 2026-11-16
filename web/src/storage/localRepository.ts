@@ -64,6 +64,15 @@ import {
   FingerMemoryDatabase,
   STORAGE_SCHEMA_VERSION,
 } from './database';
+import {
+  loadInAppReminderRecord,
+  loadPracticeModePreferences,
+  loadPracticeQueueSettings,
+  parsePracticeQueueSettings,
+  storeInAppReminderRecord,
+  storePracticeModePreferences,
+  storePracticeQueueSettings,
+} from './practicePreferences';
 import { parseStorageSnapshot } from './snapshotSchema';
 import {
   STARTER_LEXICON_ID,
@@ -109,197 +118,6 @@ function inputMatchesWord(word: WordEntry, response: string): boolean {
 }
 
 const IMPORT_RECEIPT_KEY_PREFIX = 'import.receipt.';
-
-const DEFAULT_PRACTICE_QUEUE_SETTINGS: PracticeQueueSettings = {
-  newLimit: 10,
-  reviewLimit: 50,
-  paused: false,
-};
-
-const DEFAULT_IN_APP_REMINDER_RECORD: InAppReminderRecord = {
-  settings: {
-    enabled: true,
-    minIntervalMinutes: 30,
-    maxIntervalMinutes: 90,
-    dailyLimit: 3,
-    quietStart: '22:00',
-    quietEnd: '08:00',
-    snoozeMinutes: 15,
-  },
-  state: {
-    dayKey: '',
-    shownToday: 0,
-    lastShownAt: null,
-    nextAt: null,
-    snoozedUntil: null,
-    dismissedForDay: false,
-  },
-};
-
-function isClockTime(value: string): boolean {
-  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
-
-function assertInAppReminderRecord(record: InAppReminderRecord): void {
-  const { settings, state } = record;
-  if (typeof settings.enabled !== 'boolean') {
-    throw new TypeError('reminder enabled flag must be a boolean');
-  }
-  if (
-    !Number.isInteger(settings.minIntervalMinutes) ||
-    !Number.isInteger(settings.maxIntervalMinutes) ||
-    settings.minIntervalMinutes < 1 ||
-    settings.maxIntervalMinutes > 720 ||
-    settings.minIntervalMinutes > settings.maxIntervalMinutes
-  ) {
-    throw new TypeError('reminder interval must be ordered and between 1 and 720 minutes');
-  }
-  if (!Number.isInteger(settings.dailyLimit) || settings.dailyLimit < 1 || settings.dailyLimit > 20) {
-    throw new TypeError('reminder daily limit must be between 1 and 20');
-  }
-  if (!isClockTime(settings.quietStart) || !isClockTime(settings.quietEnd)) {
-    throw new TypeError('reminder quiet hours must use HH:mm');
-  }
-  if (!Number.isInteger(settings.snoozeMinutes) || settings.snoozeMinutes < 1 || settings.snoozeMinutes > 240) {
-    throw new TypeError('reminder snooze minutes must be between 1 and 240');
-  }
-  if (
-    !Number.isInteger(state.shownToday) ||
-    state.shownToday < 0 ||
-    state.shownToday > settings.dailyLimit
-  ) {
-    throw new TypeError('reminder shown count is out of range');
-  }
-  if (typeof state.dayKey !== 'string' || typeof state.dismissedForDay !== 'boolean') {
-    throw new TypeError('reminder state is invalid');
-  }
-  for (const [label, timestamp] of [
-    ['lastShownAt', state.lastShownAt],
-    ['nextAt', state.nextAt],
-    ['snoozedUntil', state.snoozedUntil],
-  ] as const) {
-    if (timestamp !== null && (!Number.isFinite(timestamp) || timestamp <= 0)) {
-      throw new TypeError(`reminder ${label} must be null or a positive timestamp`);
-    }
-  }
-}
-
-function readInAppReminderRecord(value: string | undefined): InAppReminderRecord {
-  if (value === undefined) {
-    return structuredClone(DEFAULT_IN_APP_REMINDER_RECORD);
-  }
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'settings' in parsed &&
-      'state' in parsed
-    ) {
-      const record = parsed as InAppReminderRecord;
-      assertInAppReminderRecord(record);
-      return structuredClone(record);
-    }
-  } catch {
-    return structuredClone(DEFAULT_IN_APP_REMINDER_RECORD);
-  }
-  return structuredClone(DEFAULT_IN_APP_REMINDER_RECORD);
-}
-
-const KNOWN_PRACTICE_MODE_IDS = new Set([
-  'keyboard-recall',
-  'lyrics-scroll',
-  'danmaku-stream',
-  'card-rain',
-]);
-
-function assertPracticeModePreferences(preferences: PracticeModePreferences): void {
-  if (!Array.isArray(preferences.disabledModeIds)) {
-    throw new TypeError('disabled mode ids must be an array');
-  }
-  if (new Set(preferences.disabledModeIds).size !== preferences.disabledModeIds.length) {
-    throw new TypeError('disabled mode ids must be unique');
-  }
-  for (const modeId of preferences.disabledModeIds) {
-    if (!KNOWN_PRACTICE_MODE_IDS.has(modeId)) {
-      throw new TypeError(`unknown practice mode id: ${String(modeId)}`);
-    }
-  }
-  if (preferences.disabledModeIds.length >= KNOWN_PRACTICE_MODE_IDS.size) {
-    throw new TypeError('at least one practice mode must remain enabled');
-  }
-}
-
-function readPracticeModePreferences(value: string | undefined): PracticeModePreferences {
-  if (value === undefined) {
-    return { disabledModeIds: [] };
-  }
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'disabledModeIds' in parsed &&
-      Array.isArray(parsed.disabledModeIds) &&
-      parsed.disabledModeIds.every((modeId) => typeof modeId === 'string')
-    ) {
-      const preferences = {
-        disabledModeIds: parsed.disabledModeIds as PracticeModePreferences['disabledModeIds'],
-      };
-      assertPracticeModePreferences(preferences);
-      return preferences;
-    }
-  } catch {
-    return { disabledModeIds: [] };
-  }
-  return { disabledModeIds: [] };
-}
-
-function assertPracticeQueueSettings(settings: PracticeQueueSettings): void {
-  if (!Number.isInteger(settings.newLimit) || settings.newLimit < 0 || settings.newLimit > 100) {
-    throw new TypeError('new-item limit must be an integer between 0 and 100');
-  }
-  if (
-    !Number.isInteger(settings.reviewLimit) ||
-    settings.reviewLimit < 0 ||
-    settings.reviewLimit > 500
-  ) {
-    throw new TypeError('review limit must be an integer between 0 and 500');
-  }
-  if (typeof settings.paused !== 'boolean') {
-    throw new TypeError('queue paused flag must be a boolean');
-  }
-}
-
-function readPracticeQueueSettings(value: string | undefined): PracticeQueueSettings {
-  if (value === undefined) {
-    return { ...DEFAULT_PRACTICE_QUEUE_SETTINGS };
-  }
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'newLimit' in parsed &&
-      typeof parsed.newLimit === 'number' &&
-      'reviewLimit' in parsed &&
-      typeof parsed.reviewLimit === 'number' &&
-      'paused' in parsed &&
-      typeof parsed.paused === 'boolean'
-    ) {
-      const settings = {
-        newLimit: parsed.newLimit,
-        reviewLimit: parsed.reviewLimit,
-        paused: parsed.paused,
-      };
-      assertPracticeQueueSettings(settings);
-      return settings;
-    }
-  } catch {
-    return { ...DEFAULT_PRACTICE_QUEUE_SETTINGS };
-  }
-  return { ...DEFAULT_PRACTICE_QUEUE_SETTINGS };
-}
 
 interface ImportReceipt {
   fingerprint: string;
@@ -1380,73 +1198,36 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async getPracticeQueueSettings(): Promise<PracticeQueueSettings> {
-    await this.database.open();
-    const record = await this.database.appMeta.get(APP_META_KEYS.practiceQueueSettings);
-    return readPracticeQueueSettings(record?.value);
+    return loadPracticeQueueSettings(this.database);
   }
 
   async savePracticeQueueSettings(
     settings: PracticeQueueSettings,
     now: TimestampMs,
   ): Promise<PracticeQueueSettings> {
-    assertPracticeQueueSettings(settings);
-    assertTimestamp(now, 'queue settings update time');
-    const normalized = { ...settings };
-    await this.database.open();
-    await this.database.appMeta.put({
-      key: APP_META_KEYS.practiceQueueSettings,
-      value: JSON.stringify(normalized),
-      updatedAt: now,
-    });
-    return normalized;
+    return storePracticeQueueSettings(this.database, settings, now);
   }
 
   async getPracticeModePreferences(): Promise<PracticeModePreferences> {
-    await this.database.open();
-    const record = await this.database.appMeta.get(
-      APP_META_KEYS.practiceModePreferences,
-    );
-    return readPracticeModePreferences(record?.value);
+    return loadPracticeModePreferences(this.database);
   }
 
   async savePracticeModePreferences(
     preferences: PracticeModePreferences,
     now: TimestampMs,
   ): Promise<PracticeModePreferences> {
-    assertPracticeModePreferences(preferences);
-    assertTimestamp(now, 'mode preferences update time');
-    const normalized = {
-      disabledModeIds: [...preferences.disabledModeIds].sort(),
-    };
-    await this.database.open();
-    await this.database.appMeta.put({
-      key: APP_META_KEYS.practiceModePreferences,
-      value: JSON.stringify(normalized),
-      updatedAt: now,
-    });
-    return normalized;
+    return storePracticeModePreferences(this.database, preferences, now);
   }
 
   async getInAppReminderRecord(): Promise<InAppReminderRecord> {
-    await this.database.open();
-    const record = await this.database.appMeta.get(APP_META_KEYS.inAppReminder);
-    return readInAppReminderRecord(record?.value);
+    return loadInAppReminderRecord(this.database);
   }
 
   async saveInAppReminderRecord(
     record: InAppReminderRecord,
     now: TimestampMs,
   ): Promise<InAppReminderRecord> {
-    assertInAppReminderRecord(record);
-    assertTimestamp(now, 'reminder update time');
-    const normalized = structuredClone(record);
-    await this.database.open();
-    await this.database.appMeta.put({
-      key: APP_META_KEYS.inAppReminder,
-      value: JSON.stringify(normalized),
-      updatedAt: now,
-    });
-    return normalized;
+    return storeInAppReminderRecord(this.database, record, now);
   }
 
   async planPracticeQueue(input: {
@@ -1471,8 +1252,12 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
         this.database.reviewStates,
       ],
       async () => {
-        const settings = readPracticeQueueSettings(
-          (await this.database.appMeta.get(APP_META_KEYS.practiceQueueSettings))?.value,
+        const settings = parsePracticeQueueSettings(
+          (
+            await this.database.appMeta.get(
+              APP_META_KEYS.practiceQueueSettings,
+            )
+          )?.value,
         );
         const activeLexiconIds = new Set(
           (await this.database.lexicons.toArray())
