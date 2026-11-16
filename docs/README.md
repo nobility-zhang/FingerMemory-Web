@@ -18,6 +18,7 @@ FingerMemory 的长期文档按产品、架构、接口、开发、运维和版�
 | 立绘、音效与 Git LFS | [资源管理](development/assets.md) |
 | 接下来的实施顺序与验收要求 | [开发路线](development/roadmap.md) |
 | 导入旧数据、账号迁移、备份恢复 | [数据迁移](operations/data-migration.md) |
+| 默认管理员、GM 页面与隔离测试 | [GM 管理](operations/gm.md) |
 | 旧 1.0.0 版本的实际范围 | [版本说明](releases/1.0.0.md) |
 
 项目启动看 [仓库 README](../README.md)，Java 服务命令看 [服务端 README](../server/README.md)。新开发会话先读根 [AGENTS.md](../AGENTS.md)；如果存在，再读本地忽略的 `.local/handoffs/current.md`。本地交接缺失时直接通过 Git、代码和开发路线恢复，不依赖已删除聊天。

@@ -140,6 +140,11 @@ components:
           type: string
         displayName:
           type: string
+        mustChangePassword:
+          type: boolean
+          readOnly: true
+          x-implementation-status: planned
+          description: GM 初始化扩展；缺失视为旧客户端状态。实施时由服务端限制未改密账号的操作，不能只靠前端隐藏。
         preferences:
           $ref: '#/components/schemas/UserPreferences'
     Lexicon:
@@ -631,6 +636,532 @@ components:
           items: {}
         nextCursor:
           type: [string, 'null']
+    GmContext:
+      type: object
+      additionalProperties: false
+      required:
+      - role
+      - capabilities
+      properties:
+        role:
+          type: string
+          enum:
+          - ADMIN
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum:
+            - manage-users
+            - manage-content
+            - manage-sandboxes
+            - read-audit
+    GmUser:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - username
+      - displayName
+      - role
+      - status
+      - accountKind
+      - version
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+          enum:
+          - USER
+          - ADMIN
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        accountKind:
+          type: string
+          enum:
+          - standard
+          - test
+        version:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+    GmCreateUser:
+      type: object
+      additionalProperties: false
+      required:
+      - username
+      - password
+      - role
+      - accountKind
+      - reason
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Za-z0-9_.-]+$"
+        displayName:
+          type: string
+          maxLength: 80
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+          description: 另按 BCrypt 校验 UTF-8 不超过 72 字节；不得写日志。
+        role:
+          type: string
+          enum:
+          - USER
+          - ADMIN
+        accountKind:
+          type: string
+          enum:
+          - standard
+          - test
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      not:
+        properties:
+          accountKind:
+            const: test
+          role:
+            const: ADMIN
+        required:
+        - accountKind
+        - role
+    GmUpdateUser:
+      type: object
+      additionalProperties: false
+      required:
+      - expectedVersion
+      - reason
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+        role:
+          type: string
+          enum:
+          - USER
+          - ADMIN
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+      anyOf:
+      - required:
+        - role
+      - required:
+        - status
+    GmSandbox:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - scope
+      - ownerAdminId
+      - templateId
+      - contentInstallationId
+      - version
+      - dataEpoch
+      properties:
+        id:
+          type: string
+        scope:
+          type: string
+          enum:
+          - sandbox
+        ownerAdminId:
+          type: string
+        templateId:
+          type: string
+        contentInstallationId:
+          type:
+          - string
+          - 'null'
+        version:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        dataEpoch:
+          type: string
+    GmCreateSandbox:
+      type: object
+      additionalProperties: false
+      required:
+      - templateId
+      - reason
+      properties:
+        templateId:
+          type: string
+        contentInstallationId:
+          type:
+          - string
+          - 'null'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+    GmSandboxCommand:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - command
+        - expectedVersion
+        - dataEpoch
+        - reason
+        - args
+        properties:
+          command:
+            const: jump-node
+          expectedVersion:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          dataEpoch:
+            type: string
+          reason:
+            type: string
+            minLength: 1
+            maxLength: 300
+          args:
+            type: object
+            additionalProperties: false
+            required:
+            - nodeId
+            properties:
+              nodeId:
+                type: string
+                minLength: 1
+      - type: object
+        additionalProperties: false
+        required:
+        - command
+        - expectedVersion
+        - dataEpoch
+        - reason
+        - args
+        properties:
+          command:
+            const: grant-cards
+          expectedVersion:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          dataEpoch:
+            type: string
+          reason:
+            type: string
+            minLength: 1
+            maxLength: 300
+          args:
+            type: object
+            additionalProperties: false
+            required:
+            - cardDefinitionIds
+            properties:
+              cardDefinitionIds:
+                type: array
+                minItems: 1
+                maxItems: 18
+                items:
+                  type: string
+                  minLength: 1
+      - type: object
+        additionalProperties: false
+        required:
+        - command
+        - expectedVersion
+        - dataEpoch
+        - reason
+        - args
+        properties:
+          command:
+            const: unlock-character
+          expectedVersion:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          dataEpoch:
+            type: string
+          reason:
+            type: string
+            minLength: 1
+            maxLength: 300
+          args:
+            type: object
+            additionalProperties: false
+            required:
+            - characterKey
+            properties:
+              characterKey:
+                type: string
+                minLength: 1
+      - type: object
+        additionalProperties: false
+        required:
+        - command
+        - expectedVersion
+        - dataEpoch
+        - reason
+        - args
+        properties:
+          command:
+            const: set-clock
+          expectedVersion:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          dataEpoch:
+            type: string
+          reason:
+            type: string
+            minLength: 1
+            maxLength: 300
+          args:
+            type: object
+            additionalProperties: false
+            required:
+            - mode
+            properties:
+              mode:
+                type: string
+                enum:
+                - fixed
+                - real
+              nowMs:
+                type: integer
+                minimum: 0
+                maximum: 9007199254740991
+            oneOf:
+            - properties:
+                mode:
+                  const: fixed
+              required:
+              - nowMs
+            - properties:
+                mode:
+                  const: real
+              not:
+                required:
+                - nowMs
+      - type: object
+        additionalProperties: false
+        required:
+        - command
+        - expectedVersion
+        - dataEpoch
+        - reason
+        - args
+        properties:
+          command:
+            const: reset-sandbox
+          expectedVersion:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          dataEpoch:
+            type: string
+          reason:
+            type: string
+            minLength: 1
+            maxLength: 300
+          args:
+            type: object
+            additionalProperties: false
+            required: []
+            properties: {}
+    GmCommandReceipt:
+      type: object
+      additionalProperties: false
+      required:
+      - commandId
+      - status
+      - scope
+      - sandbox
+      properties:
+        commandId:
+          type: string
+        status:
+          type: string
+          enum:
+          - applied
+          - duplicate
+        scope:
+          type: string
+          enum:
+          - sandbox
+        sandbox:
+          "$ref": "#/components/schemas/GmSandbox"
+    GmContentAction:
+      type: object
+      additionalProperties: false
+      required:
+      - action
+      - expectedContentHash
+      - reason
+      properties:
+        action:
+          type: string
+          enum:
+          - validate
+          - publish
+          - archive
+        expectedContentHash:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+    GmContentStatus:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - bookId
+      - contentVersion
+      - contentHash
+      - status
+      - issues
+      properties:
+        id:
+          type: string
+        bookId:
+          type: string
+        contentVersion:
+          type: string
+        contentHash:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - validated
+          - published
+          - archived
+        issues:
+          type: array
+          items:
+            type: string
+    GmAuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - actorId
+      - action
+      - targetId
+      - scope
+      - occurredAtMs
+      - requestId
+      - reason
+      - outcome
+      properties:
+        id:
+          type: string
+        actorId:
+          type: string
+        action:
+          type: string
+        targetId:
+          type:
+          - string
+          - 'null'
+        scope:
+          type: string
+        occurredAtMs:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        requestId:
+          type: string
+        reason:
+          type: string
+        outcome:
+          type: string
+          enum:
+          - success
+          - rejected
+          - failed
+    GmUserPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmUser"
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    GmSandboxPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmSandbox"
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    GmContentPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmContentStatus"
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    GmAuditPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmAuditEvent"
+        nextCursor:
+          type:
+          - string
+          - 'null'
   responses:
     Unauthorized:
       description: 未认证或会话过期
@@ -1420,3 +1951,323 @@ paths:
                     $ref: '#/components/schemas/SnapshotCounts'
         '409':
           $ref: '#/components/responses/Conflict'
+  "/gm/context":
+    get:
+      tags:
+      - GM
+      summary: 当前管理员权限；普通 PAT 不可调用
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmContext"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/gm/users":
+    get:
+      tags:
+      - GM
+      summary: 分页查询账号元信息，不含私人学习数据
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmUserPage"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+    post:
+      tags:
+      - GM
+      summary: 创建普通或测试账号，角色由管理员显式选择
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '201':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmUser"
+      parameters:
+      - "$ref": "#/components/parameters/CsrfHeader"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/GmCreateUser"
+  "/gm/users/{id}":
+    patch:
+      tags:
+      - GM
+      summary: 改角色或启停账号；禁止移除最后一个可用管理员
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmUser"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      parameters:
+      - "$ref": "#/components/parameters/EntityId"
+      - "$ref": "#/components/parameters/CsrfHeader"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/GmUpdateUser"
+  "/gm/content":
+    get:
+      tags:
+      - GM
+      summary: 分页查询共享及本人管理的草稿内容；不列出其他用户私有包
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmContentPage"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+  "/gm/content/{id}/actions":
+    post:
+      tags:
+      - GM
+      summary: 校验、发布或归档指定不可变内容版本
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmContentStatus"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      parameters:
+      - "$ref": "#/components/parameters/EntityId"
+      - "$ref": "#/components/parameters/CsrfHeader"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/GmContentAction"
+  "/gm/sandboxes":
+    get:
+      tags:
+      - GM
+      summary: 分页列出本人管理的测试沙盒
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmSandboxPage"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
+    post:
+      tags:
+      - GM
+      summary: 从受控夹具和内容版本创建隔离测试沙盒
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '201':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmSandbox"
+      parameters:
+      - "$ref": "#/components/parameters/CsrfHeader"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/GmCreateSandbox"
+  "/gm/sandboxes/{id}/commands":
+    post:
+      tags:
+      - GM
+      summary: 在隔离测试沙盒执行受控命令，不修改正常用户数据
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmCommandReceipt"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      parameters:
+      - "$ref": "#/components/parameters/EntityId"
+      - "$ref": "#/components/parameters/CsrfHeader"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/GmSandboxCommand"
+  "/gm/audit":
+    get:
+      tags:
+      - GM
+      summary: 分页查询脱敏管理审计
+      x-implementation-status: planned
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: GM 结果；仅管理员可访问。
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmAuditPage"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: cursor
+        in: query
+        schema:
+          type: string
