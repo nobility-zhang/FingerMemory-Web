@@ -955,6 +955,7 @@ onBeforeUnmount(() => {
       :companion="selectedCompanion"
       :result="result"
       :reduce-motion="reduceMotion"
+      :last-rating="lastRating"
       @again="trainAgain"
       @lobby="returnToLobby"
     />

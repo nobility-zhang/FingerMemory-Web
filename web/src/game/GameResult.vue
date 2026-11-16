@@ -17,6 +17,7 @@ const props = defineProps<{
   companion: CompanionProfile;
   result: GameRunResult;
   reduceMotion: boolean;
+  lastRating?: 'again' | 'hard' | 'good' | 'easy';
 }>();
 
 const emit = defineEmits<{
@@ -48,6 +49,9 @@ const ratings = [
   ['easy', 'Easy'],
 ] as const;
 const completionLine = computed(() => {
+  if (props.lastRating === 'again') {
+    return props.companion.dialogue.again;
+  }
   if (props.result.reviewedCount > 0) {
     return props.companion.dialogue.result;
   }
@@ -124,7 +128,9 @@ const completionLine = computed(() => {
     >
       <CompanionPortrait
         :companion="companion"
-        :expression="result.reviewedCount > 0 ? 'relief' : 'welcome'"
+        :expression="lastRating === 'again'
+          ? 'concern'
+          : result.reviewedCount > 0 ? 'relief' : 'welcome'"
         :reduce-motion="reduceMotion"
       />
       <div>
