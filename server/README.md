@@ -23,7 +23,7 @@ Spring Boot 4.1.2、Java 21、MyBatis、MySQL 8.4 和 Spring Session JDBC 构成
 
 Web 开发服务器通过 Vite `/api` 代理访问 `http://127.0.0.1:8080`。
 
-worker 与前端的制品检查：
+在仓库根目录执行 worker 与前端的制品检查：
 
 ```sh
 cd web
@@ -61,7 +61,7 @@ docker compose up --build -d
 
 当前提供用户级 JSON 备份 `GET /api/v1/backup/export` 与预览/原子恢复接口；它不能替代 MySQL 数据库级备份。
 
-## P2 API
+## 在线学习 API
 
 - `GET/POST /api/v1/lexicons/{id}/words`
 - `GET /api/v1/queue/plan`
@@ -93,3 +93,12 @@ docker compose run --rm app \
 
 支持的 `app.admin.command` 为 `create`、`reset-password`、`disable`、`enable`、`list`。数据库连接环境变量必须与应用运行时一致。
 密码按 BCrypt 的 72 字节 UTF-8 上限校验，避免多字节密码被静默截断。
+
+
+## 相关规范
+
+- [文档导航](../docs/README.md)
+- [学习与数据一致性](../docs/architecture/learning.md)
+- [API 契约](../docs/api/openapi.yaml)
+- [数据迁移与恢复](../docs/operations/data-migration.md)
+- [开发规范](../docs/development/README.md)

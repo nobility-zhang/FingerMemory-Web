@@ -7,3 +7,11 @@ web/dist-worker/
 web/coverage/
 server/.env
 server/target/
+
+# Local execution state and verification artifacts
+/.local/
+/docs/evidence/
+/docs/handoff-*.md
+**/test-results/
+**/playwright-report/
+**/coverage/

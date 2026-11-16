@@ -1,30 +1,31 @@
 # FingerMemory
 
-面向个人及少量用户的键盘词汇练习工具。`1.0.0` 本地模式保持可用；2.0 正在建设“中世纪异世界伙伴陪伴的学习 JRPG”，并保留 Java + MySQL 多用户账号、跨设备 Web/CLI 和独立 Anki 式卡片。当前 G0 已保护并提交多用户、在线复习与旧游戏外壳基线；莉娅、瑟琳、旅店、Three.js 冒险和第一章仍待实施。
+面向个人及少量用户的英语学习应用。当前提供本地词库与备份、FSRS 复习、多用户在线学习、旅店和伙伴界面；下一阶段建设独立翻面闪卡与中世纪异世界卡牌 JRPG。功能目标与当前可用能力分开维护，完整设计见 [文档导航](docs/README.md)。
 
-## 功能
+## 当前能力
 
-- 本地词库、词条、学习目标、笔记和纯文本 TSV 导入。
-- 新词与到期复习上限、暂停队列、本地学习日和四档评分预计间隔。
-- FSRS-7 正式复习状态、不可变复习日志、提交 ID 幂等和状态/日志原子事务。
-- 歌词滚动、键盘对照、弹幕和卡片雨四种可信内置模式。
-- 正式复习诊断、多模式共享状态、应用内随机提醒、免打扰、稍后和每日上限。
-- 完整 JSON 备份、校验预览、原子恢复、v3 备份迁移和浏览器存储健康检查。
-- Spring Boot 4.1.2 多用户 API、MySQL 8.4、Spring Session JDBC、CSRF 和私人词库归属。
-- 隔离 FSRS-7 worker、在线学习日队列、服务端会话、正式复习幂等/版本事务和旧版本冲突。
-- 本地 v4 迁移预览、稳定批次 ID、用户范围 ID 映射、用户级账号备份与原子恢复。
-- 已提交的“二次元学园科幻训练游戏”大厅、训练、评分和结算；它是迁移基线，不是新的异世界 JRPG 验收结果。
-- 统一快捷键状态机、评分数字键上下文、提示/揭晓/跳过练习门禁、专注模式和快捷键帮助。
+- 本地词库、笔记、TSV 导入、会话恢复和版本化 JSON 备份。
+- FSRS-7 调度、显式评分、提交幂等、状态与日志事务。
+- Java/MySQL 账号模式，私人词库、在线会话、本地数据迁移与用户级备份。
+- 暖灯旅店、莉娅/瑟琳伙伴切换、表情、陪伴密度和键盘训练流程。
+- 歌词、弹幕、卡片雨仍在旧实现中，按路线退出新建入口并保留读档兼容。
 
-G1-01 至 G1-03 已交付莉娅、瑟琳各六表情，暖灯旅店背景、双伙伴切换、安静/标准/丰富陪伴密度、登录前伙伴欢迎页、经典卡片入口，以及训练/暂停/Again/结算中的陪伴对白。两位伙伴和三档视口均完成真实浏览器验收。第一章探索/遭遇仍待实施。
+真正的 Anki 式翻面评分、新角色方向、Phaser 卡牌战斗、音效、故事包和 CLI 新版仍按 [开发路线](docs/development/roadmap.md) 推进。现有“经典卡片”按钮尚不能代表完整翻面功能。
 
-## 环境
+## 环境与资源
 
-- Node.js `24.19.0` 或满足 `package.json` 的 Node 24。
-- npm `12.0.2`。
-- 目标浏览器为现代桌面 Chromium；当前真实浏览器验收使用 Edge Chromium。
+Web 使用 Node 24 与 npm，准确要求以 [package.json](web/package.json) 和锁文件为准。账号模式还需要 Java 21 和 MySQL/内部调度 worker，详见 [服务端说明](server/README.md)。
 
-## 开发
+仓库已声明成品二进制素材的 Git LFS 规则。安装 Git LFS 后，在仓库根执行：
+
+```sh
+git lfs install --local
+git lfs pull
+```
+
+属性规则不等于旧文件已转换；现有素材接入、指针检查和构建要求见 [资源管理](docs/development/assets.md)。工作区必须包含真实图片/声音，不能以 LFS 指针文本运行构建。
+
+## 本地 Web 开发
 
 ```sh
 cd web
@@ -32,26 +33,9 @@ npm ci
 npm run dev
 ```
 
-默认开发地址为 `http://127.0.0.1:5173/`。
+默认地址为 `http://127.0.0.1:5173/`。本地模式可独立使用；账号模式需要另外启动 Java API、MySQL 和 worker，启动命令以 [server/README.md](server/README.md) 为准。
 
-账号模式需要 Java 21 和项目 `server/`。本机没有 Maven 时使用 Maven Wrapper 或固定 Maven 容器：
-
-```sh
-docker compose -f server/compose.test.yaml -f server/compose.dev.yaml up -d mysql fsrs-worker
-cd server
-./mvnw spring-boot:run
-```
-
-测试 MySQL 默认只在 Compose 内网提供，具体环境变量见 [server/README.md](server/README.md)。
-
-P2 跨客户端验收（需要 API 和 worker 已运行）：
-
-```sh
-cd web
-npm run test:p2-cross
-```
-
-## 验证
+## 验证与构建
 
 ```sh
 cd web
@@ -60,25 +44,15 @@ npm run check
 npm run build
 ```
 
-生产构建写入 `web/dist`。静态服务器直接发布该目录即可，不要求重写规则或服务端接口。
+静态产物在 `web/dist`。本地学习能力可以静态发布；账号功能仍需同源后端。服务端和跨客户端验证入口见服务端说明及 `web/package.json`。
 
-## 数据
+## 数据与文档
 
-- 数据保存在当前浏览器的 IndexedDB，概括为 schema/data format v4。
-- 当前版本可导入 v3 备份并在写入前完成迁移校验；破坏性升级前仍应主动下载完整备份。
-- 备份是不加密 JSON，包含私人词库和笔记，不应上传到不可信位置。
-- 申请浏览器持久存储只能降低被清理概率，不能代替定期备份。
+本地数据属于当前浏览器，账号数据由 Java 服务管理，两者不自动双向同步。迁移前可导出备份，备份文件包含私人词库与笔记；完整规则见 [数据迁移](docs/operations/data-migration.md)。
 
-## 文档
+- [文档导航](docs/README.md)：产品、架构、API、开发、运维与版本入口。
+- [开发规范](docs/development/README.md)：职责拆分、可读代码、验证与分段提交。
+- [资源管理](docs/development/assets.md)：成品素材、来源、Git LFS 与过程产物隔离。
+- [开发路线](docs/development/roadmap.md)：下一阶段目标和验收标准。
 
-- [产品说明](docs/product.md)
-- [技术方案](docs/architecture.md)
-- [进度与任务](docs/progress.md)
-- [会话交接](docs/handoff-2026-11-16.md)
-- [1.0.0 发布说明](docs/release.md)
-- [OpenAPI 契约](docs/openapi.yaml)
-- [FSRS-7 兼容性](docs/fsrs-compatibility.md)
-- [本地数据迁移](docs/account-migration.md)
-- [2.0 视觉与快捷键](docs/ui-direction.md)
-
-旧版实现归档在 Git tag `pre-refactor-2026-11-14`，不在当前工作树保留。
+会话交接和验收过程保存在忽略的 `.local/`，不进入 Git。旧原型通过 `pre-refactor-2026-11-14` tag 查阅，历史本地版范围见 [1.0.0 说明](docs/releases/1.0.0.md)。
