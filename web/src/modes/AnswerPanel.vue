@@ -6,6 +6,7 @@ import type {
   PracticeItem,
   ReviewRating,
 } from '../core/domain';
+import { isAssessmentFormalEligible } from '../core/assessmentPolicy';
 
 const props = withDefaults(
   defineProps<{
@@ -67,9 +68,11 @@ const formalEligible = computed(
   () =>
     props.pendingAnswer !== null &&
     !props.paused &&
-    props.pendingAnswer.answerWasHidden &&
-    !props.pendingAnswer.hintUsed &&
-    !props.pendingAnswer.answerRevealed,
+    isAssessmentFormalEligible({
+      ...props.pendingAnswer,
+      userConfirmedRating: true,
+      abandoned: false,
+    }),
 );
 
 const ratings: ReadonlyArray<{ value: ReviewRating; label: string; description: string }> = [

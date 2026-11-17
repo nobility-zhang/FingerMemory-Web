@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import type {
   AppMetaRecord,
+  AssessmentPolicyVersion,
+  AssessmentStage,
+  AssessmentType,
   Lexicon,
   LexiconItem,
   PracticeAttempt,
@@ -25,6 +28,21 @@ const idSchema = z.string().min(1);
 const timestampSchema = z.number().int().positive();
 const finiteNumberSchema = z.number().finite();
 const stringListSchema = z.array(z.string());
+const assessmentTypeSchema = z.enum([
+  'typed-recall',
+  'flashcard-self-report',
+  'guided-practice',
+] satisfies AssessmentType[]);
+const assessmentPolicyVersionSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+]) satisfies z.ZodType<AssessmentPolicyVersion>;
+const assessmentStageSchema = z.enum([
+  'prompt',
+  'attempt',
+  'reveal-for-check',
+  'rate',
+] satisfies AssessmentStage[]);
 
 const appMetaSchema = z
   .object({
@@ -100,6 +118,11 @@ const practiceAttemptSchema = z
     answerWasHidden: z.boolean(),
     hintUsed: z.boolean(),
     answerRevealed: z.boolean(),
+    assessmentType: assessmentTypeSchema.optional(),
+    assessmentPolicyVersion: assessmentPolicyVersionSchema.optional(),
+    assessmentStage: assessmentStageSchema.optional(),
+    priorExposure: z.boolean().optional(),
+    explicitNotRemembered: z.boolean().optional(),
     abandoned: z.boolean(),
     occurredAt: timestampSchema,
     requestFingerprint: z.string().min(1),
@@ -183,6 +206,11 @@ const reviewLogSchema = z
     answerWasHidden: z.boolean(),
     hintUsed: z.boolean(),
     answerRevealed: z.boolean(),
+    assessmentType: assessmentTypeSchema.optional(),
+    assessmentPolicyVersion: assessmentPolicyVersionSchema.optional(),
+    assessmentStage: assessmentStageSchema.optional(),
+    priorExposure: z.boolean().optional(),
+    explicitNotRemembered: z.boolean().optional(),
     abandoned: z.boolean(),
     beforeCard: reviewCardSchema.nullable(),
     afterCard: reviewCardSchema,
@@ -219,6 +247,11 @@ const pendingAnswerSchema = z
     hintUsed: z.boolean(),
     answerRevealed: z.boolean(),
     inputMatchedAnswer: z.boolean(),
+    assessmentType: assessmentTypeSchema.optional(),
+    assessmentPolicyVersion: assessmentPolicyVersionSchema.optional(),
+    assessmentStage: assessmentStageSchema.optional(),
+    priorExposure: z.boolean().optional(),
+    explicitNotRemembered: z.boolean().optional(),
     practiceAttemptId: idSchema,
     reviewSubmissionId: idSchema,
     submittedAt: timestampSchema,
@@ -304,6 +337,16 @@ const storageSnapshotV3Schema = z
   })
   .strict();
 
+const storageSnapshotV4Schema = z
+  .object({
+    snapshotVersion: z.literal(1),
+    schemaVersion: z.literal(4),
+    dataFormatVersion: z.literal(4),
+    exportedAt: timestampSchema,
+    tables: storageTablesSchema,
+  })
+  .strict();
+
 function migrateV3Snapshot(
   snapshot: z.infer<typeof storageSnapshotV3Schema>,
 ): StorageSnapshot {
@@ -334,6 +377,29 @@ function migrateV3Snapshot(
   };
 }
 
+function migrateV4Snapshot(
+  snapshot: z.infer<typeof storageSnapshotV4Schema>,
+): StorageSnapshot {
+  return {
+    snapshotVersion: 1,
+    schemaVersion: STORAGE_SCHEMA_VERSION,
+    dataFormatVersion: DATA_FORMAT_VERSION,
+    exportedAt: snapshot.exportedAt,
+    tables: {
+      ...snapshot.tables,
+      appMeta: snapshot.tables.appMeta.map((record) =>
+        record.key === APP_META_KEYS.dataFormatVersion
+          ? {
+              ...record,
+              value: String(DATA_FORMAT_VERSION),
+              updatedAt: snapshot.exportedAt,
+            }
+          : record,
+      ),
+    },
+  };
+}
+
 export function parseStorageSnapshot(input: unknown): StorageSnapshot {
   if (
     typeof input === 'object' &&
@@ -344,6 +410,16 @@ export function parseStorageSnapshot(input: unknown): StorageSnapshot {
     input.dataFormatVersion === 3
   ) {
     return migrateV3Snapshot(storageSnapshotV3Schema.parse(input));
+  }
+  if (
+    typeof input === 'object' &&
+    input !== null &&
+    'schemaVersion' in input &&
+    input.schemaVersion === 4 &&
+    'dataFormatVersion' in input &&
+    input.dataFormatVersion === 4
+  ) {
+    return migrateV4Snapshot(storageSnapshotV4Schema.parse(input));
   }
   return storageSnapshotSchema.parse(input);
 }

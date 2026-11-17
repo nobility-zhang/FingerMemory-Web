@@ -3,6 +3,7 @@ import type {
   PracticeModeId,
   PracticeSession,
 } from '../core/domain';
+import { assessmentMetadata } from '../core/assessmentPolicy';
 import type {
   PracticeAttemptInput,
   PracticeAttemptResult,
@@ -174,6 +175,7 @@ export class LocalPracticeSessionStore {
     }
     assertRepositoryTimestamp(input.occurredAt, 'practice attempt time');
     const requestFingerprint = practiceAttemptFingerprint(input);
+    const metadata = assessmentMetadata(input);
 
     return this.database.transaction(
       'rw',
@@ -222,6 +224,7 @@ export class LocalPracticeSessionStore {
           answerWasHidden: input.answerWasHidden,
           hintUsed: input.hintUsed,
           answerRevealed: input.answerRevealed,
+          ...metadata,
           abandoned: input.abandoned,
           occurredAt: input.occurredAt,
           requestFingerprint,

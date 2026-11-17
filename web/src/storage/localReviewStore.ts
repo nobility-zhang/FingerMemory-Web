@@ -3,6 +3,10 @@ import type {
   ReviewState,
   TimestampMs,
 } from '../core/domain';
+import {
+  assessmentMetadata,
+  assessmentRejectionReason,
+} from '../core/assessmentPolicy';
 import type {
   DueReviewItem,
   ReviewHistoryEntry,
@@ -49,6 +53,7 @@ export class LocalReviewStore {
 
     const scheduler = await this.scheduler;
     const requestFingerprint = reviewSubmissionFingerprint(input);
+    const metadata = assessmentMetadata(input);
 
     return this.database.transaction(
       'rw',
@@ -82,20 +87,12 @@ export class LocalReviewStore {
           };
         }
 
-        if (!input.userConfirmedRating) {
-          throw new ReviewSubmissionRejectedError('rating-not-confirmed');
-        }
-        if (!input.answerWasHidden) {
-          throw new ReviewSubmissionRejectedError('answer-not-hidden');
-        }
-        if (input.hintUsed) {
-          throw new ReviewSubmissionRejectedError('hint-used');
-        }
-        if (input.answerRevealed) {
-          throw new ReviewSubmissionRejectedError('answer-revealed');
-        }
-        if (input.abandoned) {
-          throw new ReviewSubmissionRejectedError('abandoned');
+        const rejection = assessmentRejectionReason({
+          ...input,
+          ...metadata,
+        });
+        if (rejection !== null) {
+          throw new ReviewSubmissionRejectedError(rejection);
         }
 
         if (input.sessionId !== null) {
@@ -211,6 +208,7 @@ export class LocalReviewStore {
           answerWasHidden: input.answerWasHidden,
           hintUsed: input.hintUsed,
           answerRevealed: input.answerRevealed,
+          ...metadata,
           abandoned: input.abandoned,
           beforeCard,
           afterCard: scheduled.card,

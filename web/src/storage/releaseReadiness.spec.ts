@@ -2,7 +2,11 @@ import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
 import { createPracticeSession } from '../session/practiceSession';
-import { FingerMemoryDatabase } from './database';
+import {
+  DATA_FORMAT_VERSION,
+  FingerMemoryDatabase,
+  STORAGE_SCHEMA_VERSION,
+} from './database';
 import { createFingerMemoryRepository } from './localRepository';
 
 const databaseName = 'finger-memory-release-readiness';
@@ -94,8 +98,8 @@ describe('release readiness at personal scale', () => {
 
     const snapshot = await repository.exportSnapshot(now + 6);
     expect(snapshot).toMatchObject({
-      schemaVersion: 4,
-      dataFormatVersion: 4,
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      dataFormatVersion: DATA_FORMAT_VERSION,
       tables: {
         words: expect.any(Array),
         practiceSessions: [{ id: 'release-session' }],

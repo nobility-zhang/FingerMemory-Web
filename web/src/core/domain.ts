@@ -6,6 +6,19 @@ export type RecallDirection = 'meaning-to-spelling';
 
 export type ReviewRating = 'again' | 'hard' | 'good' | 'easy';
 
+export type AssessmentType =
+  | 'typed-recall'
+  | 'flashcard-self-report'
+  | 'guided-practice';
+
+export type AssessmentPolicyVersion = 1 | 2;
+
+export type AssessmentStage =
+  | 'prompt'
+  | 'attempt'
+  | 'reveal-for-check'
+  | 'rate';
+
 export type ReviewLifecycleState = 'new' | 'learning' | 'review' | 'relearning';
 
 export type ReviewScheduleStatus = 'new' | 'learning' | 'review';
@@ -85,6 +98,11 @@ export interface PracticeAttempt {
   answerWasHidden: boolean;
   hintUsed: boolean;
   answerRevealed: boolean;
+  assessmentType?: AssessmentType;
+  assessmentPolicyVersion?: AssessmentPolicyVersion;
+  assessmentStage?: AssessmentStage;
+  priorExposure?: boolean;
+  explicitNotRemembered?: boolean;
   abandoned: boolean;
   occurredAt: TimestampMs;
   requestFingerprint: string;
@@ -158,6 +176,11 @@ export interface ReviewLog {
   answerWasHidden: boolean;
   hintUsed: boolean;
   answerRevealed: boolean;
+  assessmentType?: AssessmentType;
+  assessmentPolicyVersion?: AssessmentPolicyVersion;
+  assessmentStage?: AssessmentStage;
+  priorExposure?: boolean;
+  explicitNotRemembered?: boolean;
   abandoned: boolean;
   beforeCard: ReviewCardSnapshot | null;
   afterCard: ReviewCardSnapshot;
@@ -193,6 +216,11 @@ export interface PendingAnswer {
   hintUsed: boolean;
   answerRevealed: boolean;
   inputMatchedAnswer: boolean;
+  assessmentType?: AssessmentType;
+  assessmentPolicyVersion?: AssessmentPolicyVersion;
+  assessmentStage?: AssessmentStage;
+  priorExposure?: boolean;
+  explicitNotRemembered?: boolean;
   practiceAttemptId: EntityId;
   reviewSubmissionId: EntityId;
   submittedAt: TimestampMs;

@@ -10,6 +10,10 @@ import type {
   ReviewRating,
   ReviewState,
 } from '../core/domain';
+import {
+  assessmentTypeForPractice,
+  isAssessmentFormalEligible,
+} from '../core/assessmentPolicy';
 import type {
   FingerMemoryRepository,
   ReviewRatingPreviews,
@@ -256,13 +260,24 @@ async function submitAnswer(): Promise<void> {
   }
 
   const interaction = currentInteraction.value;
+  const hintUsed = interaction.revealedHintCount > 0;
   const pendingAnswer: PendingAnswer = {
     studyItemId: currentItem.value.studyItem.id,
     response: interaction.draft,
     answerWasHidden: !interaction.answerRevealed,
-    hintUsed: interaction.revealedHintCount > 0,
+    hintUsed,
     answerRevealed: interaction.answerRevealed,
     inputMatchedAnswer: answerMatches(currentItem.value, interaction.draft),
+    assessmentType: assessmentTypeForPractice({
+      answerRevealed: interaction.answerRevealed,
+      hintUsed,
+    }),
+    assessmentPolicyVersion: 2,
+    assessmentStage: interaction.answerRevealed
+      ? 'reveal-for-check'
+      : 'attempt',
+    priorExposure: hintUsed || interaction.answerRevealed,
+    explicitNotRemembered: false,
     practiceAttemptId: createId('practice'),
     reviewSubmissionId: createId('review'),
     submittedAt: now(),
@@ -322,9 +337,11 @@ async function loadRatingPreviews(pendingAnswer: PendingAnswer): Promise<void> {
   ratingPreviews.value = undefined;
   ratingPreviewError.value = null;
   if (
-    !pendingAnswer.answerWasHidden ||
-    pendingAnswer.hintUsed ||
-    pendingAnswer.answerRevealed
+    !isAssessmentFormalEligible({
+      ...pendingAnswer,
+      userConfirmedRating: true,
+      abandoned: false,
+    })
   ) {
     ratingPreviewLoading.value = false;
     return;
@@ -413,6 +430,11 @@ async function chooseRating(rating: ReviewRating): Promise<void> {
       answerWasHidden: pendingAnswer.answerWasHidden,
       hintUsed: pendingAnswer.hintUsed,
       answerRevealed: pendingAnswer.answerRevealed,
+      assessmentType: pendingAnswer.assessmentType,
+      assessmentPolicyVersion: pendingAnswer.assessmentPolicyVersion,
+      assessmentStage: pendingAnswer.assessmentStage,
+      priorExposure: pendingAnswer.priorExposure,
+      explicitNotRemembered: pendingAnswer.explicitNotRemembered,
       abandoned: false,
       userConfirmedRating: true,
       reviewedAt: pendingAnswer.submittedAt,
@@ -464,6 +486,11 @@ async function recordPractice(requeueCurrent = false): Promise<void> {
       answerWasHidden: pendingAnswer.answerWasHidden,
       hintUsed: pendingAnswer.hintUsed,
       answerRevealed: pendingAnswer.answerRevealed,
+      assessmentType: pendingAnswer.assessmentType,
+      assessmentPolicyVersion: pendingAnswer.assessmentPolicyVersion,
+      assessmentStage: pendingAnswer.assessmentStage,
+      priorExposure: pendingAnswer.priorExposure,
+      explicitNotRemembered: pendingAnswer.explicitNotRemembered,
       abandoned: false,
       occurredAt: pendingAnswer.submittedAt,
     });
@@ -503,6 +530,11 @@ async function skipCurrent(): Promise<void> {
       answerWasHidden: !interaction.answerRevealed,
       hintUsed: interaction.revealedHintCount > 0,
       answerRevealed: interaction.answerRevealed,
+      assessmentType: 'guided-practice',
+      assessmentPolicyVersion: 2,
+      assessmentStage: 'attempt',
+      priorExposure: true,
+      explicitNotRemembered: false,
       abandoned: true,
       occurredAt: now(),
     });

@@ -14,8 +14,8 @@ import type {
 } from '../core/domain';
 
 export const DATABASE_NAME = 'finger-memory';
-export const STORAGE_SCHEMA_VERSION = 4;
-export const DATA_FORMAT_VERSION = 4;
+export const STORAGE_SCHEMA_VERSION = 5;
+export const DATA_FORMAT_VERSION = 5;
 
 export const APP_META_KEYS = {
   initializedAt: 'database.initializedAt',
@@ -147,7 +147,7 @@ export class FingerMemoryDatabase extends Dexie {
           });
         }
       });
-    this.version(STORAGE_SCHEMA_VERSION)
+    this.version(4)
       .stores({
         ...STORES_V2,
         practiceSessions: 'id, updatedAt, status, modeId',
@@ -174,6 +174,28 @@ export class FingerMemoryDatabase extends Dexie {
               })),
             })),
           );
+        }
+
+        if (versionRecord !== undefined) {
+          await transaction.table<AppMetaRecord>('appMeta').put({
+            ...versionRecord,
+            value: '4',
+            updatedAt: Date.now(),
+          });
+        }
+      });
+    this.version(STORAGE_SCHEMA_VERSION)
+      .stores({
+        ...STORES_V2,
+        practiceSessions: 'id, updatedAt, status, modeId',
+      })
+      .upgrade(async (transaction) => {
+        const versionRecord = await transaction
+          .table<AppMetaRecord>('appMeta')
+          .get(APP_META_KEYS.dataFormatVersion);
+
+        if (versionRecord !== undefined && versionRecord.value !== '4') {
+          throw new Error(`Unsupported v4 data format version: ${versionRecord.value}`);
         }
 
         if (versionRecord !== undefined) {

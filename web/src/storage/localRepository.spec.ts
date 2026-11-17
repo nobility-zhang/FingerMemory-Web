@@ -114,7 +114,7 @@ afterEach(async () => {
 });
 
 describe('FingerMemoryDatabase', () => {
-  it('creates the v4 tables and indexed relationships', async () => {
+  it('creates the v5 tables and indexed relationships', async () => {
     const database = createDatabase();
     const repository = createRepository(database);
 
@@ -209,8 +209,8 @@ describe('FingerMemoryDatabase', () => {
     openDatabases.push(database);
     const repository = createRepository(database);
     await expect(repository.initialize()).resolves.toMatchObject({
-      schemaVersion: 4,
-      dataFormatVersion: 4,
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      dataFormatVersion: DATA_FORMAT_VERSION,
     });
     await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
       id: 'legacy-session',
@@ -736,6 +736,89 @@ describe('practice and formal review separation', () => {
     expect(result.log.inputMatchedAnswer).toBe(true);
     expect(result.log.schedulerConfig).toEqual(result.state.schedulerConfig);
     expect(status.counts).toMatchObject({ reviewStates: 1, reviewLogs: 1 });
+  });
+
+  it('accepts a v2 flashcard rating only after reveal-for-check', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    await seedStudyItem(database);
+
+    const result = await repository.submitReview(
+      createReviewInput({
+        submissionId: 'flashcard-checked',
+        assessmentType: 'flashcard-self-report',
+        assessmentPolicyVersion: 2,
+        assessmentStage: 'reveal-for-check',
+        answerRevealed: true,
+      }),
+    );
+
+    expect(result.log).toMatchObject({
+      assessmentType: 'flashcard-self-report',
+      assessmentPolicyVersion: 2,
+      assessmentStage: 'reveal-for-check',
+      answerWasHidden: true,
+      answerRevealed: true,
+      priorExposure: false,
+      explicitNotRemembered: false,
+    });
+  });
+
+  it('keeps guided practice and plain answer reveal out of formal review', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    await seedStudyItem(database);
+
+    await expect(
+      repository.submitReview(
+        createReviewInput({
+          assessmentType: 'guided-practice',
+          assessmentPolicyVersion: 2,
+          assessmentStage: 'reveal-for-check',
+          answerRevealed: true,
+        }),
+      ),
+    ).rejects.toMatchObject({ reason: 'guided-practice' });
+    await expect(
+      repository.submitReview(
+        createReviewInput({
+          submissionId: 'typed-revealed',
+          assessmentType: 'typed-recall',
+          assessmentPolicyVersion: 2,
+          assessmentStage: 'reveal-for-check',
+          answerRevealed: true,
+        }),
+      ),
+    ).rejects.toMatchObject({ reason: 'answer-revealed' });
+  });
+
+  it('allows an explicit v2 not-remembered event to record Again after exposure', async () => {
+    const database = createDatabase();
+    const repository = createRepository(database);
+    await repository.initialize();
+    await seedStudyItem(database);
+
+    const result = await repository.submitReview(
+      createReviewInput({
+        rating: 'again',
+        answerWasHidden: false,
+        hintUsed: true,
+        answerRevealed: true,
+        assessmentType: 'typed-recall',
+        assessmentPolicyVersion: 2,
+        assessmentStage: 'reveal-for-check',
+        priorExposure: true,
+        explicitNotRemembered: true,
+      }),
+    );
+
+    expect(result.log).toMatchObject({
+      rating: 'again',
+      explicitNotRemembered: true,
+      priorExposure: true,
+    });
   });
 
   it('previews all four ratings without writing and matches the submitted plan', async () => {
@@ -1360,6 +1443,44 @@ describe('due filtering, recovery and backup import', () => {
       rating: 'good',
       afterCard: { cardId: 'study-memory' },
     });
+  });
+
+  it('upgrades a v4 backup to v5 without reinterpreting legacy review logs', async () => {
+    const sourceDatabase = createDatabase();
+    const sourceRepository = createRepository(sourceDatabase);
+    await sourceRepository.initialize();
+    await seedStudyItem(sourceDatabase);
+    await sourceRepository.submitReview(createReviewInput());
+    const snapshot = await sourceRepository.exportSnapshot(INITIAL_TIME + 120_000);
+    const legacy = structuredClone(snapshot);
+    legacy.schemaVersion = 4;
+    legacy.dataFormatVersion = 4;
+    const versionRecord = legacy.tables.appMeta.find(
+      (record) => record.key === APP_META_KEYS.dataFormatVersion,
+    );
+    if (versionRecord === undefined) {
+      throw new Error('data format metadata missing');
+    }
+    versionRecord.value = '4';
+    delete (legacy.tables.reviewLogs[0] as { assessmentPolicyVersion?: number })
+      .assessmentPolicyVersion;
+
+    const destinationDatabase = createDatabase();
+    const destinationRepository = createRepository(destinationDatabase);
+    await destinationRepository.initialize();
+    await expect(
+      destinationRepository.previewSnapshot(JSON.parse(JSON.stringify(legacy))),
+    ).resolves.toMatchObject({
+      schemaVersion: STORAGE_SCHEMA_VERSION,
+      dataFormatVersion: DATA_FORMAT_VERSION,
+    });
+    await destinationRepository.importSnapshot(legacy);
+
+    const migratedLog = await destinationRepository.getReviewLog('submission-1');
+    expect(migratedLog).toMatchObject({
+      rating: 'good',
+    });
+    expect(migratedLog).not.toHaveProperty('assessmentPolicyVersion');
   });
 
   it('previews a valid backup without replacing the destination data', async () => {

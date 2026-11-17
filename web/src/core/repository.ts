@@ -1,5 +1,8 @@
 import type {
   AppMetaRecord,
+  AssessmentPolicyVersion,
+  AssessmentStage,
+  AssessmentType,
   Lexicon,
   LexiconItem,
   PracticeItem,
@@ -48,6 +51,11 @@ export interface ReviewSubmissionInput {
   answerWasHidden: boolean;
   hintUsed: boolean;
   answerRevealed: boolean;
+  assessmentType?: AssessmentType;
+  assessmentPolicyVersion?: AssessmentPolicyVersion;
+  assessmentStage?: AssessmentStage;
+  priorExposure?: boolean;
+  explicitNotRemembered?: boolean;
   abandoned: boolean;
   userConfirmedRating: boolean;
   reviewedAt: TimestampMs;
@@ -76,6 +84,11 @@ export interface PracticeAttemptInput {
   answerWasHidden: boolean;
   hintUsed: boolean;
   answerRevealed: boolean;
+  assessmentType?: AssessmentType;
+  assessmentPolicyVersion?: AssessmentPolicyVersion;
+  assessmentStage?: AssessmentStage;
+  priorExposure?: boolean;
+  explicitNotRemembered?: boolean;
   abandoned: boolean;
   occurredAt: TimestampMs;
 }
@@ -308,6 +321,12 @@ export type ReviewSubmissionRejectionReason =
   | 'hint-used'
   | 'answer-revealed'
   | 'abandoned'
+  | 'assessment-stage-invalid'
+  | 'guided-practice'
+  | 'prior-exposure'
+  | 'explicit-not-remembered-requires-again'
+  | 'flashcard-requires-reveal-for-check'
+  | 'typed-recall-requires-hidden-attempt'
   | 'session-review-limit'
   | 'review-time-out-of-order';
 

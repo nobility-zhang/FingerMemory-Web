@@ -2,6 +2,7 @@ import type {
   TimestampMs,
   WordEntry,
 } from '../core/domain';
+import { assessmentMetadata } from '../core/assessmentPolicy';
 import type {
   PracticeAttemptInput,
   ReviewSubmissionInput,
@@ -52,6 +53,7 @@ export function reviewSubmissionFingerprint(
     input.answerWasHidden,
     input.hintUsed,
     input.answerRevealed,
+    assessmentMetadata(input),
     input.abandoned,
     input.userConfirmedRating,
     input.reviewedAt,
@@ -70,6 +72,7 @@ export function practiceAttemptFingerprint(
     input.answerWasHidden,
     input.hintUsed,
     input.answerRevealed,
+    assessmentMetadata(input),
     input.abandoned,
     input.occurredAt,
   ]);
