@@ -1,0 +1,49 @@
+{
+  "fixtureVersion": 1,
+  "expected": {
+    "stateVersion": 5,
+    "turnId": 2,
+    "phase": "player-action",
+    "partyHp": 29,
+    "partyBlock": 0,
+    "enemyHp": 25,
+    "enemyBlock": 0,
+    "burnRemainingTurns": 1,
+    "energy": 3,
+    "drawCursor": 9,
+    "handCount": 4,
+    "discardCount": 4,
+    "exhaustCount": 1,
+    "intentType": "defend",
+    "intentValue": 6,
+    "terminal": null
+  },
+  "actions": [
+    {
+      "type": "play-card",
+      "expectedVersion": 0,
+      "cardInstanceId": "card-01"
+    },
+    {
+      "type": "play-card",
+      "expectedVersion": 1,
+      "cardInstanceId": "card-02",
+      "targetId": "bridge-guardian"
+    },
+    {
+      "type": "play-card",
+      "expectedVersion": 2,
+      "cardInstanceId": "card-03",
+      "targetId": "bridge-guardian"
+    },
+    {
+      "type": "play-card",
+      "expectedVersion": 3,
+      "cardInstanceId": "card-04"
+    },
+    {
+      "type": "end-turn",
+      "expectedVersion": 4
+    }
+  ]
+}
