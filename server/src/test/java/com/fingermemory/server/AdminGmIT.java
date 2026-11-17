@@ -48,6 +48,8 @@ class AdminGmIT {
     void cleanDatabase() {
         jdbcTemplate.update("DELETE FROM SPRING_SESSION_ATTRIBUTES");
         jdbcTemplate.update("DELETE FROM SPRING_SESSION");
+        jdbcTemplate.update("DELETE FROM fm_gm_sandbox_receipt");
+        jdbcTemplate.update("DELETE FROM fm_gm_sandbox");
         jdbcTemplate.update("DELETE FROM fm_gm_action_receipt");
         jdbcTemplate.update("DELETE FROM fm_gm_audit_event");
         jdbcTemplate.update("DELETE FROM fm_review_receipt");
