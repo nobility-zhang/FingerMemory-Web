@@ -35,9 +35,6 @@ import type {
   UpdateStudyItemInput,
 } from '../core/repository';
 import type { ReviewScheduler } from '../core/scheduler';
-import {
-  normalizeStudyTerm,
-} from '../core/studyText';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
 import {
   APP_META_KEYS,
@@ -59,13 +56,10 @@ import { LocalReviewStore } from './localReviewStore';
 import { LocalLexiconStore } from './localLexiconStore';
 import { LocalPracticeQueueStore } from './localPracticeQueueStore';
 import { LocalStudyNoteStore } from './localStudyNoteStore';
+import { LocalStarterContentStore } from './localStarterContentStore';
 import {
   assertRepositoryTimestamp,
 } from './learningRecordInputs';
-import {
-  STARTER_LEXICON_ID,
-  STARTER_WORDS,
-} from './starterContent';
 
 export { APP_META_KEYS };
 
@@ -91,6 +85,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   private readonly lexiconStore: LocalLexiconStore;
   private readonly practiceQueueStore: LocalPracticeQueueStore;
   private readonly studyNoteStore: LocalStudyNoteStore;
+  private readonly starterContentStore: LocalStarterContentStore;
 
   constructor(
     private readonly database: FingerMemoryDatabase,
@@ -105,6 +100,11 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     this.lexiconStore = new LocalLexiconStore(database, idFactory);
     this.practiceQueueStore = new LocalPracticeQueueStore(database);
     this.studyNoteStore = new LocalStudyNoteStore(database);
+    this.starterContentStore = new LocalStarterContentStore(
+      database,
+      this.clock,
+      this.practiceQueueStore,
+    );
   }
 
   async initialize(): Promise<StorageStatus> {
@@ -294,74 +294,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async ensureStarterContent(): Promise<PracticeItem[]> {
-    await this.database.open();
-    const now = this.clock();
-    assertRepositoryTimestamp(now, 'clock');
-
-    await this.database.transaction(
-      'rw',
-      [
-        this.database.lexicons,
-        this.database.words,
-        this.database.studyItems,
-        this.database.lexiconItems,
-      ],
-      async () => {
-        if ((await this.database.lexicons.get(STARTER_LEXICON_ID)) === undefined) {
-          await this.database.lexicons.add({
-            id: STARTER_LEXICON_ID,
-            name: '入门词库',
-            description: '用于开始本地练习的示例词条',
-            createdAt: now,
-            updatedAt: now,
-            archivedAt: null,
-          });
-        }
-
-        for (const [order, starterWord] of STARTER_WORDS.entries()) {
-          const wordId = `starter-word:${starterWord.slug}`;
-          const studyItemId = `starter-study:${starterWord.slug}`;
-          if ((await this.database.words.get(wordId)) === undefined) {
-            await this.database.words.add({
-              id: wordId,
-              term: starterWord.term,
-              meaning: starterWord.meaning,
-              acceptedAnswers: [starterWord.term],
-              hints: starterWord.hints,
-              normalizedTerm: normalizeStudyTerm(starterWord.term),
-              createdAt: now,
-              updatedAt: now,
-            });
-          }
-          if ((await this.database.studyItems.get(studyItemId)) === undefined) {
-            await this.database.studyItems.add({
-              id: studyItemId,
-              wordEntryId: wordId,
-              direction: 'meaning-to-spelling',
-              createdAt: now,
-              updatedAt: now,
-            });
-          }
-          if (
-            (await this.database.lexiconItems.get([
-              STARTER_LEXICON_ID,
-              studyItemId,
-            ])) === undefined
-          ) {
-            await this.database.lexiconItems.add({
-              lexiconId: STARTER_LEXICON_ID,
-              studyItemId,
-              order,
-              sourceHints: starterWord.hints,
-            });
-          }
-        }
-      },
-    );
-
-    return this.practiceQueueStore.listPracticeItems(
-      STARTER_WORDS.length,
-    );
+    return this.starterContentStore.ensureStarterContent();
   }
 
   async getPracticeQueueSettings(): Promise<PracticeQueueSettings> {
