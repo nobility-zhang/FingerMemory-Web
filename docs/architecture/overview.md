@@ -11,7 +11,7 @@ Vue Web / Node CLI
                     └─ 固定 FSRS worker（纯计算，内部网络）
 
 Vue/DOM（输入、对话、评分、可访问控件）
-  ↔ 未来 Phaser Scene（卡牌、场景、动画、音效）
+  ↔ Phaser 最小音频桥（战斗 Scene 待实施）
   ↔ 游戏应用服务与只读状态快照
 ```
 
@@ -26,7 +26,7 @@ Vue/DOM（输入、对话、评分、可访问控件）
 | 学习调度 | 固定 ts-fsrs / FSRS-7 | 复用成熟算法，见 [兼容决策](fsrs.md) |
 | 账号服务 | Java 21、Spring Boot、MyBatis | 认证、资源归属、会话、版本检查与事务 |
 | 数据库 | MySQL、Flyway、Spring Session JDBC | 用户与学习数据、版本化迁移、会话持久化 |
-| 游戏（待接入） | Phaser + Vue | 主流二维 H5 卡牌/场景/音效；不并行引入 Three.js |
+| 游戏（最小音频桥） | Phaser + Vue | 已接入单 Game 生命周期、显式事件桥和翻面音效；战斗 Scene 待实施 |
 | CLI（待迭代） | Node.js + TypeScript | 在线学习、文字冒险与独立本地模式 |
 
 具体依赖版本以 [Web 清单](../../web/package.json)、锁文件与 [Java POM](../../server/pom.xml) 为准；文档不维护另一张容易过期的补丁版本表。新依赖检查维护、许可、真实用途与工具链兼容，避免浮动 latest 或运行时 CDN。

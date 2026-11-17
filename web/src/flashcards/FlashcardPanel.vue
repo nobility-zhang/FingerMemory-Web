@@ -12,6 +12,8 @@ import {
   RotateCcw,
   SkipForward,
   Sparkles,
+  Volume2,
+  VolumeX,
 } from '@lucide/vue';
 import type {
   PracticeItem,
@@ -34,6 +36,9 @@ const props = withDefaults(
     notRemembered: boolean;
     reduceMotion?: boolean;
     shortcutsEnabled?: boolean;
+    audioControl?: boolean;
+    audioMuted?: boolean;
+    audioStatus?: 'idle' | 'starting' | 'ready' | 'error';
     ratingPreviews?: Partial<Record<ReviewRating, string>>;
     ratingPreviewLoading?: boolean;
     ratingPreviewError?: string | null;
@@ -41,6 +46,9 @@ const props = withDefaults(
   {
     reduceMotion: false,
     shortcutsEnabled: true,
+    audioControl: false,
+    audioMuted: false,
+    audioStatus: 'idle',
     ratingPreviews: () => ({}),
     ratingPreviewLoading: false,
     ratingPreviewError: null,
@@ -52,6 +60,7 @@ const emit = defineEmits<{
   notRemembered: [];
   rate: [rating: ReviewRating];
   skip: [];
+  toggleAudio: [];
 }>();
 
 const card = ref<HTMLElement>();
@@ -152,6 +161,7 @@ watch(
     props.flipped,
     props.paused,
     props.shortcutsEnabled,
+    props.audioMuted,
   ] as const,
   focusCard,
 );
@@ -263,15 +273,33 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="flashcard-footer">
-      <button
-        type="button"
-        class="quiet-action"
-        :disabled="paused || busy"
-        @click="emit('skip')"
-      >
-        <SkipForward :size="16" aria-hidden="true" />
-        跳过，不算正式复习
-      </button>
+      <div class="footer-actions">
+        <button
+          type="button"
+          class="quiet-action"
+          :disabled="paused || busy"
+          @click="emit('skip')"
+        >
+          <SkipForward :size="16" aria-hidden="true" />
+          跳过，不算正式复习
+        </button>
+        <button
+          v-if="audioControl"
+          type="button"
+          class="audio-toggle"
+          :aria-label="audioMuted ? '开启音效' : '静音'"
+          :aria-pressed="audioMuted"
+          :title="audioMuted ? '开启音效' : '静音'"
+          @click="emit('toggleAudio')"
+        >
+          <VolumeX v-if="audioMuted" :size="16" aria-hidden="true" />
+          <Volume2 v-else :size="16" aria-hidden="true" />
+        </button>
+        <span v-if="audioStatus === 'error'" class="audio-unavailable">
+          音效不可用
+        </span>
+      </div>
+      <slot name="audio-visual"></slot>
       <span v-if="paused">会话已暂停，恢复后可继续当前卡片。</span>
       <span v-else-if="busy">
         <Sparkles :size="15" aria-hidden="true" />
@@ -400,7 +428,8 @@ onBeforeUnmount(() => {
 
 .primary-action,
 .not-remembered-action,
-.quiet-action {
+.quiet-action,
+.audio-toggle {
   display: inline-flex;
   min-height: 42px;
   align-items: center;
@@ -433,9 +462,19 @@ onBeforeUnmount(() => {
   font-size: 0.74rem;
 }
 
+.audio-toggle {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid #cbd8d0;
+  background: #fff;
+  color: #557165;
+}
+
 .primary-action:disabled,
 .not-remembered-action:disabled,
-.quiet-action:disabled {
+.quiet-action:disabled,
+.audio-toggle:disabled {
   cursor: not-allowed;
   opacity: 0.48;
 }
@@ -518,6 +557,18 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.audio-unavailable {
+  color: #9d3e37;
+  font-size: 0.68rem;
 }
 
 @keyframes card-flip-in {

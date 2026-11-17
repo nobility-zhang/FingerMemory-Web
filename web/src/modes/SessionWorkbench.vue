@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  toRef,
+  watch,
+} from 'vue';
 import type { Component } from 'vue';
 import type {
   PendingAnswer,
@@ -20,6 +28,8 @@ import type {
 } from '../core/repository';
 import { formatDueLabel } from '../core/due';
 import FlashcardPanel from '../flashcards/FlashcardPanel.vue';
+import PhaserGameHost from '../game-runtime/PhaserGameHost.vue';
+import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
 import {
   abandonPracticeSession,
   completeCurrentSessionItem,
@@ -46,6 +56,7 @@ const props = withDefaults(
     items: PracticeItem[];
     repository: FingerMemoryRepository;
     enabledModeIds?: PracticeModeId[];
+    enableAudio?: boolean;
     clock?: () => number;
     idFactory?: (prefix: string) => string;
   }>(),
@@ -53,6 +64,7 @@ const props = withDefaults(
     clock: () => Date.now(),
     idFactory: (prefix: string) => `${prefix}:${crypto.randomUUID()}`,
     enabledModeIds: () => TRUSTED_MODE_PLUGINS.map((plugin) => plugin.manifest.id),
+    enableAudio: false,
   },
 );
 
@@ -75,6 +87,14 @@ const ratingPreviewError = ref<string | null>(null);
 const reviewStatesByStudyItemId = ref<Record<string, ReviewState>>({});
 const reviewStateLoading = ref(false);
 const flashcardNotRemembered = ref(false);
+const {
+  setHost: setAudioHost,
+  muted: audioMuted,
+  status: audioStatus,
+  toggleMuted: toggleAudioMuted,
+  playFlip: playFlipAudio,
+  handleRuntimeEvent: handleAudioRuntimeEvent,
+} = usePhaserAudio(toRef(props, 'enableAudio'));
 let ratingPreviewRequest = 0;
 let reviewStateRequest = 0;
 const itemById = computed(
@@ -255,6 +275,9 @@ async function revealFlashcard(notRemembered = false): Promise<void> {
   }
   const revealedAt = now();
   const revealed = revealSessionAnswer(session.value, revealedAt);
+  playFlipAudio(
+    `flashcard:${session.value.id}:${item.studyItem.id}:${revealedAt}`,
+  );
   flashcardNotRemembered.value = notRemembered;
   await persist({
     ...revealed,
@@ -797,6 +820,9 @@ watch(
         :not-remembered="flashcardNotRemembered"
         :reduce-motion="session.reduceMotion"
         :shortcuts-enabled="!confirmAbandon"
+        :audio-control="enableAudio"
+        :audio-muted="audioMuted"
+        :audio-status="audioStatus"
         :rating-previews="ratingPreviewLabels"
         :rating-preview-loading="ratingPreviewLoading"
         :rating-preview-error="ratingPreviewError"
@@ -804,7 +830,17 @@ watch(
         @not-remembered="revealFlashcard(true)"
         @rate="chooseFlashcardRating"
         @skip="skipCurrent"
-      />
+        @toggle-audio="toggleAudioMuted"
+      >
+        <template #audio-visual>
+          <PhaserGameHost
+            v-if="enableAudio"
+            :ref="setAudioHost"
+            :muted="audioMuted"
+            @event="handleAudioRuntimeEvent"
+          />
+        </template>
+      </FlashcardPanel>
       <template v-else>
         <component
           :is="activeModeComponent"

@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  toRef,
+} from 'vue';
 import {
   accountApi,
   ApiClientError,
@@ -15,13 +21,17 @@ import {
   type UserView,
 } from '../api/client';
 import FlashcardPanel from '../flashcards/FlashcardPanel.vue';
+import PhaserGameHost from '../game-runtime/PhaserGameHost.vue';
+import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
 
 const props = withDefaults(
   defineProps<{
     api?: AccountClient;
+    enableAudio?: boolean;
   }>(),
   {
     api: () => accountApi,
+    enableAudio: false,
   },
 );
 
@@ -45,6 +55,14 @@ const reviewPreviews = ref<ReviewPreviewView>();
 const onlineBusy = ref(false);
 const onlineNotice = ref<string | null>(null);
 const onlineFlashcardNotRemembered = ref(false);
+const {
+  setHost: setAudioHost,
+  muted: audioMuted,
+  status: audioStatus,
+  toggleMuted: toggleAudioMuted,
+  playFlip: playFlipAudio,
+  handleRuntimeEvent: handleAudioRuntimeEvent,
+} = usePhaserAudio(toRef(props, 'enableAudio'));
 const migrationFileName = ref('');
 const migrationSnapshot = ref<unknown>();
 const migrationPreview = ref<MigrationPreview>();
@@ -303,6 +321,9 @@ async function revealOnlineFlashcard(notRemembered = false): Promise<void> {
   onlineBusy.value = true;
   onlineNotice.value = null;
   try {
+    playFlipAudio(
+      `flashcard:${session.session.id}:${item.studyItem.id}:${Date.now()}`,
+    );
     const submissionAttemptId = newId();
     const reviewSubmissionId = newId();
     const result = await props.api.submitPracticeResponse({
@@ -880,6 +901,9 @@ onBeforeUnmount(() => {
               :busy="onlineBusy"
               :not-remembered="onlineFlashcardNotRemembered"
               :reduce-motion="onlineSession.session.reduceMotion"
+              :audio-control="enableAudio"
+              :audio-muted="audioMuted"
+              :audio-status="audioStatus"
               :rating-previews="onlineRatingLabels"
               :rating-preview-loading="
                 pendingAnswer !== undefined && reviewPreviews === undefined
@@ -889,7 +913,17 @@ onBeforeUnmount(() => {
               @not-remembered="revealOnlineFlashcard(true)"
               @rate="submitOnlineRating"
               @skip="skipOnlineFlashcard"
-            />
+              @toggle-audio="toggleAudioMuted"
+            >
+              <template #audio-visual>
+                <PhaserGameHost
+                  v-if="enableAudio"
+                  :ref="setAudioHost"
+                  :muted="audioMuted"
+                  @event="handleAudioRuntimeEvent"
+                />
+              </template>
+            </FlashcardPanel>
           </div>
           <div v-else-if="currentSessionItem" class="online-card">
             <p class="section-label">中文释义</p>

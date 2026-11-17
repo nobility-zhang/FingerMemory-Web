@@ -21,6 +21,7 @@ import {
 
 const props = defineProps<{
   repository: FingerMemoryRepository;
+  enableAudio?: boolean;
 }>();
 
 const items = ref<PracticeItem[]>([]);
@@ -269,6 +270,7 @@ onMounted(() => {
     :items="workbenchItems"
     :repository="repository"
     :enabled-mode-ids="enabledModeIds"
+    :enable-audio="enableAudio === true"
     @updated="handleSessionUpdated"
     @exit="handleSessionExit"
     @new-session="startAnotherSession"

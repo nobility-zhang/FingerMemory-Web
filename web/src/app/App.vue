@@ -252,6 +252,7 @@ onBeforeUnmount(() => {
         <PracticeWorkspace
           v-else-if="storageState === 'ready' && activeView === 'practice'"
           :repository="repository"
+          :enable-audio="true"
         />
         <LexiconManager
           v-else-if="storageState === 'ready' && activeView === 'library'"
@@ -268,6 +269,7 @@ onBeforeUnmount(() => {
         />
         <AccountWorkspace
           v-else-if="storageState === 'ready' && activeView === 'account'"
+          :enable-audio="true"
         />
         <section v-else class="empty-panel" aria-labelledby="empty-title">
           <span class="panel-index" aria-hidden="true">01</span>
