@@ -1,6 +1,7 @@
 package com.fingermemory.server;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -89,6 +90,7 @@ class GmSandboxIT {
                 201)
                 .andExpect(jsonPath("$.scope").value("sandbox"))
                 .andExpect(jsonPath("$.templateId").value(TEMPLATE))
+                .andExpect(jsonPath("$.contentInstallationId").value(nullValue()))
                 .andExpect(jsonPath("$.version").value(0))
                 .andExpect(jsonPath("$.state.currentNodeId").value("bridge"))
                 .andExpect(jsonPath("$.state.encounterId").value("bridge-guardian"))
@@ -134,7 +136,7 @@ class GmSandboxIT {
                 .andExpect(jsonPath("$.status").value("applied"))
                 .andExpect(jsonPath("$.sandbox.version").value(1))
                 .andExpect(jsonPath("$.sandbox.state.currentNodeId").value("camp"))
-                .andExpect(jsonPath("$.sandbox.state.encounterId").doesNotExist())
+                .andExpect(jsonPath("$.sandbox.state.encounterId").value(nullValue()))
                 .andReturn();
         JsonNodeView jumpedSandbox = JsonNodeView.from(
                 objectMapper.readTree(jumped.getResponse().getContentAsString()).path("sandbox"));

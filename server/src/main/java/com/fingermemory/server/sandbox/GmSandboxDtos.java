@@ -1,5 +1,6 @@
 package com.fingermemory.server.sandbox;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -20,6 +21,7 @@ public final class GmSandboxDtos {
             String scope,
             String ownerAdminId,
             String templateId,
+            @JsonInclude(JsonInclude.Include.ALWAYS)
             String contentInstallationId,
             long version,
             String dataEpoch,
@@ -31,8 +33,10 @@ public final class GmSandboxDtos {
             int fixtureVersion,
             String fixtureKey,
             String currentNodeId,
+            @JsonInclude(JsonInclude.Include.ALWAYS)
             String encounterId,
             String clockMode,
+            @JsonInclude(JsonInclude.Include.ALWAYS)
             Long virtualNowMs,
             long randomSeed,
             List<String> deck,
