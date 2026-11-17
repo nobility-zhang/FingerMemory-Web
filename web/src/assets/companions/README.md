@@ -1,18 +1,21 @@
 # Companion and Inn Assets
 
 These original assets were generated for FingerMemory with the built-in ImageGen
-tool on 2026-11-15. They are project-produced illustrations and do not use remote
-hotlinks or third-party character artwork.
+tool. They are project-produced illustrations and do not use remote hotlinks or
+third-party character artwork. Lia's H1-01 redesign was produced on 2026-11-17;
+the remaining character and scene assets are from the earlier visual baseline.
 
 ## Lia
 
-Lia is an original adult traveling companion: apricot-pink hair with a side
-braid, cream-white and mist-blue travel dress, short blue cloak, herb satchel,
-and an antique warm-glass lantern.
+Lia is an original 15-year-old traveling companion. Her H1-01 redesign uses
+natural same-age proportions, apricot-pink hair with a side braid, a cream-white
+short-sleeve cotton-linen blouse, a mist-blue knee-length skirt, practical shoes,
+a cloth backpack, herb pouch, and an antique warm-glass lantern. The pose, outfit
+and camera are non-sexualized and have no heavy cloak or floor-length dress.
 
 - Generation and edit mode: built-in ImageGen, transparent background.
-- Identity method: one `1024x1536` neutral anchor; every other expression was
-  edited from that exact anchor with identity, outfit, pose, lighting, and canvas
+- Identity method: one new `1024x1536` neutral anchor; every other expression
+  was edited from that exact anchor with identity, outfit, pose, lighting, and canvas
   invariants.
 - Runtime method: macOS `sips -Z 720`, preserving RGBA alpha and a shared
   `480x720` canvas.
@@ -23,23 +26,23 @@ Source SHA256:
 
 | Expression | SHA256 |
 | --- | --- |
-| neutral | `cbb7948fe4b342a5706a70dd5e83131139b48808b4989d9b11d71e513fc500e9` |
-| welcome | `32218247db7de89073e9ebc7cb4f5d572c5f3566dfc5c20aa898ff269078523d` |
-| cheer | `a315572e3bf934f1dd9b0409bc498203be70b61d81537b18e7a5e9fa88337324` |
-| concern | `2510c427bfcbe05ac5023daafb4f65ed634309fc87d3875a495b5b792c1e4c19` |
-| relief | `e48dbfd9b3c6a7456a1918e88d689f9783b0a25cfd80c0a003ea4df138d9b44b` |
-| surprise | `b5de3daa7407df720819e8ebe558d83a9f345c302998fb76471fd09530515510` |
+| neutral | `4dff3093f1e4bb5561ad7cfaca9c97e1144416211f0707d981072cfa1e94a088` |
+| welcome | `5f1dcbed07d02fe41ee66568f578a6cd780982ee3768ce46bd417f546331e93c` |
+| cheer | `6e99e49d07614eb8d4433a730bf5805a42f2a2aaed0fc213934eafe80591ed11` |
+| concern | `8c6d5bfe825f97b18f02faaaecd771cd6a04a3f606ccc6a30d4a5d16839fb9e7` |
+| relief | `2132c3524c1ccd138ec7191e14d9663a04f3cbb9317985c8543a0556aca9c5ed` |
+| surprise | `e5cd9805538ec68e0594c01c1de4f79d2ad697905051f76ae086df50b1ad757d` |
 
 Runtime SHA256:
 
 | Expression | SHA256 |
 | --- | --- |
-| neutral | `095e964dec7ccb2c8b07f5e45626c3e3b4ff33bc0506f989268fba94ad623387` |
-| welcome | `8b7e31046bb6debbbcb7db448d6715c9abcc16b61ec5c5392a446643317edacc` |
-| cheer | `67b8267be74d166b4b4c9dbab890f7cf000f06dfdd28f05d531a344fe8bc6584` |
-| concern | `eb4e71ca25f0fe41e55f641dfbacf7994f87de1d51f22e5addda5e936f12f797` |
-| relief | `13cf13fb951ae7089405bfc54c75068d14978ab2694b606ca2bf34f20582991a` |
-| surprise | `38ad2856aec94368e15496553777e595763fbb01396f608c7476a0b45eb990da` |
+| neutral | `16a48f6a040c44d376cccb4711896348e7300fe57ab3e92ed9cbf4112e9f0c75` |
+| welcome | `0936dc50c16c15d1ee92029764dc8339d38e992b69e0ba04c323526e9021e091` |
+| cheer | `327b96fb73e7b605333592c58abf509aef151458641b96bfaedcfd41f52383b8` |
+| concern | `ed5cd6a4e86bea5af1bcdf8cdaf5124c1848995fa0895100432413f32745f88d` |
+| relief | `eba5da83584053b0335460c24c8adeec79f7c9ae673b2bee55839f639abe0f2b` |
+| surprise | `9b5b680d4c9cf34665b8b6dab9842e9333c72789cf08e9378f2e1553347a5448` |
 
 ## Warm Lantern Inn
 
