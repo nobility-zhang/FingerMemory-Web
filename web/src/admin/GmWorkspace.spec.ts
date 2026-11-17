@@ -65,14 +65,17 @@ function baseApi(loadCurrentUser: () => Promise<UserView | null>): AccountClient
     restoreAccountBackup: vi.fn(),
     loadGmContext: vi.fn(async () => ({
       role: 'ADMIN' as const,
-      capabilities: ['manage-users', 'read-audit'] as Array<
-        'manage-users' | 'read-audit'
+      capabilities: ['manage-users', 'manage-sandboxes', 'read-audit'] as Array<
+        'manage-users' | 'manage-sandboxes' | 'read-audit'
       >,
     })),
     listGmUsers: vi.fn(async () => ({ items: [managedUser], nextCursor: null })),
     createGmUser: vi.fn(),
     updateGmUser: vi.fn(),
     listGmAudit: vi.fn(async () => ({ items: [], nextCursor: null })),
+    listGmSandboxes: vi.fn(async () => ({ items: [], nextCursor: null })),
+    createGmSandbox: vi.fn(),
+    executeGmSandboxCommand: vi.fn(),
   };
 }
 

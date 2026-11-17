@@ -285,6 +285,74 @@ describe('AccountApi', () => {
     }
   });
 
+  it('keeps CSRF and epoch commands on GM sandbox requests', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (String(url).endsWith('/auth/csrf')) {
+        return jsonResponse({
+          headerName: 'X-CSRF-TOKEN',
+          parameterName: '_csrf',
+          token: 'csrf-sandbox',
+        });
+      }
+      if (String(url).includes('/gm/sandboxes?')) {
+        return jsonResponse({ items: [], nextCursor: null });
+      }
+      if (String(url).endsWith('/gm/sandboxes')) {
+        return jsonResponse({ id: 'sandbox-1' }, 201);
+      }
+      return jsonResponse({
+        commandId: 'sandbox-create-1',
+        status: 'applied',
+        scope: 'sandbox',
+        sandbox: { id: 'sandbox-1' },
+      });
+    });
+    const api = new AccountApi(fetchMock as typeof fetch, '/api/v1');
+
+    await api.listGmSandboxes(10);
+    await api.createGmSandbox('sandbox-create-1', {
+      templateId: 'card-battle-v1-tutorial',
+      contentInstallationId: null,
+      reason: 'create sandbox',
+    });
+    await api.executeGmSandboxCommand('sandbox-1', 'sandbox-create-2', {
+      actionId: 'sandbox-create-2',
+      expectedVersion: 0,
+      dataEpoch: 'epoch-1',
+      reason: 'set sandbox clock',
+      command: 'set-clock',
+      args: { mode: 'fixed', nowMs: 1_700_000_000_000 },
+    });
+
+    const listCall = calls.find((call) => call.url.includes('/gm/sandboxes?'));
+    expect(listCall?.init?.method).toBe('GET');
+    const createCall = calls.find(
+      (call) => call.url.endsWith('/gm/sandboxes') && call.init?.method === 'POST',
+    );
+    expect(new Headers(createCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('sandbox-create-1');
+    expect(new Headers(createCall?.init?.headers).get('X-CSRF-TOKEN'))
+      .toBe('csrf-sandbox');
+    expect(JSON.parse(String(createCall?.init?.body))).toEqual({
+      templateId: 'card-battle-v1-tutorial',
+      contentInstallationId: null,
+      reason: 'create sandbox',
+    });
+
+    const commandCall = calls.find((call) => call.url.endsWith('/commands'));
+    expect(new Headers(commandCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('sandbox-create-2');
+    expect(JSON.parse(String(commandCall?.init?.body))).toEqual({
+      command: 'set-clock',
+      expectedVersion: 0,
+      dataEpoch: 'epoch-1',
+      reason: 'set sandbox clock',
+      args: { mode: 'fixed', nowMs: 1_700_000_000_000 },
+    });
+  });
+
   it('keeps CSRF and idempotency on GM account commands', async () => {
     const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
     const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {

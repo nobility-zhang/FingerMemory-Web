@@ -199,6 +199,9 @@ function baseApi(): AccountClient {
     createGmUser: vi.fn(),
     updateGmUser: vi.fn(),
     listGmAudit: vi.fn(),
+    listGmSandboxes: vi.fn(),
+    createGmSandbox: vi.fn(),
+    executeGmSandboxCommand: vi.fn(),
   };
 }
 

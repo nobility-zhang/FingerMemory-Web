@@ -19,6 +19,7 @@ import {
   type GmUser,
   type UserView,
 } from '../api/client';
+import GmSandboxPanel from './GmSandboxPanel.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -395,6 +396,12 @@ onMounted(() => {
           刷新
         </button>
       </section>
+
+      <GmSandboxPanel
+        v-if="context.capabilities.includes('manage-sandboxes')"
+        :api="props.api"
+        @changed="loadGm"
+      />
 
       <section class="gm-users" aria-labelledby="gm-users-title">
         <div class="section-heading">

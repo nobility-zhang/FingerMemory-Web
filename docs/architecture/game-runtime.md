@@ -129,4 +129,6 @@ Phaser 负责 Scene、资源载入、精灵/卡牌表现、Tween、粒子和 Sou
 
 所有正式数据及回执绑定 owner 和单调变化的 dataEpoch。正常账号恢复/整体重置切换 epoch 并使旧会话、请求和游标失效；幂等先在相同 epoch 内识别，旧 epoch 请求不能在恢复后重新执行。导出的旧回执用于历史诊断，不作为新 epoch 的可执行动作许可。
 
-GM sandbox 是单独的数据空间，绑定 admin、测试用户/夹具、独立时钟、随机源和 epoch；同一个业务应用服务使用明确 ExecutionScope 选择数据，不允许由普通客户端字段选择 GM scope。沙盒事件不进入正常账号的 FSRS、牌组、角色名单、续作前置回执或统计。具体权限与命令见 [GM 设计](../operations/gm.md)。
+GM sandbox 是单独的数据空间，绑定 admin、测试用户/夹具、独立时钟、随机源和 epoch；同一个业务应用服务使用明确 ExecutionScope 选择数据，不允许由普通客户端字段选择 GM scope。H3-04 的 `card-battle-v1-tutorial` 使用独立
+`fm_gm_sandbox` 表，跳节点、发牌、解锁、虚拟时钟和重置均不写入正常账号的 FSRS、
+牌组、角色名单、续作前置回执或统计。具体权限与命令见 [GM 设计](../operations/gm.md)。

@@ -122,6 +122,9 @@ describe('AccountWorkspace', () => {
       createGmUser: vi.fn(),
       updateGmUser: vi.fn(),
       listGmAudit: vi.fn(),
+      listGmSandboxes: vi.fn(),
+      createGmSandbox: vi.fn(),
+      executeGmSandboxCommand: vi.fn(),
     };
 
     const root = document.createElement('div');
@@ -298,6 +301,9 @@ describe('AccountWorkspace', () => {
       createGmUser: vi.fn(),
       updateGmUser: vi.fn(),
       listGmAudit: vi.fn(),
+      listGmSandboxes: vi.fn(),
+      createGmSandbox: vi.fn(),
+      executeGmSandboxCommand: vi.fn(),
     } as AccountClient;
     const root = document.createElement('div');
     document.body.append(root);
@@ -497,6 +503,9 @@ describe('AccountWorkspace', () => {
       createGmUser: vi.fn(),
       updateGmUser: vi.fn(),
       listGmAudit: vi.fn(),
+      listGmSandboxes: vi.fn(),
+      createGmSandbox: vi.fn(),
+      executeGmSandboxCommand: vi.fn(),
     } as AccountClient;
     const root = document.createElement('div');
     document.body.append(root);

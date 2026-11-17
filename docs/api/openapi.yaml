@@ -8,6 +8,7 @@ info:
     P3 增加游戏流程使用的练习完成命令和共享快捷键契约。
     H0-04 已实现默认管理员一次性初始化、首次改密门禁和 GM 账号/审计基础。
     H3-03 已实现账号模式 card-battle-v1 创建、唯一学习授能、出牌、伙伴技能和结束回合命令。
+    H3-04 已实现本人隔离 GM sandbox、固定夹具命令、epoch/version 幂等和审计。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
   - url: /api/v1
@@ -1020,6 +1021,66 @@ components:
         - role
       - required:
         - status
+    GmSandboxState:
+      type: object
+      additionalProperties: false
+      required:
+      - schemaVersion
+      - fixtureVersion
+      - fixtureKey
+      - currentNodeId
+      - encounterId
+      - clockMode
+      - virtualNowMs
+      - randomSeed
+      - deck
+      - unlockedCharacters
+      - availableNodes
+      - availableCards
+      - availableCharacters
+      properties:
+        schemaVersion:
+          type: integer
+          minimum: 1
+        fixtureVersion:
+          type: integer
+          minimum: 1
+        fixtureKey:
+          type: string
+        currentNodeId:
+          type: string
+        encounterId:
+          type: [string, 'null']
+        clockMode:
+          type: string
+          enum:
+          - fixed
+          - real
+        virtualNowMs:
+          type: [integer, 'null']
+          minimum: 0
+        randomSeed:
+          type: integer
+        deck:
+          type: array
+          items:
+            type: string
+        unlockedCharacters:
+          type: array
+          items:
+            type: string
+        availableNodes:
+          type: array
+          items:
+            type: string
+        availableCards:
+          type: array
+          items:
+            type: string
+        availableCharacters:
+          type: array
+          items:
+            type: string
     GmSandbox:
       type: object
       additionalProperties: false
@@ -1031,6 +1092,7 @@ components:
       - contentInstallationId
       - version
       - dataEpoch
+      - state
       properties:
         id:
           type: string
@@ -1052,6 +1114,8 @@ components:
           maximum: 9007199254740991
         dataEpoch:
           type: string
+        state:
+          "$ref": "#/components/schemas/GmSandboxState"
     GmCreateSandbox:
       type: object
       additionalProperties: false
@@ -2543,7 +2607,7 @@ paths:
       tags:
       - GM
       summary: 分页列出本人管理的测试沙盒
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []
@@ -2574,7 +2638,7 @@ paths:
       tags:
       - GM
       summary: 从受控夹具和内容版本创建隔离测试沙盒
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []
@@ -2607,7 +2671,7 @@ paths:
       tags:
       - GM
       summary: 在隔离测试沙盒执行受控命令，不修改正常用户数据
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []

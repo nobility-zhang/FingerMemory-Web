@@ -2,9 +2,10 @@
 
 本文件定义 GM 页面、默认管理员和隔离测试能力。H0-04 已实现
 ADMIN/USER 角色、账号类型、首次改密门禁、开发默认管理员一次性初始化、`/gm`
-账号目录与脱敏审计。内容校验发布和测试沙盒仍为待实施能力，不能由当前页面或
-API 假装成功。页面路径为 `/gm`，支持刷新/直接访问；静态壳可加载，但所有管理
-数据与命令都由 API 校验当前角色。HTTP 契约入口见
+账号目录与脱敏审计；H3-04 已实现本人 sandbox 的固定合成夹具和受控调试命令。
+内容校验发布仍为待实施能力，不能由当前页面或 API 假装成功。页面路径为 `/gm`，
+支持刷新/直接访问；静态壳可加载，但所有管理数据与命令都由 API 校验当前角色。
+HTTP 契约入口见
 [OpenAPI](../api/openapi.yaml)。
 
 ## 页面与职责
@@ -50,6 +51,14 @@ Bearer 前缀不能获得权限或跳过保护。每次请求核验账号有效�
 ## 测试沙盒
 
 sandbox 属于创建它的管理员，可关联明确标记的测试账号和内容版本；默认使用合成夹具，不复制正常用户的私有学习快照。每个 sandbox 有独立 scopeId、dataEpoch、虚拟 Clock、随机源、学习状态、角色名单、故事/战斗状态和奖励账本。存储使用独立的 sandbox 记录/表，不在正常 fm_user_data 上加一个可由客户端改写的 isTest 布尔值。管理员身份/操作审计、正常账号数据和 sandbox 数据分别持久化，并通过新的 Flyway 迁移建立。
+
+当前 H3-04 使用 `card-battle-v1-tutorial` 固定夹具，状态只保存在
+`fm_gm_sandbox`，按 `owner_admin_id + sandbox id` 隔离；命令回执按
+`owner_admin_id + sandbox id + dataEpoch + Idempotency-Key` 唯一。命令路径为
+`POST /api/v1/gm/sandboxes/{id}/commands`，支持跳节点、发牌、解锁角色、固定/真实
+时钟和重置。重置递增 sandbox version、生成新 dataEpoch，并让旧 epoch 的新动作
+返回冲突；成功与拒绝命令都写入 GM 审计。`contentInstallationId` 暂未被客户端
+接受，内容包安装 sandbox 随 H5 接入，不能用伪造安装 ID 绕开校验。
 
 | 命令 | 输入/限制 | 预期结果 |
 | --- | --- | --- |

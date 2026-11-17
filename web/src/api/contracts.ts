@@ -335,6 +335,70 @@ export interface GmAuditPage {
   nextCursor: string | null;
 }
 
+export interface GmSandboxState {
+  schemaVersion: number;
+  fixtureVersion: number;
+  fixtureKey: string;
+  currentNodeId: string;
+  encounterId: string | null;
+  clockMode: 'fixed' | 'real';
+  virtualNowMs: number | null;
+  randomSeed: number;
+  deck: string[];
+  unlockedCharacters: string[];
+  availableNodes: string[];
+  availableCards: string[];
+  availableCharacters: string[];
+}
+
+export interface GmSandbox {
+  id: string;
+  scope: 'sandbox';
+  ownerAdminId: string;
+  templateId: string;
+  contentInstallationId: string | null;
+  version: number;
+  dataEpoch: string;
+  state: GmSandboxState;
+}
+
+export interface GmSandboxPage {
+  items: GmSandbox[];
+  nextCursor: string | null;
+}
+
+export interface GmCreateSandboxInput {
+  templateId: string;
+  contentInstallationId?: string | null;
+  reason: string;
+}
+
+type GmSandboxCommandPayload =
+  | { command: 'jump-node'; args: { nodeId: string } }
+  | { command: 'grant-cards'; args: { cardDefinitionIds: string[] } }
+  | { command: 'unlock-character'; args: { characterKey: string } }
+  | {
+      command: 'set-clock';
+      args:
+        | { mode: 'fixed'; nowMs: number }
+        | { mode: 'real'; nowMs?: never };
+    }
+  | { command: 'reset-sandbox'; args: Record<string, never> };
+
+export type GmSandboxCommandInput = GmSandboxCommandPayload & {
+  actionId: string;
+  expectedVersion: number;
+  dataEpoch: string;
+  reason: string;
+};
+
+export interface GmCommandReceipt {
+  commandId: string;
+  status: 'applied' | 'duplicate';
+  scope: 'sandbox';
+  sandbox: GmSandbox;
+}
+
 export interface AccountClient {
   loadCurrentUser(): Promise<UserView | null>;
   login(username: string, password: string): Promise<UserView>;
@@ -489,4 +553,14 @@ export interface AccountClient {
     input: GmUpdateUserInput,
   ): Promise<GmUser>;
   listGmAudit(limit?: number): Promise<GmAuditPage>;
+  listGmSandboxes(limit?: number, cursor?: string): Promise<GmSandboxPage>;
+  createGmSandbox(
+    idempotencyKey: string,
+    input: GmCreateSandboxInput,
+  ): Promise<GmSandbox>;
+  executeGmSandboxCommand(
+    sandboxId: string,
+    idempotencyKey: string,
+    input: GmSandboxCommandInput,
+  ): Promise<GmCommandReceipt>;
 }

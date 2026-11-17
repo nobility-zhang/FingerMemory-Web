@@ -6,7 +6,12 @@ import type {
   BattleEnvelopeView,
   GmAuditPage,
   GmContext,
+  GmCommandReceipt,
+  GmCreateSandboxInput,
   GmCreateUserInput,
+  GmSandbox,
+  GmSandboxCommandInput,
+  GmSandboxPage,
   GmUpdateUserInput,
   GmUser,
   GmUserPage,
@@ -519,6 +524,50 @@ export class AccountApi implements AccountClient {
   async listGmAudit(limit = 20): Promise<GmAuditPage> {
     return this.transport.request<GmAuditPage>(
       `/gm/audit?limit=${encodeURIComponent(String(limit))}`,
+    );
+  }
+
+  async listGmSandboxes(limit = 20, cursor?: string): Promise<GmSandboxPage> {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (cursor !== undefined && cursor.length > 0) {
+      query.set('cursor', cursor);
+    }
+    return this.transport.request<GmSandboxPage>(
+      `/gm/sandboxes?${query.toString()}`,
+    );
+  }
+
+  async createGmSandbox(
+    idempotencyKey: string,
+    input: GmCreateSandboxInput,
+  ): Promise<GmSandbox> {
+    return this.transport.request<GmSandbox>('/gm/sandboxes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async executeGmSandboxCommand(
+    sandboxId: string,
+    idempotencyKey: string,
+    input: GmSandboxCommandInput,
+  ): Promise<GmCommandReceipt> {
+    const body: Record<string, unknown> = { ...input };
+    delete body.actionId;
+    return this.transport.request<GmCommandReceipt>(
+      `/gm/sandboxes/${encodeURIComponent(sandboxId)}/commands`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(body),
+      },
     );
   }
 
