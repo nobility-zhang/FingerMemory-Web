@@ -301,4 +301,20 @@ describe('GameWorkspace', () => {
       expect(api.submitReview).not.toHaveBeenCalled();
     });
   });
+
+  it('keeps the lobby visible when creating a session fails', async () => {
+    const api = baseApi();
+    api.createSession = vi.fn(async () => {
+      throw new Error('会话创建暂时失败');
+    });
+    const root = await mountGame(api);
+
+    press(window, 'Enter');
+
+    await vi.waitFor(() => {
+      expect(api.createSession).toHaveBeenCalled();
+      expect(root.textContent).toContain('会话创建暂时失败');
+      expect(root.textContent).toContain('今晚的火已经升起来了');
+    });
+  });
 });

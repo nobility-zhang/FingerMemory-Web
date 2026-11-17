@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import {
-  computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -17,10 +15,6 @@ import {
 import {
   accountApi,
   type AccountClient,
-  type PendingAnswerView,
-  type ReviewPreviewView,
-  type SessionEnvelope,
-  type SessionItemView,
 } from '../api/client';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
@@ -28,11 +22,11 @@ import InnLobby from '../inn/InnLobby.vue';
 import GameResult from './GameResult.vue';
 import GameShortcutHelp from './GameShortcutHelp.vue';
 import GameTrainingStage from './GameTrainingStage.vue';
-import type { GameRunResult } from './types';
 import { gameErrorMessage } from './gameErrorMessage';
 import { useGameAuthentication } from './useGameAuthentication';
 import { useCompanionPreferences } from './useCompanionPreferences';
 import { useGameLobby } from './useGameLobby';
+import { useGamePracticeSession } from './useGamePracticeSession';
 import {
   resolveGameShortcut,
   type GamePhase,
@@ -76,36 +70,9 @@ const {
   describeError: gameErrorMessage,
 });
 const phase = ref<GamePhase>('login');
-const busy = ref(false);
-const sessionError = ref<string | null>(null);
-const session = ref<SessionEnvelope>();
-const answer = ref('');
-const pendingAnswer = ref<PendingAnswerView>();
-const reviewPreviews = ref<ReviewPreviewView>();
-const hintIndex = ref(0);
-const hintUsed = ref(false);
-const answerRevealed = ref(false);
-const attemptIds = ref<{
-  practiceAttemptId: string;
-  reviewSubmissionId: string;
-}>();
 const helpOpen = ref(false);
 const focusMode = ref(false);
 const reduceMotion = ref(false);
-const combo = ref(0);
-const reviewedCount = ref(0);
-const practiceCount = ref(0);
-const matchedCount = ref(0);
-const totalAnswerCount = ref(0);
-const ratings = ref<Record<'again' | 'hard' | 'good' | 'easy', number>>({
-  again: 0,
-  hard: 0,
-  good: 0,
-  easy: 0,
-});
-const startedAt = ref(0);
-const endedAt = ref(0);
-const lastRating = ref<'again' | 'hard' | 'good' | 'easy'>();
 const trainingStage = ref<InstanceType<typeof GameTrainingStage>>();
 const {
   plan,
@@ -122,76 +89,66 @@ const {
   describeError: gameErrorMessage,
   timeZone: currentTimeZone,
 });
-
-const currentItem = computed<SessionItemView | undefined>(() => {
-  const studyItemId = session.value?.session.currentStudyItemId;
-  if (studyItemId === null || studyItemId === undefined) {
-    return undefined;
-  }
-  return session.value?.items.find((item) => item.studyItem.id === studyItemId);
+const {
+  session,
+  currentItem,
+  currentHint,
+  answer,
+  pendingAnswer,
+  reviewPreviews,
+  hintUsed,
+  answerRevealed,
+  busy,
+  error: sessionError,
+  combo,
+  reviewedCount,
+  practiceCount,
+  result,
+  lastRating,
+  enterSession,
+  startSession,
+  resumeSession,
+  pauseSession,
+  submitFormalAnswer,
+  retryReviewPreview,
+  rateReview,
+  completePractice,
+  showNextHint,
+  revealAnswer,
+  skipItem,
+  reloadSession: reloadPracticeSession,
+  pauseForExit,
+  pauseForUnmount,
+  resetSession,
+  dispose: disposePracticeSession,
+} = useGamePracticeSession({
+  api: () => props.api,
+  describeError: gameErrorMessage,
+  phase,
+  reduceMotion,
+  activeSession: () => activeSession.value,
+  scrollToTop: scrollPageToTop,
+  requestAnswerFocus: requestAnswerFocus,
+  onSessionCompleted: leaveFocusAfterSession,
 });
-const currentHint = computed(() => {
-  const hints = currentItem.value?.wordEntry.hints ?? [];
-  return hints[hintIndex.value - 1] ?? null;
-});
-const result = computed<GameRunResult>(() => ({
-  reviewedCount: reviewedCount.value,
-  practiceCount: practiceCount.value,
-  matchedCount: matchedCount.value,
-  totalAnswerCount: totalAnswerCount.value,
-  startedAt: startedAt.value,
-  endedAt: endedAt.value,
-  ratings: ratings.value,
-}));
-
-function newId(): string {
-  if (typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 function currentTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-function resetPageScroll(): void {
+function scrollPageToTop(): void {
   document.documentElement.scrollTop = 0;
   document.body.scrollTop = 0;
 }
 
-function ensureAttemptIds(): {
-  practiceAttemptId: string;
-  reviewSubmissionId: string;
-} {
-  attemptIds.value ??= {
-    practiceAttemptId: newId(),
-    reviewSubmissionId: newId(),
-  };
-  return attemptIds.value;
+function requestAnswerFocus(): void {
+  trainingStage.value?.focusAnswer();
 }
 
-function resetItemState(): void {
-  answer.value = '';
-  pendingAnswer.value = undefined;
-  reviewPreviews.value = undefined;
-  hintIndex.value = 0;
-  hintUsed.value = false;
-  answerRevealed.value = false;
-  attemptIds.value = undefined;
-  sessionError.value = null;
-}
-
-function resetRun(): void {
-  combo.value = 0;
-  reviewedCount.value = 0;
-  practiceCount.value = 0;
-  matchedCount.value = 0;
-  totalAnswerCount.value = 0;
-  ratings.value = { again: 0, hard: 0, good: 0, easy: 0 };
-  startedAt.value = 0;
-  endedAt.value = 0;
-  lastRating.value = undefined;
+function leaveFocusAfterSession(): void {
+  if (focusMode.value) {
+    setFocusMode(false);
+  }
 }
 
 async function initializeGame(): Promise<void> {
@@ -216,44 +173,9 @@ async function submitAuth(): Promise<void> {
   phase.value = 'lobby';
 }
 
-async function enterSession(nextSession: SessionEnvelope): Promise<void> {
-  resetPageScroll();
-  session.value = nextSession;
-  reduceMotion.value = nextSession.session.reduceMotion;
-  resetRun();
-  startedAt.value = Date.now();
-  resetItemState();
-  const storedPending = nextSession.session.pendingAnswer;
-  const item = nextSession.items.find(
-    (value) => value.studyItem.id === nextSession.session.currentStudyItemId,
-  );
-  if (nextSession.session.status === 'completed') {
-    endedAt.value = Date.now();
-    phase.value = 'result';
-    return;
-  }
-  if (storedPending !== null && item !== undefined) {
-    pendingAnswer.value = storedPending;
-    phase.value = nextSession.session.status === 'paused' ? 'paused' : 'rating';
-    try {
-      reviewPreviews.value = await loadReviewPreviews(
-        nextSession,
-        storedPending.studyItemId,
-        item.reviewVersion,
-      );
-    } catch (cause) {
-      sessionError.value = gameErrorMessage(cause);
-    }
-    return;
-  }
-  phase.value = nextSession.session.status === 'paused' ? 'paused' : 'typing';
-  await nextTick();
-  void trainingStage.value?.focusAnswer();
-}
-
 async function trainAgain(): Promise<void> {
   phase.value = 'lobby';
-  session.value = undefined;
+  resetSession();
   await loadLobby();
   if (plan.value?.selected.length) {
     await startTraining();
@@ -261,362 +183,30 @@ async function trainAgain(): Promise<void> {
 }
 
 async function startTraining(): Promise<void> {
-  if (busy.value || phase.value !== 'lobby') {
-    return;
-  }
-  if (activeSession.value) {
-    await enterSession(activeSession.value);
-    return;
-  }
-  busy.value = true;
-  lobbyError.value = null;
-  try {
-    reduceMotion.value = window.matchMedia?.(
-      '(prefers-reduced-motion: reduce)',
-    ).matches ?? false;
-    const created = await props.api.createSession({
-      modeId: 'keyboard-recall',
-      timeZone: currentTimeZone(),
-      newLimit: plan.value?.settings.newLimit,
-      reviewLimit: plan.value?.settings.reviewLimit,
-      reduceMotion: reduceMotion.value,
-    });
-    await enterSession(created);
-  } catch (cause) {
-    lobbyError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function resumeTraining(): Promise<void> {
-  const current = session.value;
-  if (current === undefined || busy.value) {
-    return;
-  }
-  busy.value = true;
-  sessionError.value = null;
-  try {
-    session.value = await props.api.updateSession({
-      sessionId: current.session.id,
-      expectedDataVersion: current.dataVersion,
-      expectedVersion: current.session.version,
-      status: 'active',
-    });
-    phase.value = pendingAnswer.value !== undefined
-      ? 'rating'
-      : answerRevealed.value
-        ? 'answer-ready'
-        : 'typing';
-    await nextTick();
-    if (phase.value === 'typing') {
-      void trainingStage.value?.focusAnswer();
-    }
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function pauseTraining(): Promise<void> {
-  const current = session.value;
-  if (current === undefined || busy.value || phase.value === 'paused') {
-    return;
-  }
-  busy.value = true;
-  sessionError.value = null;
-  try {
-    session.value = await props.api.updateSession({
-      sessionId: current.session.id,
-      expectedDataVersion: current.dataVersion,
-      expectedVersion: current.session.version,
-      status: 'paused',
-    });
-    phase.value = 'paused';
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function loadReviewPreviews(
-  current: SessionEnvelope,
-  studyItemId: string,
-  reviewVersion: number,
-): Promise<ReviewPreviewView> {
-  return props.api.previewReview({
-    sessionId: current.session.id,
-    studyItemId,
-    expectedDataVersion: current.dataVersion,
-    expectedSessionVersion: current.session.version,
-    expectedReviewVersion: reviewVersion,
-  });
-}
-
-async function submitFormalAnswer(): Promise<void> {
-  const current = session.value;
-  const item = currentItem.value;
-  if (
-    current === undefined
-    || item === undefined
-    || busy.value
-    || answer.value.trim().length === 0
-  ) {
-    return;
-  }
-  if (hintUsed.value || answerRevealed.value) {
-    await completePractice('completed');
-    return;
-  }
-  busy.value = true;
-  sessionError.value = null;
-  const ids = ensureAttemptIds();
-  try {
-    const response = await props.api.submitPracticeResponse({
-      sessionId: current.session.id,
-      practiceAttemptId: ids.practiceAttemptId,
-      reviewSubmissionId: ids.reviewSubmissionId,
-      studyItemId: item.studyItem.id,
-      response: answer.value,
-      expectedDataVersion: current.dataVersion,
-      expectedSessionVersion: current.session.version,
-    });
-    totalAnswerCount.value += 1;
-    if (response.pendingAnswer.inputMatchedAnswer) {
-      matchedCount.value += 1;
-      combo.value += 1;
-    } else {
-      combo.value = 0;
-    }
-    session.value = {
-      ...current,
-      session: response.session,
-      dataVersion: response.dataVersion,
-    };
-    pendingAnswer.value = response.pendingAnswer;
-    phase.value = 'rating';
-    reviewPreviews.value = await loadReviewPreviews(
-      session.value,
-      response.pendingAnswer.studyItemId,
-      item.reviewVersion,
-    );
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function retryReviewPreview(): Promise<void> {
-  const current = session.value;
-  const pending = pendingAnswer.value;
-  const item = currentItem.value;
-  if (current === undefined || pending === undefined || item === undefined || busy.value) {
-    return;
-  }
-  busy.value = true;
-  sessionError.value = null;
-  try {
-    reviewPreviews.value = await loadReviewPreviews(
-      current,
-      pending.studyItemId,
-      item.reviewVersion,
-    );
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function rateReview(
-  rating: 'again' | 'hard' | 'good' | 'easy',
-): Promise<void> {
-  const current = session.value;
-  const pending = pendingAnswer.value;
-  const previews = reviewPreviews.value;
-  if (
-    current === undefined
-    || pending === undefined
-    || previews === undefined
-    || busy.value
-  ) {
-    return;
-  }
-  busy.value = true;
-  sessionError.value = null;
-  try {
-    await props.api.submitReview({
-      sessionId: current.session.id,
-      submissionId: pending.reviewSubmissionId,
-      rating,
-      expectedDataVersion: previews.dataVersion,
-      expectedReviewVersion: previews.reviewVersion,
-      expectedSessionVersion: previews.sessionVersion,
-    });
-    reviewedCount.value += 1;
-    ratings.value[rating] += 1;
-    lastRating.value = rating;
-    await refreshCurrentSession();
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function completePractice(outcome: 'completed' | 'skipped'): Promise<void> {
-  const current = session.value;
-  const item = currentItem.value;
-  if (current === undefined || item === undefined || busy.value) {
-    return;
-  }
-  busy.value = true;
-  sessionError.value = null;
-  const ids = ensureAttemptIds();
-  try {
-    const completion = await props.api.submitPracticeCompletion({
-      sessionId: current.session.id,
-      practiceAttemptId: ids.practiceAttemptId,
-      studyItemId: item.studyItem.id,
-      response: answer.value,
-      answerWasHidden: true,
-      hintUsed: hintUsed.value,
-      answerRevealed: answerRevealed.value,
-      abandoned: outcome === 'skipped',
-      outcome,
-      expectedDataVersion: current.dataVersion,
-      expectedSessionVersion: current.session.version,
-    });
-    totalAnswerCount.value += 1;
-    if (completion.attempt.inputMatchedAnswer) {
-      matchedCount.value += 1;
-    }
-    practiceCount.value += 1;
-    combo.value = 0;
-    lastRating.value = undefined;
-    session.value = await props.api.getSession(current.session.id);
-    await afterItemCompleted();
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function refreshCurrentSession(): Promise<void> {
-  const current = session.value;
-  if (current === undefined) {
-    return;
-  }
-  session.value = await props.api.getSession(current.session.id);
-  await afterItemCompleted();
-}
-
-async function afterItemCompleted(): Promise<void> {
-  resetPageScroll();
-  if (session.value?.session.status === 'completed') {
-    if (focusMode.value) {
-      setFocusMode(false);
-    }
-    endedAt.value = Date.now();
-    phase.value = 'result';
-    return;
-  }
-  resetItemState();
-  phase.value = session.value?.session.status === 'paused' ? 'paused' : 'typing';
-  await nextTick();
-  void trainingStage.value?.focusAnswer();
-}
-
-function showNextHint(): void {
-  const hints = currentItem.value?.wordEntry.hints ?? [];
-  if (hints.length === 0) {
-    sessionError.value = '当前词条没有配置提示。';
-    return;
-  }
-  if (hintIndex.value >= hints.length) {
-    sessionError.value = '提示已经全部显示。';
-    return;
-  }
-  hintIndex.value += 1;
-  hintUsed.value = true;
-  sessionError.value = null;
-}
-
-function revealAnswer(): void {
-  if (currentItem.value === undefined || phase.value !== 'typing') {
-    return;
-  }
-  answerRevealed.value = true;
-  hintUsed.value = true;
-  phase.value = 'answer-ready';
-}
-
-async function skipItem(): Promise<void> {
-  if (!busy.value) {
-    await completePractice('skipped');
-  }
+  await startSession(plan.value);
 }
 
 async function reloadSession(): Promise<void> {
-  const current = session.value;
-  if (current === undefined || busy.value) {
-    return;
-  }
-  busy.value = true;
-  sessionError.value = null;
-  try {
-    await fetchActiveSessions();
-    const refreshed = sessions.value.find(
-      (value) => value.session.id === current.session.id,
-    );
-    if (refreshed === undefined) {
-      await returnToLobby();
-      return;
-    }
-    await enterSession(refreshed);
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
+  const result = await reloadPracticeSession(fetchActiveSessions);
+  if (result === 'missing') {
+    await returnToLobby();
   }
 }
 
 async function returnToLobby(): Promise<void> {
-  resetPageScroll();
-  if (focusMode.value) {
-    setFocusMode(false);
-  }
-  session.value = undefined;
-  resetItemState();
+  scrollPageToTop();
+  leaveFocusAfterSession();
+  resetSession();
   phase.value = 'lobby';
   await loadLobby();
 }
 
 async function leaveTrainingToLobby(): Promise<void> {
-  const current = session.value;
-  if (current === undefined || busy.value) {
+  if (session.value === undefined || busy.value) {
     return;
   }
-  busy.value = true;
-  sessionError.value = null;
-  try {
-    if (current.session.status === 'active') {
-      await props.api.updateSession({
-        sessionId: current.session.id,
-        expectedDataVersion: current.dataVersion,
-        expectedVersion: current.session.version,
-        status: 'paused',
-      });
-    }
+  if (await pauseForExit()) {
     await returnToLobby();
-  } catch (cause) {
-    sessionError.value = gameErrorMessage(cause);
-  } finally {
-    busy.value = false;
   }
 }
 
@@ -663,10 +253,10 @@ function performShortcut(action: GameShortcutAction): void {
       void skipItem();
       return;
     case 'pause':
-      void pauseTraining();
+      void pauseSession();
       return;
     case 'resume':
-      void resumeTraining();
+      void resumeSession();
       return;
     case 'toggle-help':
       toggleHelp();
@@ -717,25 +307,13 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  void pauseForUnmount();
   disposeLobby();
+  disposePracticeSession();
   disposeAuthentication();
   window.removeEventListener('keydown', handleGlobalKeydown);
   if (focusMode.value) {
     emit('focus-mode', false);
-  }
-  const current = session.value;
-  if (
-    current !== undefined
-    && current.session.status === 'active'
-    && !busy.value
-    && phase.value !== 'result'
-  ) {
-    void props.api.updateSession({
-      sessionId: current.session.id,
-      expectedDataVersion: current.dataVersion,
-      expectedVersion: current.session.version,
-      status: 'paused',
-    }).catch(() => undefined);
   }
 });
 </script>
@@ -852,7 +430,7 @@ onBeforeUnmount(() => {
       :companion-density="companionDensity"
       :reduce-motion="reduceMotion"
       :loading="busy || lobbyLoading"
-      :error="lobbyError"
+      :error="lobbyError ?? sessionError"
       @start="startTraining"
       @resume="enterSession"
       @help="toggleHelp"
@@ -888,8 +466,8 @@ onBeforeUnmount(() => {
       @reveal="revealAnswer"
       @skip="skipItem"
       @rate="rateReview"
-      @pause="pauseTraining"
-      @resume="resumeTraining"
+      @pause="pauseSession"
+      @resume="resumeSession"
       @exit="leaveTrainingToLobby"
       @help="toggleHelp"
       @retry-preview="retryReviewPreview"
