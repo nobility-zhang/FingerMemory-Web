@@ -3,6 +3,7 @@ import type {
   AccountClient,
   BackupPreview,
   BackupRestoreResult,
+  BattleEnvelopeView,
   GmAuditPage,
   GmContext,
   GmCreateUserInput,
@@ -310,6 +311,109 @@ export class AccountApi implements AccountClient {
             abandoned: input.abandoned ?? false,
           },
         }),
+      },
+    );
+  }
+
+  async createBattle(input: {
+    battleId: string;
+    encounterId: string;
+    sessionId: string;
+    studyItemId: string;
+    companionKey: 'lia' | 'serin' | 'fina';
+    seed?: number;
+    shuffle?: boolean;
+    actionId: string;
+  }): Promise<BattleEnvelopeView> {
+    return this.transport.request<BattleEnvelopeView>('/battles', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': input.actionId,
+      },
+      body: JSON.stringify({
+        battleId: input.battleId,
+        encounterId: input.encounterId,
+        sessionId: input.sessionId,
+        studyItemId: input.studyItemId,
+        companionKey: input.companionKey,
+        seed: input.seed,
+        shuffle: input.shuffle,
+      }),
+    });
+  }
+
+  async getBattle(battleId: string): Promise<BattleEnvelopeView> {
+    return this.transport.request<BattleEnvelopeView>(
+      `/battles/${encodeURIComponent(battleId)}`,
+    );
+  }
+
+  async claimBattleLearning(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+    submissionId: string;
+  }): Promise<BattleEnvelopeView> {
+    return this.battleCommand(input.battleId, 'learning-claims', input.actionId, {
+      expectedStateVersion: input.expectedStateVersion,
+      submissionId: input.submissionId,
+    });
+  }
+
+  async playBattleCard(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+    cardInstanceId: string;
+    targetId?: string;
+  }): Promise<BattleEnvelopeView> {
+    return this.battleCommand(input.battleId, 'cards', input.actionId, {
+      expectedStateVersion: input.expectedStateVersion,
+      cardInstanceId: input.cardInstanceId,
+      targetId: input.targetId,
+    });
+  }
+
+  async useBattleCompanionSkill(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+  }): Promise<BattleEnvelopeView> {
+    return this.battleCommand(input.battleId, 'companion-skill', input.actionId, {
+      expectedStateVersion: input.expectedStateVersion,
+    });
+  }
+
+  async endBattleTurn(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+    nextSessionId?: string;
+    nextStudyItemId?: string;
+  }): Promise<BattleEnvelopeView> {
+    return this.battleCommand(input.battleId, 'end-turn', input.actionId, {
+      expectedStateVersion: input.expectedStateVersion,
+      nextSessionId: input.nextSessionId,
+      nextStudyItemId: input.nextStudyItemId,
+    });
+  }
+
+  private async battleCommand(
+    battleId: string,
+    suffix: string,
+    actionId: string,
+    body: Record<string, unknown>,
+  ): Promise<BattleEnvelopeView> {
+    return this.transport.request<BattleEnvelopeView>(
+      `/battles/${encodeURIComponent(battleId)}/${suffix}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': actionId,
+        },
+        body: JSON.stringify(body),
       },
     );
   }

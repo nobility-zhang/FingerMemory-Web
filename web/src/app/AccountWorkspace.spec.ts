@@ -96,6 +96,12 @@ describe('AccountWorkspace', () => {
       submitReview: vi.fn(async () => {
         throw new Error('not used');
       }),
+      createBattle: vi.fn(),
+      getBattle: vi.fn(),
+      claimBattleLearning: vi.fn(),
+      playBattleCard: vi.fn(),
+      useBattleCompanionSkill: vi.fn(),
+      endBattleTurn: vi.fn(),
       previewLocalMigration: vi.fn(async () => {
         throw new Error('not used');
       }),
@@ -276,6 +282,12 @@ describe('AccountWorkspace', () => {
       submitPracticeCompletion: vi.fn(),
       previewReview: vi.fn(async () => previews),
       submitReview,
+      createBattle: vi.fn(),
+      getBattle: vi.fn(),
+      claimBattleLearning: vi.fn(),
+      playBattleCard: vi.fn(),
+      useBattleCompanionSkill: vi.fn(),
+      endBattleTurn: vi.fn(),
       previewLocalMigration: vi.fn(),
       importLocalMigration: vi.fn(),
       exportAccountBackup: vi.fn(),
@@ -469,6 +481,12 @@ describe('AccountWorkspace', () => {
         dataVersion: 2,
       })),
       submitReview,
+      createBattle: vi.fn(),
+      getBattle: vi.fn(),
+      claimBattleLearning: vi.fn(),
+      playBattleCard: vi.fn(),
+      useBattleCompanionSkill: vi.fn(),
+      endBattleTurn: vi.fn(),
       previewLocalMigration: vi.fn(),
       importLocalMigration: vi.fn(),
       exportAccountBackup: vi.fn(),

@@ -1,6 +1,6 @@
 # 游戏运行时与存档
 
-本文件定义 Phaser/Vue 边界、卡牌命令、音效、故事进度与文本降级。最小音频 Game 生命周期、首个翻面音和纯 TypeScript `card-battle-v1` 规则已落地；Java 战斗命令、故事检查和完整音效矩阵仍待实施。游戏数值和玩法规则以 [产品设计](../product/overview.md) 为准，不在这里维护第二份伤害/费用表。
+本文件定义 Phaser/Vue 边界、卡牌命令、音效、故事进度与文本降级。最小音频 Game 生命周期、首个翻面音、纯 TypeScript `card-battle-v1` 规则和账号模式 Java 战斗命令已落地；故事检查、可玩战斗界面和完整音效矩阵仍待实施。游戏数值和玩法规则以 [产品设计](../product/overview.md) 为准，不在这里维护第二份伤害/费用表。
 
 ## 责任划分与模块
 
@@ -33,7 +33,7 @@
 | CompletionReceipt | owner、书/版本、结局、run、继承 facts 白名单与完成事件，不可变 |
 | RewardOffer | owner/run/节点/奖励槽、首次固定候选、领取/跳过结果与版本 |
 
-这些实体与复习状态分离。可复用当前单数据库事务及用户锁策略，但媒体文件不进入大快照；需要新表时用新增 Flyway，不改已运行的 V1–V3。个人内容规模下先做正确性，不为未来开放世界拆微服务。
+这些实体与复习状态分离。可复用当前单数据库事务及用户锁策略，但媒体文件不进入大快照；需要新表时用新增 Flyway，不改已运行的迁移。个人内容规模下先做正确性，不为未来开放世界拆微服务。
 
 帐号正式回合流程：Java 验证用户、内容安装、当前遭遇/队列绑定与版本→原事务边界外调用 worker→事务内复核版本/回执→一起写学习状态、日志、故事事件、能量和奖励回执。空/重复事件、旧事件重放和迁移导入不能推进新遭遇。
 
@@ -77,7 +77,9 @@ Phaser 负责 Scene、资源载入、精灵/卡牌表现、Tween、粒子和 Sou
 
 ## 卡牌战斗状态与学习桥接
 
-当前纯规则边界位于 `web/src/battle/`。`BattleState` 固定保存 `battleRulesVersion='card-battle-v1'`、schema/state 版本、种子后的 RNG、抽牌游标、手牌/弃牌/耗竭区、敌我生命与护盾、敌人意图和终结状态。`playCard`/`endTurn` 都校验 expected state version，返回不可变新状态和类型化表现事件；房间、网络和 Java 事务尚未接在这层之上。
+当前纯规则边界位于 `web/src/battle/`。`BattleState` 固定保存 `battleRulesVersion='card-battle-v1'`、schema/state 版本、种子后的 RNG、抽牌游标、手牌/弃牌/耗竭区、敌我生命与护盾、敌人意图和终结状态。`playCard`/`endTurn` 都校验 expected state version，返回不可变新状态和类型化表现事件。
+
+账号模式已由 Java 的 `battle` 包接入同一规则版本：Flyway V6 保存战斗快照、每回合唯一学习任务、不可变表现事件和命令回执；创建、学习授能、出牌、伙伴技能和结束回合均使用 owner 范围、`Idempotency-Key` 与 expected state version。正式复习回执必须在同一事务中完成唯一授能，状态、事件、能量奖励和回执一起提交；当前尚未接入 H4 的玩家战斗界面、内容包遭遇和故事检查点。
 
 `web/src/battle/fixtures/card-battle-v1.turn.json` 是共享确定性 fixture：从固定教学牌序执行守护、突刺、余烬、观察和结束回合，最终进入第二回合。规则测试还覆盖种子洗牌、版本冲突、目标/费用、护盾优先、灼烧刷新与致死、弃牌回收、耗竭不回洗、空堆少抽、胜负优先级和版本化 JSON 恢复。内部浏览器入口为 `/rules/card-battle-v1`，只运行真实规则，不提供玩家战斗假流程。
 

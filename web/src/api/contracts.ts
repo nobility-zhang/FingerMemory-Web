@@ -180,6 +180,62 @@ export interface ReviewSubmissionResult {
   rewardEligible: boolean;
 }
 
+export interface BattleCardInstanceView {
+  instanceId: string;
+  definitionId: string;
+}
+
+export interface BattleStateView {
+  schemaVersion: number;
+  battleRulesVersion: 'card-battle-v1';
+  battleId: string;
+  encounterId: string;
+  turnId: number;
+  phase: 'learning' | 'player-action' | 'victory' | 'defeat';
+  stateVersion: number;
+  rngState: number;
+  party: {
+    hp: number;
+    maxHp: number;
+    block: number;
+  };
+  enemies: Array<Record<string, unknown>>;
+  energy: number;
+  drawPile: BattleCardInstanceView[];
+  drawCursor: number;
+  hand: BattleCardInstanceView[];
+  discardPile: BattleCardInstanceView[];
+  exhaustPile: BattleCardInstanceView[];
+  currentIntent: {
+    enemyId: string;
+    type: 'attack' | 'defend';
+    value: number;
+  };
+  intentCycle: Array<{
+    type: 'attack' | 'defend';
+    value: number;
+  }>;
+  intentIndex: number;
+  terminal: 'victory' | 'defeat' | null;
+  learningTask: {
+    taskId: string;
+    sessionId: string;
+    studyItemId: string;
+    energyGranted: boolean;
+    submissionId: string | null;
+  } | null;
+  companion: {
+    key: 'lia' | 'serin' | 'fina';
+    skillUsed: boolean;
+  } | null;
+}
+
+export interface BattleEnvelopeView {
+  battle: BattleStateView;
+  events: Array<Record<string, unknown>>;
+  stateVersion: number;
+}
+
 export interface MigrationPreview {
   snapshotFingerprint: string;
   targetDataVersion: number;
@@ -374,6 +430,42 @@ export interface AccountClient {
     expectedReviewVersion: number;
     expectedSessionVersion: number;
   }): Promise<ReviewSubmissionResult>;
+  createBattle(input: {
+    battleId: string;
+    encounterId: string;
+    sessionId: string;
+    studyItemId: string;
+    companionKey: 'lia' | 'serin' | 'fina';
+    seed?: number;
+    shuffle?: boolean;
+    actionId: string;
+  }): Promise<BattleEnvelopeView>;
+  getBattle(battleId: string): Promise<BattleEnvelopeView>;
+  claimBattleLearning(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+    submissionId: string;
+  }): Promise<BattleEnvelopeView>;
+  playBattleCard(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+    cardInstanceId: string;
+    targetId?: string;
+  }): Promise<BattleEnvelopeView>;
+  useBattleCompanionSkill(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+  }): Promise<BattleEnvelopeView>;
+  endBattleTurn(input: {
+    battleId: string;
+    actionId: string;
+    expectedStateVersion: number;
+    nextSessionId?: string;
+    nextStudyItemId?: string;
+  }): Promise<BattleEnvelopeView>;
   previewLocalMigration(snapshot: unknown): Promise<MigrationPreview>;
   importLocalMigration(
     batchId: string,

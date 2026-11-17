@@ -7,6 +7,7 @@ info:
     P2 已实现在线队列、服务端会话、正式复习、本地 v4/v5 迁移和用户级备份；
     P3 增加游戏流程使用的练习完成命令和共享快捷键契约。
     H0-04 已实现默认管理员一次性初始化、首次改密门禁和 GM 账号/审计基础。
+    H3-03 已实现账号模式 card-battle-v1 创建、唯一学习授能、出牌、伙伴技能和结束回合命令。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
   - url: /api/v1
@@ -37,6 +38,12 @@ components:
       description: 稳定提交 ID；同 ID 同内容返回首次结果，不同内容返回冲突。
     EntityId:
       name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    BattleId:
+      name: battleId
       in: path
       required: true
       schema:
@@ -634,6 +641,183 @@ components:
               type: boolean
             userConfirmedRating:
               type: boolean
+    BattleCardInstance:
+      type: object
+      additionalProperties: false
+      required: [instanceId, definitionId]
+      properties:
+        instanceId:
+          type: string
+        definitionId:
+          type: string
+          enum:
+            [traveler-strike, companion-guard, ember-rune, herb-pouch, observe-signpost, party-strike]
+    BattleState:
+      type: object
+      additionalProperties: false
+      required:
+        [schemaVersion, battleRulesVersion, battleId, encounterId, turnId, phase, stateVersion, rngState, party, enemies, energy, drawPile, drawCursor, hand, discardPile, exhaustPile, currentIntent, intentCycle, intentIndex, terminal, learningTask, companion]
+      properties:
+        schemaVersion:
+          type: integer
+          enum: [1]
+        battleRulesVersion:
+          type: string
+          enum: [card-battle-v1]
+        battleId:
+          type: string
+        encounterId:
+          type: string
+        turnId:
+          type: integer
+        phase:
+          type: string
+          enum: [learning, player-action, victory, defeat]
+        stateVersion:
+          type: integer
+          minimum: 0
+        rngState:
+          type: integer
+        party:
+          type: object
+          additionalProperties: false
+          required: [hp, maxHp, block]
+          properties:
+            hp:
+              type: integer
+            maxHp:
+              type: integer
+            block:
+              type: integer
+        enemies:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        energy:
+          type: integer
+        drawPile:
+          type: array
+          items:
+            $ref: '#/components/schemas/BattleCardInstance'
+        drawCursor:
+          type: integer
+        hand:
+          type: array
+          items:
+            $ref: '#/components/schemas/BattleCardInstance'
+        discardPile:
+          type: array
+          items:
+            $ref: '#/components/schemas/BattleCardInstance'
+        exhaustPile:
+          type: array
+          items:
+            $ref: '#/components/schemas/BattleCardInstance'
+        currentIntent:
+          type: object
+          additionalProperties: true
+        intentCycle:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        intentIndex:
+          type: integer
+        terminal:
+          type: [string, 'null']
+          enum: [victory, defeat, null]
+        learningTask:
+          type: object
+          additionalProperties: true
+        companion:
+          type: object
+          additionalProperties: true
+    BattleEnvelope:
+      type: object
+      required: [battle, events, stateVersion]
+      properties:
+        battle:
+          $ref: '#/components/schemas/BattleState'
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        stateVersion:
+          type: integer
+          minimum: 0
+    CreateBattle:
+      type: object
+      additionalProperties: false
+      required: [battleId, encounterId, sessionId, studyItemId, companionKey]
+      properties:
+        battleId:
+          type: string
+          maxLength: 36
+        encounterId:
+          type: string
+          maxLength: 64
+        sessionId:
+          type: string
+          maxLength: 36
+        studyItemId:
+          type: string
+          maxLength: 128
+        companionKey:
+          type: string
+          enum: [lia, serin, fina]
+        seed:
+          type: integer
+        shuffle:
+          type: boolean
+    BattleLearningClaim:
+      type: object
+      additionalProperties: false
+      required: [expectedStateVersion, submissionId]
+      properties:
+        expectedStateVersion:
+          type: integer
+          minimum: 0
+        submissionId:
+          type: string
+          maxLength: 128
+    BattlePlayCard:
+      type: object
+      additionalProperties: false
+      required: [expectedStateVersion, cardInstanceId]
+      properties:
+        expectedStateVersion:
+          type: integer
+          minimum: 0
+        cardInstanceId:
+          type: string
+          maxLength: 128
+        targetId:
+          type: string
+          maxLength: 128
+    BattleCompanionSkill:
+      type: object
+      additionalProperties: false
+      required: [expectedStateVersion]
+      properties:
+        expectedStateVersion:
+          type: integer
+          minimum: 0
+    BattleEndTurn:
+      type: object
+      additionalProperties: false
+      required: [expectedStateVersion]
+      properties:
+        expectedStateVersion:
+          type: integer
+          minimum: 0
+        nextSessionId:
+          type: string
+          maxLength: 36
+        nextStudyItemId:
+          type: string
+          maxLength: 128
     SnapshotCounts:
       type: object
       additionalProperties:
@@ -1871,6 +2055,155 @@ paths:
       responses:
         '201':
           description: 正式复习结果
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /battles:
+    post:
+      summary: 创建 card-battle-v1 并绑定唯一学习任务
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBattle'
+      responses:
+        '201':
+          description: 战斗创建回执
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BattleEnvelope'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /battles/{battleId}:
+    get:
+      summary: 读取当前用户战斗状态与不可变事件
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BattleId'
+      responses:
+        '200':
+          description: 当前战斗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BattleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /battles/{battleId}/learning-claims:
+    post:
+      summary: 用已提交正式复习回执为本回合一次性授予 3 能量
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BattleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BattleLearningClaim'
+      responses:
+        '200':
+          description: 授能后的战斗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BattleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /battles/{battleId}/cards:
+    post:
+      summary: 校验费用和目标后打出手牌
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BattleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BattlePlayCard'
+      responses:
+        '200':
+          description: 出牌后的战斗与事件
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BattleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /battles/{battleId}/companion-skill:
+    post:
+      summary: 使用本场唯一一次伙伴技能
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BattleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BattleCompanionSkill'
+      responses:
+        '200':
+          description: 伙伴技能后的战斗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BattleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /battles/{battleId}/end-turn:
+    post:
+      summary: 弃牌、结算灼烧和敌方意图，并绑定下一学习任务
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BattleId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BattleEndTurn'
+      responses:
+        '200':
+          description: 敌方阶段后的战斗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BattleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
   /stats/overview:
