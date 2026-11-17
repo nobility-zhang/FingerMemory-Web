@@ -2,7 +2,6 @@ import type {
   AppMetaRecord,
   Lexicon,
   LexiconItem,
-  PracticeAttempt,
   PracticeItem,
   PracticeModeId,
   PracticeSession,
@@ -42,7 +41,6 @@ import { getLocalDayRange } from '../core/due';
 import {
   ImportBatchConflictError,
   LexiconNotFoundError,
-  PracticeAttemptConflictError,
   ReviewStateVersionMismatchError,
   ReviewSubmissionConflictError,
   ReviewSubmissionRejectedError,
@@ -72,6 +70,13 @@ import {
   storePracticeQueueSettings,
 } from './practicePreferences';
 import { LocalSnapshotStore } from './localSnapshotStore';
+import { LocalPracticeSessionStore } from './localPracticeSessionStore';
+import {
+  assertRepositoryIdentifier,
+  assertRepositoryTimestamp,
+  inputMatchesWord,
+  reviewSubmissionFingerprint,
+} from './learningRecordInputs';
 import {
   cardsHaveSameSchedulingState,
   hasSameSchedulerConfig,
@@ -96,29 +101,6 @@ interface RepositoryOptions {
   scheduler?: Promise<ReviewScheduler>;
   clock?: () => TimestampMs;
   idFactory?: () => string;
-}
-
-function assertIdentifier(value: string, label: string): void {
-  if (value.trim().length === 0) {
-    throw new TypeError(`${label} must not be empty`);
-  }
-}
-
-function assertTimestamp(value: TimestampMs, label: string): void {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new TypeError(`${label} must be a positive finite timestamp`);
-  }
-}
-
-function inputMatchesWord(word: WordEntry, response: string): boolean {
-  const normalizedResponse = normalizeStudyTerm(response);
-  if (normalizedResponse.length === 0) {
-    return false;
-  }
-
-  return [word.term, ...word.acceptedAnswers].some(
-    (answer) => normalizeStudyTerm(answer) === normalizedResponse,
-  );
 }
 
 const IMPORT_RECEIPT_KEY_PREFIX = 'import.receipt.';
@@ -208,58 +190,12 @@ function buildStudyItemEntities(input: {
   return { wordEntry, studyItem, membership };
 }
 
-function reviewFingerprint(input: ReviewSubmissionInput): string {
-  return JSON.stringify([
-    input.submissionId,
-    input.studyItemId,
-    input.modeId,
-    input.sessionId,
-    input.rating,
-    input.response,
-    input.answerWasHidden,
-    input.hintUsed,
-    input.answerRevealed,
-    input.abandoned,
-    input.userConfirmedRating,
-    input.reviewedAt,
-  ]);
-}
-
-function practiceFingerprint(input: PracticeAttemptInput): string {
-  return JSON.stringify([
-    input.id,
-    input.studyItemId,
-    input.modeId,
-    input.sessionId,
-    input.response,
-    input.answerWasHidden,
-    input.hintUsed,
-    input.answerRevealed,
-    input.abandoned,
-    input.occurredAt,
-  ]);
-}
-
-function plainPracticeSession(session: PracticeSession): PracticeSession {
-  return {
-    ...session,
-    queue: session.queue.map((item) => ({ ...item })),
-    interactions: Object.fromEntries(
-      Object.entries(session.interactions).map(([studyItemId, interaction]) => [
-        studyItemId,
-        { ...interaction },
-      ]),
-    ),
-    pendingAnswer:
-      session.pendingAnswer === null ? null : { ...session.pendingAnswer },
-  };
-}
-
 class DexieFingerMemoryRepository implements FingerMemoryRepository {
   private readonly scheduler: Promise<ReviewScheduler>;
   private readonly clock: () => TimestampMs;
   private readonly idFactory: () => string;
   private readonly snapshots: LocalSnapshotStore;
+  private readonly practiceSessionStore: LocalPracticeSessionStore;
 
   constructor(
     private readonly database: FingerMemoryDatabase,
@@ -269,13 +205,14 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     this.clock = options.clock ?? Date.now;
     this.idFactory = options.idFactory ?? (() => crypto.randomUUID());
     this.snapshots = new LocalSnapshotStore(database);
+    this.practiceSessionStore = new LocalPracticeSessionStore(database);
   }
 
   async initialize(): Promise<StorageStatus> {
     await this.database.open();
 
     const now = this.clock();
-    assertTimestamp(now, 'clock');
+    assertRepositoryTimestamp(now, 'clock');
     await this.database.transaction('rw', this.database.appMeta, async () => {
       const dataFormatVersion = await this.database.appMeta.get(
         APP_META_KEYS.dataFormatVersion,
@@ -409,7 +346,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     if (name.length === 0) {
       throw new TypeError('lexicon name must not be empty');
     }
-    assertTimestamp(input.now, 'lexicon creation time');
+    assertRepositoryTimestamp(input.now, 'lexicon creation time');
     const lexicon: Lexicon = {
       id: `lexicon:${this.idFactory()}`,
       name,
@@ -424,12 +361,12 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async updateLexicon(input: UpdateLexiconInput): Promise<Lexicon> {
-    assertIdentifier(input.id, 'lexicon id');
+    assertRepositoryIdentifier(input.id, 'lexicon id');
     const name = input.name.trim();
     if (name.length === 0) {
       throw new TypeError('lexicon name must not be empty');
     }
-    assertTimestamp(input.now, 'lexicon update time');
+    assertRepositoryTimestamp(input.now, 'lexicon update time');
     await this.database.open();
 
     return this.database.transaction('rw', this.database.lexicons, async () => {
@@ -453,8 +390,8 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     archived: boolean,
     now: TimestampMs,
   ): Promise<Lexicon> {
-    assertIdentifier(id, 'lexicon id');
-    assertTimestamp(now, 'lexicon archive time');
+    assertRepositoryIdentifier(id, 'lexicon id');
+    assertRepositoryTimestamp(now, 'lexicon archive time');
     await this.database.open();
 
     return this.database.transaction('rw', this.database.lexicons, async () => {
@@ -473,7 +410,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async deleteLexicon(id: string): Promise<void> {
-    assertIdentifier(id, 'lexicon id');
+    assertRepositoryIdentifier(id, 'lexicon id');
     await this.database.open();
 
     await this.database.transaction(
@@ -491,7 +428,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async listLexiconItems(lexiconId: string): Promise<LexiconStudyItem[]> {
-    assertIdentifier(lexiconId, 'lexicon id');
+    assertRepositoryIdentifier(lexiconId, 'lexicon id');
     await this.database.open();
 
     return this.database.transaction(
@@ -530,13 +467,13 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async createStudyItem(input: CreateStudyItemInput): Promise<LexiconStudyItem> {
-    assertIdentifier(input.lexiconId, 'lexicon id');
+    assertRepositoryIdentifier(input.lexiconId, 'lexicon id');
     const term = input.term.trim();
     const meaning = input.meaning.trim();
     if (term.length === 0 || meaning.length === 0) {
       throw new TypeError('study item term and meaning must not be empty');
     }
-    assertTimestamp(input.now, 'study item creation time');
+    assertRepositoryTimestamp(input.now, 'study item creation time');
     const entityId = this.idFactory();
     await this.database.open();
 
@@ -577,14 +514,14 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async updateStudyItem(input: UpdateStudyItemInput): Promise<LexiconStudyItem> {
-    assertIdentifier(input.lexiconId, 'lexicon id');
-    assertIdentifier(input.studyItemId, 'study item id');
+    assertRepositoryIdentifier(input.lexiconId, 'lexicon id');
+    assertRepositoryIdentifier(input.studyItemId, 'study item id');
     const term = input.term.trim();
     const meaning = input.meaning.trim();
     if (term.length === 0 || meaning.length === 0) {
       throw new TypeError('study item term and meaning must not be empty');
     }
-    assertTimestamp(input.now, 'study item update time');
+    assertRepositoryTimestamp(input.now, 'study item update time');
     await this.database.open();
 
     return this.database.transaction(
@@ -637,8 +574,8 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     lexiconId: string,
     studyItemId: string,
   ): Promise<void> {
-    assertIdentifier(lexiconId, 'lexicon id');
-    assertIdentifier(studyItemId, 'study item id');
+    assertRepositoryIdentifier(lexiconId, 'lexicon id');
+    assertRepositoryIdentifier(studyItemId, 'study item id');
     await this.database.open();
 
     await this.database.transaction(
@@ -663,9 +600,9 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async importStudyItems(input: ImportStudyItemsInput): Promise<ImportStudyItemsResult> {
-    assertIdentifier(input.batchId, 'import batch id');
-    assertIdentifier(input.lexiconId, 'lexicon id');
-    assertTimestamp(input.now, 'import time');
+    assertRepositoryIdentifier(input.batchId, 'import batch id');
+    assertRepositoryIdentifier(input.lexiconId, 'lexicon id');
+    assertRepositoryTimestamp(input.now, 'import time');
     if (input.rows.length === 0) {
       throw new TypeError('import rows must not be empty');
     }
@@ -785,8 +722,8 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async saveStudyNote(input: SaveStudyNoteInput): Promise<StudyNote | undefined> {
-    assertIdentifier(input.studyItemId, 'study item id');
-    assertTimestamp(input.now, 'study note update time');
+    assertRepositoryIdentifier(input.studyItemId, 'study item id');
+    assertRepositoryTimestamp(input.now, 'study note update time');
     await this.database.open();
 
     return this.database.transaction(
@@ -823,7 +760,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   async ensureStarterContent(): Promise<PracticeItem[]> {
     await this.database.open();
     const now = this.clock();
-    assertTimestamp(now, 'clock');
+    assertRepositoryTimestamp(now, 'clock');
 
     await this.database.transaction(
       'rw',
@@ -926,7 +863,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     at: TimestampMs;
     timeZone: string;
   }): Promise<PracticeQueuePlan> {
-    assertTimestamp(input.at, 'queue plan time');
+    assertRepositoryTimestamp(input.at, 'queue plan time');
     if (input.timeZone.trim().length === 0) {
       throw new TypeError('queue plan time zone must not be empty');
     }
@@ -1105,171 +1042,32 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   async getLatestPracticeSession(
     modeId?: PracticeModeId,
   ): Promise<PracticeSession | undefined> {
-    await this.database.open();
-    const sessions = await this.database.practiceSessions.toArray();
-    return sessions
-      .filter((session) => modeId === undefined || session.modeId === modeId)
-      .sort(
-        (left, right) =>
-          right.updatedAt - left.updatedAt ||
-          right.createdAt - left.createdAt ||
-          right.id.localeCompare(left.id),
-      )[0];
+    return this.practiceSessionStore.getLatestPracticeSession(modeId);
   }
 
-  async savePracticeSession(session: PracticeSession): Promise<PracticeSession> {
-    const plainSession = plainPracticeSession(session);
-    assertIdentifier(plainSession.id, 'practice session id');
-    assertTimestamp(plainSession.createdAt, 'practice session creation time');
-    assertTimestamp(plainSession.updatedAt, 'practice session update time');
-    if (plainSession.updatedAt < plainSession.createdAt) {
-      throw new TypeError('practice session update time cannot precede creation time');
-    }
-    if (plainSession.queue.length === 0) {
-      throw new TypeError('practice session queue must not be empty');
-    }
-    if (
-      !Number.isInteger(plainSession.currentIndex) ||
-      plainSession.currentIndex < 0 ||
-      plainSession.currentIndex >= plainSession.queue.length
-    ) {
-      throw new TypeError('practice session current index is out of range');
-    }
-    if (
-      !Number.isFinite(plainSession.speed) ||
-      plainSession.speed < 0.25 ||
-      plainSession.speed > 4
-    ) {
-      throw new TypeError('practice session speed is out of range');
-    }
-
-    await this.database.open();
-    return this.database.transaction(
-      'rw',
-      [this.database.practiceSessions, this.database.studyItems, this.database.words],
-      async () => {
-        const studyItemIds = new Set<string>();
-        for (const queueItem of plainSession.queue) {
-          const studyItem = await this.database.studyItems.get(queueItem.studyItemId);
-          if (studyItem === undefined || studyItem.wordEntryId !== queueItem.wordEntryId) {
-            throw new Error('Practice session queue references invalid study data');
-          }
-          studyItemIds.add(queueItem.studyItemId);
-        }
-
-        const currentQueueItem = plainSession.queue[plainSession.currentIndex];
-        if (
-          plainSession.status !== 'completed' &&
-          (currentQueueItem === undefined ||
-            currentQueueItem.studyItemId !== plainSession.currentStudyItemId)
-        ) {
-          throw new Error('Practice session current item does not match its queue');
-        }
-        for (const studyItemId of Object.keys(plainSession.interactions)) {
-          if (!studyItemIds.has(studyItemId)) {
-            throw new Error('Practice session interaction references an invalid study item');
-          }
-        }
-        if (
-          plainSession.pendingAnswer !== null &&
-          !studyItemIds.has(plainSession.pendingAnswer.studyItemId)
-        ) {
-          throw new Error('Practice session pending answer references invalid study data');
-        }
-
-        const otherSessions = await this.database.practiceSessions.toArray();
-        for (const otherSession of otherSessions) {
-          if (
-            otherSession.id !== plainSession.id &&
-            otherSession.status !== 'completed'
-          ) {
-            await this.database.practiceSessions.put({
-              ...otherSession,
-              status: 'completed',
-              pendingAnswer: null,
-              updatedAt: plainSession.updatedAt,
-              completedAt: plainSession.updatedAt,
-              endedReason: 'abandoned',
-            });
-          }
-        }
-        await this.database.practiceSessions.put(plainSession);
-        return plainSession;
-      },
-    );
+  async savePracticeSession(
+    session: PracticeSession,
+  ): Promise<PracticeSession> {
+    return this.practiceSessionStore.savePracticeSession(session);
   }
 
   async recordPracticeAttempt(
     input: PracticeAttemptInput,
   ): Promise<PracticeAttemptResult> {
-    assertIdentifier(input.id, 'practice attempt id');
-    assertIdentifier(input.studyItemId, 'study item id');
-    assertIdentifier(input.modeId, 'mode id');
-    if (input.sessionId !== null) {
-      assertIdentifier(input.sessionId, 'practice session id');
-    }
-    assertTimestamp(input.occurredAt, 'practice attempt time');
-    const requestFingerprint = practiceFingerprint(input);
-
-    return this.database.transaction(
-      'rw',
-      [this.database.studyItems, this.database.words, this.database.practiceAttempts],
-      async () => {
-        const existing = await this.database.practiceAttempts.get(input.id);
-        if (existing !== undefined) {
-          if (existing.requestFingerprint !== requestFingerprint) {
-            throw new PracticeAttemptConflictError(input.id);
-          }
-          return { outcome: 'duplicate', attempt: existing };
-        }
-
-        const studyItem = await this.database.studyItems.get(input.studyItemId);
-        if (studyItem === undefined) {
-          throw new ReviewSubmissionRejectedError('study-item-not-found');
-        }
-        if (studyItem.direction !== 'meaning-to-spelling') {
-          throw new ReviewSubmissionRejectedError('unsupported-direction');
-        }
-
-        const wordEntry = await this.database.words.get(studyItem.wordEntryId);
-        if (wordEntry === undefined) {
-          throw new Error(`Study item ${studyItem.id} references a missing word entry`);
-        }
-
-        const attempt: PracticeAttempt = {
-          id: input.id,
-          studyItemId: studyItem.id,
-          modeId: input.modeId,
-          sessionId: input.sessionId,
-          direction: studyItem.direction,
-          promptText: wordEntry.meaning,
-          response: input.response,
-          inputMatchedAnswer: inputMatchesWord(wordEntry, input.response),
-          answerWasHidden: input.answerWasHidden,
-          hintUsed: input.hintUsed,
-          answerRevealed: input.answerRevealed,
-          abandoned: input.abandoned,
-          occurredAt: input.occurredAt,
-          requestFingerprint,
-        };
-
-        await this.database.practiceAttempts.add(attempt);
-        return { outcome: 'created', attempt };
-      },
-    );
+    return this.practiceSessionStore.recordPracticeAttempt(input);
   }
 
   async submitReview(input: ReviewSubmissionInput): Promise<ReviewSubmissionResult> {
-    assertIdentifier(input.submissionId, 'review submission id');
-    assertIdentifier(input.studyItemId, 'study item id');
-    assertIdentifier(input.modeId, 'mode id');
+    assertRepositoryIdentifier(input.submissionId, 'review submission id');
+    assertRepositoryIdentifier(input.studyItemId, 'study item id');
+    assertRepositoryIdentifier(input.modeId, 'mode id');
     if (input.sessionId !== null) {
-      assertIdentifier(input.sessionId, 'practice session id');
+      assertRepositoryIdentifier(input.sessionId, 'practice session id');
     }
-    assertTimestamp(input.reviewedAt, 'review time');
+    assertRepositoryTimestamp(input.reviewedAt, 'review time');
 
     const scheduler = await this.scheduler;
-    const requestFingerprint = reviewFingerprint(input);
+    const requestFingerprint = reviewSubmissionFingerprint(input);
 
     return this.database.transaction(
       'rw',
@@ -1428,8 +1226,8 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     studyItemId: string;
     reviewedAt: TimestampMs;
   }): Promise<ReviewRatingPreviews> {
-    assertIdentifier(input.studyItemId, 'study item id');
-    assertTimestamp(input.reviewedAt, 'review preview time');
+    assertRepositoryIdentifier(input.studyItemId, 'study item id');
+    assertRepositoryTimestamp(input.reviewedAt, 'review preview time');
     const scheduler = await this.scheduler;
 
     return this.database.transaction(
@@ -1588,7 +1386,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async listDueReviewItems(at: TimestampMs): Promise<DueReviewItem[]> {
-    assertTimestamp(at, 'due query time');
+    assertRepositoryTimestamp(at, 'due query time');
     await this.database.open();
 
     return this.database.transaction(
