@@ -182,7 +182,24 @@ export interface ReviewSubmissionResult {
 
 export interface BattleCardInstanceView {
   instanceId: string;
-  definitionId: string;
+  definitionId:
+    | 'traveler-strike'
+    | 'companion-guard'
+    | 'ember-rune'
+    | 'herb-pouch'
+    | 'observe-signpost'
+    | 'party-strike';
+}
+
+export interface BattleEnemyView {
+  id: string;
+  hp: number;
+  maxHp: number;
+  block: number;
+  burn: {
+    remainingTurns: number;
+    damagePerTurn: number;
+  } | null;
 }
 
 export interface BattleStateView {
@@ -199,7 +216,7 @@ export interface BattleStateView {
     maxHp: number;
     block: number;
   };
-  enemies: Array<Record<string, unknown>>;
+  enemies: BattleEnemyView[];
   energy: number;
   drawPile: BattleCardInstanceView[];
   drawCursor: number;

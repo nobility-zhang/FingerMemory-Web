@@ -21,6 +21,7 @@ import {
   type UserView,
 } from '../api/client';
 import FlashcardPanel from '../flashcards/FlashcardPanel.vue';
+import BridgeBattlePanel from '../battle/BridgeBattlePanel.vue';
 import PhaserGameHost from '../game-runtime/PhaserGameHost.vue';
 import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
 
@@ -49,6 +50,7 @@ const lexiconDescription = ref('');
 const onlinePlan = ref<QueuePlanView>();
 const onlineSessions = ref<SessionEnvelope[]>([]);
 const onlineSession = ref<SessionEnvelope>();
+const battleSession = ref<SessionEnvelope>();
 const onlineAnswer = ref('');
 const pendingAnswer = ref<PendingAnswerView>();
 const reviewPreviews = ref<ReviewPreviewView>();
@@ -102,6 +104,9 @@ const onlineQueueTotal = computed(
 );
 const isOnlineFlashcardMode = computed(
   () => onlineSession.value?.session.modeId === 'flashcard',
+);
+const isOnlineTypingMode = computed(
+  () => onlineSession.value?.session.modeId === 'keyboard-recall',
 );
 const onlineRatingLabels = computed((): Partial<Record<
   'again' | 'hard' | 'good' | 'easy',
@@ -304,6 +309,35 @@ async function startOnlineSession(
 
 async function startOnlineFlashcardSession(): Promise<void> {
   await startOnlineSession('flashcard');
+}
+
+function startBridgeBattle(): void {
+  if (
+    onlineBusy.value
+    || onlineSession.value === undefined
+    || currentSessionItem.value === undefined
+    || pendingAnswer.value !== undefined
+    || onlineSession.value.session.status !== 'active'
+  ) {
+    return;
+  }
+  onlineAnswer.value = '';
+  pendingAnswer.value = undefined;
+  reviewPreviews.value = undefined;
+  onlineFlashcardNotRemembered.value = false;
+  battleSession.value = onlineSession.value;
+  onlineNotice.value = '溪桥教学战已开始。先完成本轮学习行动。';
+}
+
+function handleBattleSessionChanged(session: SessionEnvelope): void {
+  battleSession.value = session;
+  onlineSession.value = session;
+}
+
+function finishBridgeBattle(): void {
+  battleSession.value = undefined;
+  onlineNotice.value = '已返回在线学习空间。';
+  void refreshOnline();
 }
 
 async function revealOnlineFlashcard(notRemembered = false): Promise<void> {
@@ -692,6 +726,7 @@ async function logout(): Promise<void> {
     onlinePlan.value = undefined;
     onlineSessions.value = [];
     onlineSession.value = undefined;
+    battleSession.value = undefined;
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
     onlineFlashcardNotRemembered.value = false;
@@ -868,6 +903,22 @@ onBeforeUnmount(() => {
           >
             开始在线训练
           </button>
+          <button
+            type="button"
+            class="secondary-action"
+            :disabled="
+              onlineBusy ||
+                onlineSession === undefined ||
+                currentSessionItem === undefined ||
+                pendingAnswer !== undefined ||
+                onlineSession.session.status !== 'active'
+                ||
+                !isOnlineTypingMode
+            "
+            @click="startBridgeBattle"
+          >
+            开始溪桥教学战
+          </button>
           <span v-if="onlineSessions.length > 0">
             可恢复会话 {{ onlineSessions.length }} 个
           </span>
@@ -888,8 +939,17 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
+          <BridgeBattlePanel
+            v-if="battleSession"
+            :api="props.api"
+            :session="battleSession"
+            companion-key="lia"
+            :enable-audio="enableAudio"
+            @session-changed="handleBattleSessionChanged"
+            @finished="finishBridgeBattle"
+          />
           <div
-            v-if="currentSessionItem && isOnlineFlashcardMode"
+            v-if="!battleSession && currentSessionItem && isOnlineFlashcardMode"
             class="online-card online-flashcard"
           >
             <FlashcardPanel
@@ -925,7 +985,7 @@ onBeforeUnmount(() => {
               </template>
             </FlashcardPanel>
           </div>
-          <div v-else-if="currentSessionItem" class="online-card">
+          <div v-else-if="!battleSession && currentSessionItem" class="online-card">
             <p class="section-label">中文释义</p>
             <strong>{{ currentSessionItem.wordEntry.meaning }}</strong>
             <div
@@ -982,7 +1042,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
-          <p v-else class="account-state">本次在线会话已完成。</p>
+          <p v-else-if="!battleSession" class="account-state">本次在线会话已完成。</p>
         </div>
 
         <p v-else-if="onlinePlan?.selected.length === 0" class="account-state">
