@@ -16,6 +16,7 @@ import {
 } from '@lucide/vue';
 import type { FingerMemoryRepository, StorageStatus } from '../core/repository';
 import GmWorkspace from '../admin/GmWorkspace.vue';
+import BattleRulesAcceptance from '../battle/BattleRulesAcceptance.vue';
 import AccountWorkspace from './AccountWorkspace.vue';
 import DataWorkspace from './DataWorkspace.vue';
 import LexiconManager from './LexiconManager.vue';
@@ -36,6 +37,8 @@ const storageStatus = ref<StorageStatus | null>(null);
 const gameFocusMode = ref(false);
 const isGmRoute = window.location.pathname === '/gm'
   || window.location.pathname === '/gm/';
+const isBattleRulesRoute = window.location.pathname === '/rules/card-battle-v1'
+  || window.location.pathname === '/rules/card-battle-v1/';
 const activeView = ref<
   'game' | 'practice' | 'library' | 'review' | 'data' | 'account'
 >('game');
@@ -101,7 +104,7 @@ function openReminderPractice(): void {
 }
 
 onMounted(async () => {
-  if (isGmRoute) {
+  if (isGmRoute || isBattleRulesRoute) {
     return;
   }
   try {
@@ -123,7 +126,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <GmWorkspace v-if="isGmRoute" />
+  <BattleRulesAcceptance v-if="isBattleRulesRoute" />
+  <GmWorkspace v-else-if="isGmRoute" />
   <div v-else class="app-shell" :class="{ 'game-focus-mode': gameFocusMode }">
     <header class="topbar">
       <a class="brand" href="/" aria-label="FingerMemory 首页">

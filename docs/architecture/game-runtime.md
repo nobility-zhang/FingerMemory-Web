@@ -1,6 +1,6 @@
 # 游戏运行时与存档
 
-本文件定义 Phaser/Vue 边界、卡牌命令、音效、故事进度与文本降级。最小音频 Game 生命周期与首个翻面音已落地；卡牌战斗、故事检查和完整音效矩阵仍待实施。游戏数值和玩法规则以 [产品设计](../product/overview.md) 为准，不在这里维护第二份伤害/费用表。
+本文件定义 Phaser/Vue 边界、卡牌命令、音效、故事进度与文本降级。最小音频 Game 生命周期、首个翻面音和纯 TypeScript `card-battle-v1` 规则已落地；Java 战斗命令、故事检查和完整音效矩阵仍待实施。游戏数值和玩法规则以 [产品设计](../product/overview.md) 为准，不在这里维护第二份伤害/费用表。
 
 ## 责任划分与模块
 
@@ -76,6 +76,10 @@ Phaser 负责 Scene、资源载入、精灵/卡牌表现、Tween、粒子和 Sou
 参考：[Phaser 音频与自动播放](https://docs.phaser.io/phaser/concepts/audio)。
 
 ## 卡牌战斗状态与学习桥接
+
+当前纯规则边界位于 `web/src/battle/`。`BattleState` 固定保存 `battleRulesVersion='card-battle-v1'`、schema/state 版本、种子后的 RNG、抽牌游标、手牌/弃牌/耗竭区、敌我生命与护盾、敌人意图和终结状态。`playCard`/`endTurn` 都校验 expected state version，返回不可变新状态和类型化表现事件；房间、网络和 Java 事务尚未接在这层之上。
+
+`web/src/battle/fixtures/card-battle-v1.turn.json` 是共享确定性 fixture：从固定教学牌序执行守护、突刺、余烬、观察和结束回合，最终进入第二回合。规则测试还覆盖种子洗牌、版本冲突、目标/费用、护盾优先、灼烧刷新与致死、弃牌回收、耗竭不回洗、空堆少抽、胜负优先级和版本化 JSON 恢复。内部浏览器入口为 `/rules/card-battle-v1`，只运行真实规则，不提供玩家战斗假流程。
 
 战斗状态至少包含 `battleRulesVersion`、encounterId、turnId、phase、stateVersion、敌我生命/护盾/状态、敌方当前意图、牌实例/抽牌堆/弃牌堆/耗竭区/手牌、能量、一次性伙伴技能、洗牌状态与当前学习目标绑定。静态 cardDefinitionId 与本场 cardInstanceId 分离。
 
