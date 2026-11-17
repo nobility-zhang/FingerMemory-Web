@@ -62,12 +62,20 @@ public class SessionService {
         session.put("modeId", request.modeId());
         session.put("status", "active");
         ArrayNode queue = session.putArray("queue");
+        Set<String> queuedStudyItemIds = new HashSet<>();
         for (QueueEntryView item : plan.selected()) {
+            String studyItemId = item.studyItem().path("id").asText();
+            if (!queuedStudyItemIds.add(studyItemId)) {
+                continue;
+            }
             ObjectNode queueItem = queue.addObject();
-            queueItem.put("studyItemId", item.studyItem().path("id").asText());
+            queueItem.put("studyItemId", studyItemId);
             queueItem.put("wordEntryId", item.wordEntry().path("id").asText());
             queueItem.put("status", "pending");
             queueItem.put("source", item.source());
+        }
+        if (queue.isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, "QUEUE_EMPTY", "当前没有可开始的在线队列");
         }
         session.put("currentIndex", 0);
         session.put("currentStudyItemId", queue.get(0).path("studyItemId").asText());

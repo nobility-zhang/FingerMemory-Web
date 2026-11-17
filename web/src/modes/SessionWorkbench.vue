@@ -19,6 +19,7 @@ import type {
   ReviewRatingPreviews,
 } from '../core/repository';
 import { formatDueLabel } from '../core/due';
+import FlashcardPanel from '../flashcards/FlashcardPanel.vue';
 import {
   abandonPracticeSession,
   completeCurrentSessionItem,
@@ -73,6 +74,7 @@ const ratingPreviewLoading = ref(false);
 const ratingPreviewError = ref<string | null>(null);
 const reviewStatesByStudyItemId = ref<Record<string, ReviewState>>({});
 const reviewStateLoading = ref(false);
+const flashcardNotRemembered = ref(false);
 let ratingPreviewRequest = 0;
 let reviewStateRequest = 0;
 const itemById = computed(
@@ -83,12 +85,17 @@ const orderedItems = computed(() =>
     .map((item) => itemById.value.get(item.studyItemId))
     .filter((item): item is PracticeItem => item !== undefined),
 );
-const activeMode = computed(
-  () =>
-    modeRegistry.get(session.value.modeId)?.manifest ??
-    TRUSTED_MODE_PLUGINS[0]!.manifest,
+const isFlashcardMode = computed(() => session.value.modeId === 'flashcard');
+const activeMode = computed(() =>
+  isFlashcardMode.value
+    ? { label: '经典闪卡' }
+    : modeRegistry.get(session.value.modeId)?.manifest
+      ?? TRUSTED_MODE_PLUGINS[0]!.manifest,
 );
 const availableModes = computed(() => {
+  if (isFlashcardMode.value) {
+    return [];
+  }
   const enabled = new Set(props.enabledModeIds);
   return TRUSTED_MODE_PLUGINS.filter(
     (plugin) =>
@@ -236,6 +243,41 @@ async function revealAnswer(): Promise<void> {
   await persist(revealSessionAnswer(session.value, now()));
 }
 
+async function revealFlashcard(notRemembered = false): Promise<void> {
+  const item = currentItem.value;
+  if (
+    !isFlashcardMode.value ||
+    item === undefined ||
+    isPaused.value ||
+    session.value.pendingAnswer !== null
+  ) {
+    return;
+  }
+  const revealedAt = now();
+  const revealed = revealSessionAnswer(session.value, revealedAt);
+  flashcardNotRemembered.value = notRemembered;
+  await persist({
+    ...revealed,
+    pendingAnswer: {
+      studyItemId: item.studyItem.id,
+      response: '',
+      answerWasHidden: true,
+      hintUsed: false,
+      answerRevealed: true,
+      inputMatchedAnswer: false,
+      assessmentType: 'flashcard-self-report',
+      assessmentPolicyVersion: 2,
+      assessmentStage: 'reveal-for-check',
+      priorExposure: false,
+      explicitNotRemembered: notRemembered,
+      practiceAttemptId: createId('flashcard-practice'),
+      reviewSubmissionId: createId('review'),
+      submittedAt: revealedAt,
+    },
+    updatedAt: revealedAt,
+  });
+}
+
 function normalizeAnswer(value: string): string {
   return value.trim().normalize('NFKC').toLocaleLowerCase('en-US');
 }
@@ -323,6 +365,11 @@ function currentPluginContext() {
 }
 
 function activateMode(modeId: PracticeModeId): void {
+  if (modeId === 'flashcard') {
+    modeRegistry.deactivate();
+    activeModeComponent.value = undefined;
+    return;
+  }
   const instance = modeRegistry.activate(modeId, currentPluginContext());
   activeModeComponent.value = instance.component;
   emitModeEvent({
@@ -455,6 +502,16 @@ async function chooseRating(rating: ReviewRating): Promise<void> {
   } finally {
     busy.value = false;
   }
+}
+
+async function chooseFlashcardRating(rating: ReviewRating): Promise<void> {
+  if (
+    !isFlashcardMode.value ||
+    (flashcardNotRemembered.value && rating !== 'again')
+  ) {
+    return;
+  }
+  await chooseRating(rating);
 }
 
 async function returnToEditing(): Promise<void> {
@@ -602,11 +659,16 @@ watch(
   () => session.value.pendingAnswer,
   (pendingAnswer) => {
     if (pendingAnswer === null) {
+      flashcardNotRemembered.value = false;
       ratingPreviewRequest += 1;
       ratingPreviews.value = undefined;
       ratingPreviewError.value = null;
       ratingPreviewLoading.value = false;
       return;
+    }
+    if (isFlashcardMode.value) {
+      flashcardNotRemembered.value =
+        pendingAnswer.explicitNotRemembered === true;
     }
     void loadRatingPreviews(pendingAnswer);
   },
@@ -617,6 +679,13 @@ watch(
   () => session.value.queue.length,
   () => {
     void loadReviewStates();
+  },
+);
+
+watch(
+  () => session.value.currentStudyItemId,
+  () => {
+    flashcardNotRemembered.value = false;
   },
 );
 </script>
@@ -652,7 +721,7 @@ watch(
       </div>
     </div>
 
-    <div class="mode-toolbar">
+    <div v-if="!isFlashcardMode" class="mode-toolbar">
       <div class="mode-switch" role="group" aria-label="练习模式">
         <button
           v-for="mode in availableModes"
@@ -717,37 +786,58 @@ watch(
     </div>
 
     <template v-else-if="currentItem !== undefined">
-      <component
-        :is="activeModeComponent"
-        :items="orderedItems"
-        :queue="session.queue"
-        :current-index="session.currentIndex"
-        :paused="isPaused"
-        :reduce-motion="session.reduceMotion"
-        :speed="session.speed"
-        @select="selectItem"
-      />
-      <AnswerPanel
-        :current-item="currentItem"
-        :interaction="currentInteraction"
-        :pending-answer="session.pendingAnswer"
+      <FlashcardPanel
+        v-if="isFlashcardMode"
+        :item="currentItem"
+        :position="session.currentIndex + 1"
+        :total="session.queue.length"
+        :flipped="session.pendingAnswer !== null"
         :paused="isPaused"
         :busy="busy"
-        :error="error"
-        :allow-retry="allowRetry"
+        :not-remembered="flashcardNotRemembered"
+        :reduce-motion="session.reduceMotion"
+        :shortcuts-enabled="!confirmAbandon"
         :rating-previews="ratingPreviewLabels"
         :rating-preview-loading="ratingPreviewLoading"
         :rating-preview-error="ratingPreviewError"
-        @draft="updateDraft"
-        @hint="revealHint"
-        @reveal="revealAnswer"
-        @submit="submitAnswer"
+        @flip="revealFlashcard(false)"
+        @not-remembered="revealFlashcard(true)"
+        @rate="chooseFlashcardRating"
         @skip="skipCurrent"
-        @rate="chooseRating"
-        @cancel-rating="returnToEditing"
-        @practice="recordPractice"
-        @retry="retryPractice"
       />
+      <template v-else>
+        <component
+          :is="activeModeComponent"
+          :items="orderedItems"
+          :queue="session.queue"
+          :current-index="session.currentIndex"
+          :paused="isPaused"
+          :reduce-motion="session.reduceMotion"
+          :speed="session.speed"
+          @select="selectItem"
+        />
+        <AnswerPanel
+          :current-item="currentItem"
+          :interaction="currentInteraction"
+          :pending-answer="session.pendingAnswer"
+          :paused="isPaused"
+          :busy="busy"
+          :error="error"
+          :allow-retry="allowRetry"
+          :rating-previews="ratingPreviewLabels"
+          :rating-preview-loading="ratingPreviewLoading"
+          :rating-preview-error="ratingPreviewError"
+          @draft="updateDraft"
+          @hint="revealHint"
+          @reveal="revealAnswer"
+          @submit="submitAnswer"
+          @skip="skipCurrent"
+          @rate="chooseRating"
+          @cancel-rating="returnToEditing"
+          @practice="recordPractice"
+          @retry="retryPractice"
+        />
+      </template>
     </template>
   </section>
 </template>

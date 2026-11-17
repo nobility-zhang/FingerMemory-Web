@@ -142,5 +142,8 @@ export function assessmentRejectionReason(
 export function isAssessmentFormalEligible(
   input: AssessmentEvidenceInput,
 ): boolean {
-  return assessmentRejectionReason({ ...input, rating: 'good' }) === null;
+  return assessmentRejectionReason({
+    ...input,
+    rating: input.explicitNotRemembered ? 'again' : 'good',
+  }) === null;
 }

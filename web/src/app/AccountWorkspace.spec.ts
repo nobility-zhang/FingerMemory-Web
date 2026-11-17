@@ -334,4 +334,201 @@ describe('AccountWorkspace', () => {
       );
     });
   });
+
+  it('runs an online classic flashcard with Space, answer reveal and Again', async () => {
+    const item: SessionItemView = {
+      wordEntry: {
+        id: 'word-flash',
+        term: 'lantern',
+        meaning: '提灯',
+        acceptedAnswers: ['lantern'],
+        hints: [],
+        normalizedTerm: 'lantern',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      studyItem: {
+        id: 'study-flash',
+        wordEntryId: 'word-flash',
+        direction: 'meaning-to-spelling',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      lexiconItem: null,
+      reviewVersion: 0,
+    };
+    const session: PracticeSessionView = {
+      id: 'session-flash',
+      modeId: 'flashcard',
+      status: 'active',
+      queue: [{
+        studyItemId: 'study-flash',
+        wordEntryId: 'word-flash',
+        status: 'pending',
+        source: 'new',
+      }],
+      currentIndex: 0,
+      currentStudyItemId: 'study-flash',
+      interactions: {},
+      pendingAnswer: null,
+      speed: 1,
+      reduceMotion: false,
+      createdAt: 1,
+      updatedAt: 1,
+      pausedAt: null,
+      completedAt: null,
+      version: 0,
+    };
+    const envelope: SessionEnvelope = {
+      session,
+      items: [item],
+      dataVersion: 1,
+    };
+    const pending = {
+      studyItemId: 'study-flash',
+      response: '',
+      answerWasHidden: true,
+      hintUsed: false,
+      answerRevealed: true,
+      inputMatchedAnswer: false,
+      assessmentType: 'flashcard-self-report' as const,
+      assessmentPolicyVersion: 2 as const,
+      assessmentStage: 'reveal-for-check' as const,
+      priorExposure: false,
+      explicitNotRemembered: false,
+      practiceAttemptId: 'flash-attempt',
+      reviewSubmissionId: 'flash-review',
+      submittedAt: 2,
+    };
+    const createSession = vi.fn(async () => envelope);
+    const submitReview = vi.fn(async () => ({
+      outcome: 'created' as const,
+      state: { dueAt: 3, version: 1 },
+      log: { submissionId: 'flash-review', reviewedAt: 2 },
+      session: null,
+      dataVersion: 3,
+      rewardEligible: true,
+    }));
+    const api = {
+      loadCurrentUser: async () => user,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      changePassword: vi.fn(),
+      listLexicons: async () => [],
+      createLexicon: vi.fn(),
+      loadQueuePlan: async () => ({
+        at: 1,
+        timeZone: 'UTC',
+        dayStartAt: 0,
+        dayEndAt: 86_400_000,
+        settings: { newLimit: 10, reviewLimit: 50, paused: false },
+        dueAvailableCount: 0,
+        newAvailableCount: 1,
+        selected: [{
+          studyItem: item.studyItem,
+          wordEntry: item.wordEntry,
+          source: 'new' as const,
+        }],
+        dataVersion: 0,
+      }),
+      listActiveSessions: vi.fn(async () => ({ sessions: [], dataVersion: 0 })),
+      createSession,
+      getSession: vi.fn(async () => ({
+        session: {
+          ...session,
+          status: 'completed' as const,
+          currentStudyItemId: null,
+          completedAt: 3,
+          version: 2,
+        },
+        items: [item],
+        dataVersion: 3,
+      })),
+      updateSession: vi.fn(),
+      submitPracticeResponse: vi.fn(async () => ({
+        attempt: {},
+        pendingAnswer: pending,
+        session: { ...session, pendingAnswer: pending, version: 1 },
+        dataVersion: 2,
+      })),
+      submitPracticeCompletion: vi.fn(),
+      previewReview: vi.fn(async () => ({
+        previews: {
+          again: { rating: 'again', dueAt: 3, scheduledDays: 0 },
+          hard: { rating: 'hard', dueAt: 4, scheduledDays: 1 },
+          good: { rating: 'good', dueAt: 5, scheduledDays: 2 },
+          easy: { rating: 'easy', dueAt: 6, scheduledDays: 3 },
+        },
+        schedulerPackageVersion: '6.0.0',
+        schedulerModelVersion: 'fsrs-7',
+        schedulerConfigHash: 'hash',
+        reviewedAtMs: 2,
+        reviewVersion: 0,
+        sessionVersion: 1,
+        dataVersion: 2,
+      })),
+      submitReview,
+      previewLocalMigration: vi.fn(),
+      importLocalMigration: vi.fn(),
+      exportAccountBackup: vi.fn(),
+      previewAccountBackup: vi.fn(),
+      restoreAccountBackup: vi.fn(),
+      loadGmContext: vi.fn(),
+      listGmUsers: vi.fn(),
+      createGmUser: vi.fn(),
+      updateGmUser: vi.fn(),
+      listGmAudit: vi.fn(),
+    } as AccountClient;
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(AccountWorkspace, { api });
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('开始在线经典闪卡');
+    });
+    const start = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '开始在线经典闪卡',
+    );
+    start?.click();
+    await vi.waitFor(() => {
+      expect(createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ modeId: 'flashcard' }),
+      );
+      expect(root.textContent).toContain('提灯');
+      expect(root.textContent).not.toContain('lantern');
+    });
+
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: ' ',
+      bubbles: true,
+      cancelable: true,
+    }));
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('lantern');
+      expect(root.textContent).toContain('Again');
+    });
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: '1',
+      bubbles: true,
+      cancelable: true,
+    }));
+
+    await vi.waitFor(() => {
+      expect(submitReview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: 'session-flash',
+          submissionId: 'flash-review',
+          rating: 'again',
+          assessmentType: 'flashcard-self-report',
+          assessmentPolicyVersion: 2,
+          assessmentStage: 'reveal-for-check',
+          answerWasHidden: true,
+          answerRevealed: true,
+        }),
+      );
+    });
+  });
 });

@@ -22,6 +22,47 @@ afterEach(async () => {
 });
 
 describe('PracticeWorkspace', () => {
+  it('starts the independent classic flashcard from the local queue', async () => {
+    await FingerMemoryDatabase.delete(databaseName);
+    database = new FingerMemoryDatabase(databaseName);
+    const repository = createFingerMemoryRepository(database, {
+      scheduler,
+      clock: () => Date.now(),
+    });
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '经典闪卡词库',
+      description: '',
+      now: Date.now(),
+    });
+    await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'lantern',
+      meaning: '提灯',
+      acceptedAnswers: [],
+      hints: [],
+      now: Date.now() + 1,
+    });
+
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(PracticeWorkspace, { repository });
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      expect(buttonByText(root, '开始经典闪卡')).toBeDefined();
+    });
+    buttonByText(root, '开始经典闪卡')?.click();
+    await vi.waitFor(async () => {
+      expect(root.textContent).toContain('经典闪卡');
+      expect(root.textContent).toContain('提灯');
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        modeId: 'flashcard',
+      });
+    });
+  });
+
   it('honors disabled mode preferences and keeps one mode enabled', async () => {
     await FingerMemoryDatabase.delete(databaseName);
     database = new FingerMemoryDatabase(databaseName);

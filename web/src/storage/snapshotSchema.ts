@@ -262,6 +262,7 @@ const practiceSessionSchema = z
   .object({
     id: idSchema,
     modeId: z.enum([
+      'flashcard',
       'keyboard-recall',
       'lyrics-scroll',
       'danmaku-stream',

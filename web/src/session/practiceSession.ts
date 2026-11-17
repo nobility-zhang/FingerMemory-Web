@@ -51,7 +51,15 @@ export function createPracticeSession(input: {
     throw new Error('Cannot create a practice session without practice items');
   }
 
-  const queue: PracticeSessionQueueItem[] = input.items.map((item) => ({
+  const sessionItems = input.modeId === 'flashcard'
+    ? input.items.filter(
+        (item, index, all) =>
+          all.findIndex(
+            (candidate) => candidate.studyItem.id === item.studyItem.id,
+          ) === index,
+      )
+    : input.items;
+  const queue: PracticeSessionQueueItem[] = sessionItems.map((item) => ({
     studyItemId: item.studyItem.id,
     wordEntryId: item.wordEntry.id,
     status: 'pending',

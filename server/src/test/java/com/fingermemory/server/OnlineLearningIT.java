@@ -169,7 +169,8 @@ class OnlineLearningIT {
         String lexiconId = createLexicon(user.session(), "翻面卡片词库");
         CreatedStudyItem created = createWord(
                 user.session(), lexiconId, "memory", "记忆");
-        SessionEnvelope session = createSession(user.session(), created.dataVersion());
+        SessionEnvelope session = createSession(
+                user.session(), created.dataVersion(), "flashcard");
         String sessionId = session.session().path("id").asText();
         SessionEnvelope current = getSession(user.session(), sessionId);
         PracticePending pending = submitResponse(
@@ -206,6 +207,7 @@ class OnlineLearningIT {
                 .andExpect(jsonPath("$.log.assessmentType").value("flashcard-self-report"))
                 .andExpect(jsonPath("$.log.assessmentPolicyVersion").value(2))
                 .andExpect(jsonPath("$.log.assessmentStage").value("rate"))
+                .andExpect(jsonPath("$.log.modeId").value("flashcard"))
                 .andExpect(jsonPath("$.log.answerRevealed").value(true));
         assertThat(pending.sessionVersion()).isEqualTo(1);
     }
@@ -734,8 +736,15 @@ class OnlineLearningIT {
 
     private SessionEnvelope createSession(SessionCookie session, long expectedMinimumVersion)
             throws Exception {
+        return createSession(session, expectedMinimumVersion, "keyboard-recall");
+    }
+
+    private SessionEnvelope createSession(
+            SessionCookie session,
+            long expectedMinimumVersion,
+            String modeId) throws Exception {
         ObjectNode body = objectMapper.createObjectNode();
-        body.put("modeId", "keyboard-recall");
+        body.put("modeId", modeId);
         body.put("timeZone", "UTC");
         body.put("newLimit", 10);
         body.put("reviewLimit", 50);

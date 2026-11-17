@@ -155,6 +155,14 @@ onMounted(() => {
                       <dd>{{ log.modeId }}</dd>
                     </div>
                     <div>
+                      <dt>评估策略</dt>
+                      <dd>
+                        {{ log.assessmentType ?? 'legacy-v1' }} ·
+                        v{{ log.assessmentPolicyVersion ?? 1 }} ·
+                        {{ log.assessmentStage ?? 'legacy' }}
+                      </dd>
+                    </div>
+                    <div>
                       <dt>先前后到期</dt>
                       <dd>{{ formatCardDue(log.beforeCard?.dueAt ?? null) }}</dd>
                     </div>
@@ -173,6 +181,10 @@ onMounted(() => {
                     <div>
                       <dt>输入匹配</dt>
                       <dd>{{ log.inputMatchedAnswer ? '匹配' : '不匹配' }}</dd>
+                    </div>
+                    <div>
+                      <dt>明确没想起</dt>
+                      <dd>{{ log.explicitNotRemembered ? '是' : '否' }}</dd>
                     </div>
                     <div>
                       <dt>调度版本</dt>

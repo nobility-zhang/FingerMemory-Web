@@ -14,6 +14,7 @@ import {
   type SessionEnvelope,
   type UserView,
 } from '../api/client';
+import FlashcardPanel from '../flashcards/FlashcardPanel.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -43,6 +44,7 @@ const pendingAnswer = ref<PendingAnswerView>();
 const reviewPreviews = ref<ReviewPreviewView>();
 const onlineBusy = ref(false);
 const onlineNotice = ref<string | null>(null);
+const onlineFlashcardNotRemembered = ref(false);
 const migrationFileName = ref('');
 const migrationSnapshot = ref<unknown>();
 const migrationPreview = ref<MigrationPreview>();
@@ -80,6 +82,24 @@ const onlineCompletedCount = computed(
 const onlineQueueTotal = computed(
   () => onlineSession.value?.session.queue.length ?? 0,
 );
+const isOnlineFlashcardMode = computed(
+  () => onlineSession.value?.session.modeId === 'flashcard',
+);
+const onlineRatingLabels = computed((): Partial<Record<
+  'again' | 'hard' | 'good' | 'easy',
+  string
+>> => {
+  const previews = reviewPreviews.value;
+  if (previews === undefined) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.values(previews.previews).map((preview) => [
+      preview.rating,
+      formatDue(preview.dueAt),
+    ]),
+  );
+});
 
 function errorMessage(cause: unknown): string {
   if (cause instanceof ApiClientError) {
@@ -143,6 +163,7 @@ async function refreshOnline(): Promise<void> {
   if (onlineSession.value === undefined) {
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
+    onlineFlashcardNotRemembered.value = false;
     return;
   }
   const selectedStudyItemId = onlineSession.value.session.currentStudyItemId;
@@ -152,6 +173,8 @@ async function refreshOnline(): Promise<void> {
   const storedPending = onlineSession.value.session.pendingAnswer;
   if (storedPending !== null && selectedItem !== undefined) {
     pendingAnswer.value = storedPending;
+    onlineFlashcardNotRemembered.value =
+      storedPending.explicitNotRemembered === true;
     reviewPreviews.value = await props.api.previewReview({
       sessionId: onlineSession.value.session.id,
       studyItemId: storedPending.studyItemId,
@@ -162,6 +185,7 @@ async function refreshOnline(): Promise<void> {
   } else {
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
+    onlineFlashcardNotRemembered.value = false;
   }
 }
 
@@ -230,7 +254,9 @@ async function createLexicon(): Promise<void> {
   }
 }
 
-async function startOnlineSession(): Promise<void> {
+async function startOnlineSession(
+  modeId: 'keyboard-recall' | 'flashcard' = 'keyboard-recall',
+): Promise<void> {
   if (onlineBusy.value) {
     return;
   }
@@ -238,7 +264,7 @@ async function startOnlineSession(): Promise<void> {
   onlineNotice.value = null;
   try {
     onlineSession.value = await props.api.createSession({
-      modeId: 'keyboard-recall',
+      modeId,
       timeZone: currentTimeZone(),
       newLimit: onlinePlan.value?.settings.newLimit,
       reviewLimit: onlinePlan.value?.settings.reviewLimit,
@@ -247,7 +273,120 @@ async function startOnlineSession(): Promise<void> {
     onlineAnswer.value = '';
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
-    onlineNotice.value = '在线会话已创建。';
+    onlineFlashcardNotRemembered.value = false;
+    onlineNotice.value = modeId === 'flashcard'
+      ? '在线经典闪卡已创建。'
+      : '在线拼写会话已创建。';
+  } catch (cause) {
+    onlineNotice.value = errorMessage(cause);
+  } finally {
+    onlineBusy.value = false;
+  }
+}
+
+async function startOnlineFlashcardSession(): Promise<void> {
+  await startOnlineSession('flashcard');
+}
+
+async function revealOnlineFlashcard(notRemembered = false): Promise<void> {
+  const session = onlineSession.value;
+  const item = currentSessionItem.value;
+  if (
+    onlineBusy.value ||
+    session === undefined ||
+    item === undefined ||
+    pendingAnswer.value !== undefined ||
+    session.session.status !== 'active'
+  ) {
+    return;
+  }
+  onlineBusy.value = true;
+  onlineNotice.value = null;
+  try {
+    const submissionAttemptId = newId();
+    const reviewSubmissionId = newId();
+    const result = await props.api.submitPracticeResponse({
+      sessionId: session.session.id,
+      practiceAttemptId: submissionAttemptId,
+      reviewSubmissionId,
+      studyItemId: item.studyItem.id,
+      response: '',
+      answerWasHidden: true,
+      hintUsed: false,
+      answerRevealed: true,
+      assessmentType: 'flashcard-self-report',
+      assessmentPolicyVersion: 2,
+      assessmentStage: 'reveal-for-check',
+      priorExposure: false,
+      explicitNotRemembered: notRemembered,
+      expectedDataVersion: session.dataVersion,
+      expectedSessionVersion: session.session.version,
+    });
+    onlineSession.value = {
+      ...session,
+      session: result.session,
+      dataVersion: result.dataVersion,
+    };
+    pendingAnswer.value = result.pendingAnswer;
+    onlineFlashcardNotRemembered.value = notRemembered;
+    reviewPreviews.value = await props.api.previewReview({
+      sessionId: result.session.id,
+      studyItemId: result.pendingAnswer.studyItemId,
+      expectedDataVersion: result.dataVersion,
+      expectedSessionVersion: result.session.version,
+      expectedReviewVersion: item.reviewVersion,
+    });
+    onlineNotice.value = notRemembered
+      ? '答案已揭晓。这条卡片只适合记为 Again。'
+      : '翻面完成，请按真实回忆选择评分。';
+  } catch (cause) {
+    onlineNotice.value = errorMessage(cause);
+  } finally {
+    onlineBusy.value = false;
+  }
+}
+
+async function skipOnlineFlashcard(): Promise<void> {
+  const session = onlineSession.value;
+  const item = currentSessionItem.value;
+  if (
+    onlineBusy.value ||
+    session === undefined ||
+    item === undefined ||
+    session.session.status !== 'active'
+  ) {
+    return;
+  }
+  onlineBusy.value = true;
+  onlineNotice.value = null;
+  try {
+    const result = await props.api.submitPracticeCompletion({
+      sessionId: session.session.id,
+      practiceAttemptId: newId(),
+      studyItemId: item.studyItem.id,
+      response: '',
+      answerWasHidden: pendingAnswer.value?.answerWasHidden ?? true,
+      hintUsed: false,
+      answerRevealed: pendingAnswer.value?.answerRevealed ?? false,
+      assessmentType: 'guided-practice',
+      assessmentPolicyVersion: 2,
+      assessmentStage: 'attempt',
+      priorExposure: true,
+      explicitNotRemembered: false,
+      abandoned: true,
+      outcome: 'skipped',
+      expectedDataVersion: session.dataVersion,
+      expectedSessionVersion: session.session.version,
+    });
+    onlineSession.value = {
+      ...session,
+      session: result.session,
+      dataVersion: result.dataVersion,
+    };
+    pendingAnswer.value = undefined;
+    reviewPreviews.value = undefined;
+    onlineFlashcardNotRemembered.value = false;
+    onlineNotice.value = '本张卡片已跳过，没有写入正式复习。';
   } catch (cause) {
     onlineNotice.value = errorMessage(cause);
   } finally {
@@ -346,6 +485,7 @@ async function submitOnlineRating(
     onlineSession.value = await props.api.getSession(session.session.id);
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
+    onlineFlashcardNotRemembered.value = false;
     onlineNotice.value = `正式复习已提交，下次到期 ${formatDue(
       previews.previews[rating].dueAt,
     )}。`;
@@ -533,6 +673,7 @@ async function logout(): Promise<void> {
     onlineSession.value = undefined;
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
+    onlineFlashcardNotRemembered.value = false;
     onlineGeneration += 1;
     username.value = '';
     displayName.value = '';
@@ -694,7 +835,15 @@ onBeforeUnmount(() => {
             type="button"
             class="primary-action"
             :disabled="onlineBusy || onlinePlan?.selected.length === 0"
-            @click="startOnlineSession"
+            @click="startOnlineFlashcardSession"
+          >
+            开始在线经典闪卡
+          </button>
+          <button
+            type="button"
+            class="secondary-action"
+            :disabled="onlineBusy || onlinePlan?.selected.length === 0"
+            @click="startOnlineSession()"
           >
             开始在线训练
           </button>
@@ -718,7 +867,31 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div v-if="currentSessionItem" class="online-card">
+          <div
+            v-if="currentSessionItem && isOnlineFlashcardMode"
+            class="online-card online-flashcard"
+          >
+            <FlashcardPanel
+              :item="currentSessionItem"
+              :position="(onlineSession?.session.currentIndex ?? 0) + 1"
+              :total="onlineQueueTotal"
+              :flipped="pendingAnswer !== undefined"
+              :paused="onlineSession.session.status === 'paused'"
+              :busy="onlineBusy"
+              :not-remembered="onlineFlashcardNotRemembered"
+              :reduce-motion="onlineSession.session.reduceMotion"
+              :rating-previews="onlineRatingLabels"
+              :rating-preview-loading="
+                pendingAnswer !== undefined && reviewPreviews === undefined
+              "
+              :rating-preview-error="null"
+              @flip="revealOnlineFlashcard(false)"
+              @not-remembered="revealOnlineFlashcard(true)"
+              @rate="submitOnlineRating"
+              @skip="skipOnlineFlashcard"
+            />
+          </div>
+          <div v-else-if="currentSessionItem" class="online-card">
             <p class="section-label">中文释义</p>
             <strong>{{ currentSessionItem.wordEntry.meaning }}</strong>
             <div
@@ -981,6 +1154,12 @@ onBeforeUnmount(() => {
   border: 1px solid #c7d5cd;
   border-radius: 8px;
   background: #f7faf8;
+}
+
+.online-card.online-flashcard {
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .online-card > strong {

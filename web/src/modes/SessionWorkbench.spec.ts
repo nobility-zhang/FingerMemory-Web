@@ -123,6 +123,61 @@ afterEach(async () => {
 });
 
 describe('SessionWorkbench modes', () => {
+  it('completes a deduplicated classic flashcard with Space and Again', async () => {
+    session = createPracticeSession({
+      id: 'session-flashcard',
+      modeId: 'flashcard',
+      items: [items[0]!, items[0]!],
+      now,
+      reduceMotion: false,
+    });
+    await repository.savePracticeSession(session);
+    const { root } = await mountWorkbench();
+
+    expect(root.querySelector('#session-title')?.textContent).toBe('经典闪卡');
+    expect(session.queue).toHaveLength(1);
+    expect(root.textContent).toContain('记忆');
+    expect(root.textContent).not.toContain('memory');
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
+    });
+
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: ' ',
+      bubbles: true,
+      cancelable: true,
+    }));
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('memory');
+      expect(buttonByText(root, 'Again')).toBeDefined();
+    });
+    await vi.waitFor(() => {
+      expect(buttonByText(root, 'Again')?.disabled).toBe(false);
+    });
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: '1',
+      bubbles: true,
+      cancelable: true,
+    }));
+
+    await vi.waitFor(async () => {
+      await expect(repository.getReviewLog('review:test')).resolves.toMatchObject({
+        modeId: 'flashcard',
+        rating: 'again',
+        assessmentType: 'flashcard-self-report',
+        assessmentPolicyVersion: 2,
+        assessmentStage: 'rate',
+        answerWasHidden: true,
+        answerRevealed: true,
+        priorExposure: false,
+      });
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        status: 'completed',
+        queue: [{ studyItemId: 'study-memory', status: 'completed' }],
+      });
+    });
+  });
+
   it('keeps input ownership on the active lyric and preserves the draft after selection', async () => {
     const { root } = await mountWorkbench();
     const input = root.querySelector<HTMLInputElement>('#answer-input');

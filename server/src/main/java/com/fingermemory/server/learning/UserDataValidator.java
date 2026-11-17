@@ -17,7 +17,7 @@ import tools.jackson.databind.node.ObjectNode;
 @Component
 public class UserDataValidator {
     private static final Set<String> MODES = Set.of(
-            "keyboard-recall", "lyrics-scroll", "danmaku-stream", "card-rain");
+            "flashcard", "keyboard-recall", "lyrics-scroll", "danmaku-stream", "card-rain");
     private static final Set<String> RATINGS = Set.of("again", "hard", "good", "easy");
 
     public void validate(ObjectNode root, Set<String> lexiconIds) {

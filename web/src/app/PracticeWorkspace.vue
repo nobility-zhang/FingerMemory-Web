@@ -121,7 +121,7 @@ async function loadStarterContent(): Promise<void> {
   }
 }
 
-async function startSession(modeId: PracticeModeId = 'lyrics-scroll'): Promise<void> {
+async function startSession(modeId: PracticeModeId = 'flashcard'): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
@@ -249,7 +249,7 @@ function handleSessionExit(session: PracticeSession): void {
 
 function startAnotherSession(): void {
   activeSession.value = undefined;
-  void startSession(enabledModePlugins.value[0]?.manifest.id ?? 'lyrics-scroll');
+  void startSession('flashcard');
 }
 
 onMounted(() => {
@@ -276,10 +276,11 @@ onMounted(() => {
   <section v-else class="practice-lobby" aria-labelledby="practice-lobby-title">
     <p v-if="error" class="lobby-error" role="alert">{{ error }}</p>
     <div class="lobby-copy">
-      <p class="lobby-kicker">歌词式滚动</p>
-      <h2 id="practice-lobby-title">让词义沿着视线滚动</h2>
+      <p class="lobby-kicker">经典闪卡</p>
+      <h2 id="practice-lobby-title">先回忆，再翻面确认</h2>
       <p>
-        高亮行就是当前输入目标。滚动只负责呈现，提交、提示和跳过都需要你的明确操作。
+        正面只显示中文释义。空格翻面后检查英文，再用 Again、Hard、Good 或 Easy
+        记录真实回忆。模板、动画和伙伴对话不会替你评分。
       </p>
     </div>
 
@@ -328,10 +329,17 @@ onMounted(() => {
       </button>
       <div class="new-session-actions">
         <button
+          type="button"
+          class="primary-action"
+          :disabled="busy || selectedQueueCount === 0"
+          @click="startSession('flashcard')"
+        >
+          开始经典闪卡
+        </button>
+        <button
           v-for="plugin in enabledModePlugins"
           :key="plugin.manifest.id"
           type="button"
-          :class="{ 'primary-action': plugin === enabledModePlugins[0] }"
           :disabled="busy || selectedQueueCount === 0"
           @click="startSession(plugin.manifest.id)"
         >

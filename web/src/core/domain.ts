@@ -24,6 +24,7 @@ export type ReviewLifecycleState = 'new' | 'learning' | 'review' | 'relearning';
 export type ReviewScheduleStatus = 'new' | 'learning' | 'review';
 
 export type PracticeModeId =
+  | 'flashcard'
   | 'keyboard-recall'
   | 'lyrics-scroll'
   | 'danmaku-stream'

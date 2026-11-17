@@ -403,7 +403,7 @@ components:
           type: integer
     PracticeMode:
       type: string
-      enum: [keyboard-recall, lyrics-scroll, danmaku-stream, card-rain]
+      enum: [flashcard, keyboard-recall, lyrics-scroll, danmaku-stream, card-rain]
     PracticeSession:
       type: object
       required:
