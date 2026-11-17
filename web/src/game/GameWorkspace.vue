@@ -16,7 +16,6 @@ import {
 } from '@lucide/vue';
 import {
   accountApi,
-  ApiClientError,
   type AccountClient,
   type LexiconView,
   type PendingAnswerView,
@@ -24,7 +23,6 @@ import {
   type ReviewPreviewView,
   type SessionEnvelope,
   type SessionItemView,
-  type UserView,
 } from '../api/client';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
@@ -33,6 +31,8 @@ import GameResult from './GameResult.vue';
 import GameShortcutHelp from './GameShortcutHelp.vue';
 import GameTrainingStage from './GameTrainingStage.vue';
 import type { GameRunResult } from './types';
+import { gameErrorMessage } from './gameErrorMessage';
+import { useGameAuthentication } from './useGameAuthentication';
 import { useCompanionPreferences } from './useCompanionPreferences';
 import {
   resolveGameShortcut,
@@ -54,23 +54,32 @@ const emit = defineEmits<{
   'classic-study': [];
 }>();
 
-const user = ref<UserView | null>(null);
 const {
   selectedCompanion,
   companionDensity,
   selectCompanion,
   selectCompanionDensity,
 } = useCompanionPreferences();
+const {
+  user,
+  initializing,
+  authenticating,
+  error: authError,
+  mode: authMode,
+  username,
+  displayName,
+  password,
+  initialize: initializeAuthentication,
+  submit: submitAuthentication,
+  dispose: disposeAuthentication,
+} = useGameAuthentication({
+  api: () => props.api,
+  describeError: gameErrorMessage,
+});
 const phase = ref<GamePhase>('login');
-const initializing = ref(true);
 const busy = ref(false);
-const authError = ref<string | null>(null);
 const lobbyError = ref<string | null>(null);
 const sessionError = ref<string | null>(null);
-const authMode = ref<'login' | 'register'>('login');
-const username = ref('');
-const displayName = ref('');
-const password = ref('');
 const plan = ref<QueuePlanView>();
 const lexicons = ref<LexiconView[]>([]);
 const sessions = ref<SessionEnvelope[]>([]);
@@ -126,16 +135,6 @@ const result = computed<GameRunResult>(() => ({
   endedAt: endedAt.value,
   ratings: ratings.value,
 }));
-
-function errorMessage(cause: unknown): string {
-  if (cause instanceof ApiClientError) {
-    return cause.message;
-  }
-  if (cause instanceof Error && cause.message.trim().length > 0) {
-    return cause.message;
-  }
-  return '请求失败，请稍后重试。';
-}
 
 function newId(): string {
   if (typeof crypto.randomUUID === 'function') {
@@ -208,7 +207,7 @@ async function loadLobby(): Promise<void> {
     sessions.value = nextSessions.sessions;
   } catch (cause) {
     if (request === generation) {
-      lobbyError.value = errorMessage(cause);
+      lobbyError.value = gameErrorMessage(cause);
     }
   } finally {
     if (request === generation) {
@@ -217,53 +216,26 @@ async function loadLobby(): Promise<void> {
   }
 }
 
-async function loadCurrentUser(): Promise<void> {
-  initializing.value = true;
+async function initializeGame(): Promise<void> {
   reduceMotion.value = window.matchMedia?.(
     '(prefers-reduced-motion: reduce)',
   ).matches ?? false;
-  try {
-    user.value = await props.api.loadCurrentUser();
-    if (user.value === null) {
-      phase.value = 'login';
-      return;
-    }
-    await loadLobby();
-    phase.value = 'lobby';
-  } catch (cause) {
-    authError.value = errorMessage(cause);
+  const authenticatedUser = await initializeAuthentication();
+  if (authenticatedUser === null) {
     phase.value = 'login';
-  } finally {
-    initializing.value = false;
+    return;
   }
+  await loadLobby();
+  phase.value = 'lobby';
 }
 
 async function submitAuth(): Promise<void> {
-  if (busy.value) {
+  const authenticatedUser = await submitAuthentication();
+  if (authenticatedUser === null) {
     return;
   }
-  busy.value = true;
-  authError.value = null;
-  try {
-    if (authMode.value === 'register') {
-      await props.api.register(username.value, password.value, displayName.value);
-    } else {
-      user.value = await props.api.login(username.value, password.value);
-    }
-    password.value = '';
-    if (user.value === null) {
-      user.value = await props.api.loadCurrentUser();
-    }
-    if (user.value === null) {
-      throw new Error('登录状态不可用');
-    }
-    await loadLobby();
-    phase.value = 'lobby';
-  } catch (cause) {
-    authError.value = errorMessage(cause);
-  } finally {
-    busy.value = false;
-  }
+  await loadLobby();
+  phase.value = 'lobby';
 }
 
 async function enterSession(nextSession: SessionEnvelope): Promise<void> {
@@ -292,7 +264,7 @@ async function enterSession(nextSession: SessionEnvelope): Promise<void> {
         item.reviewVersion,
       );
     } catch (cause) {
-      sessionError.value = errorMessage(cause);
+      sessionError.value = gameErrorMessage(cause);
     }
     return;
   }
@@ -333,7 +305,7 @@ async function startTraining(): Promise<void> {
     });
     await enterSession(created);
   } catch (cause) {
-    lobbyError.value = errorMessage(cause);
+    lobbyError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -363,7 +335,7 @@ async function resumeTraining(): Promise<void> {
       void trainingStage.value?.focusAnswer();
     }
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -385,7 +357,7 @@ async function pauseTraining(): Promise<void> {
     });
     phase.value = 'paused';
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -453,7 +425,7 @@ async function submitFormalAnswer(): Promise<void> {
       item.reviewVersion,
     );
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -475,7 +447,7 @@ async function retryReviewPreview(): Promise<void> {
       item.reviewVersion,
     );
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -511,7 +483,7 @@ async function rateReview(
     lastRating.value = rating;
     await refreshCurrentSession();
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -550,7 +522,7 @@ async function completePractice(outcome: 'completed' | 'skipped'): Promise<void>
     session.value = await props.api.getSession(current.session.id);
     await afterItemCompleted();
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -629,7 +601,7 @@ async function reloadSession(): Promise<void> {
     }
     await enterSession(refreshed);
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -664,7 +636,7 @@ async function leaveTrainingToLobby(): Promise<void> {
     }
     await returnToLobby();
   } catch (cause) {
-    sessionError.value = errorMessage(cause);
+    sessionError.value = gameErrorMessage(cause);
   } finally {
     busy.value = false;
   }
@@ -763,11 +735,12 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 
 onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown);
-  void loadCurrentUser();
+  void initializeGame();
 });
 
 onBeforeUnmount(() => {
   generation += 1;
+  disposeAuthentication();
   window.removeEventListener('keydown', handleGlobalKeydown);
   if (focusMode.value) {
     emit('focus-mode', false);
@@ -875,7 +848,7 @@ onBeforeUnmount(() => {
             <TriangleAlert :size="17" />
             {{ authError }}
           </p>
-          <button type="submit" class="primary-action" :disabled="busy">
+          <button type="submit" class="primary-action" :disabled="authenticating">
             <UserPlus v-if="authMode === 'register'" :size="18" />
             <LogIn v-else :size="18" />
             {{ authMode === 'register' ? '创建旅团账号' : '回到暖灯旅店' }}
