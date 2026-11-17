@@ -26,11 +26,6 @@ import {
   type SessionItemView,
   type UserView,
 } from '../api/client';
-import {
-  companionById,
-  type CompanionId,
-  type CompanionProfile,
-} from '../companions/catalog';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 import InnLobby from '../inn/InnLobby.vue';
@@ -38,6 +33,7 @@ import GameResult from './GameResult.vue';
 import GameShortcutHelp from './GameShortcutHelp.vue';
 import GameTrainingStage from './GameTrainingStage.vue';
 import type { GameRunResult } from './types';
+import { useCompanionPreferences } from './useCompanionPreferences';
 import {
   resolveGameShortcut,
   type GamePhase,
@@ -59,10 +55,12 @@ const emit = defineEmits<{
 }>();
 
 const user = ref<UserView | null>(null);
-const selectedCompanionId = ref<CompanionId>(loadCompanionPreference());
-const companionDensity = ref<'quiet' | 'standard' | 'rich'>(
-  loadCompanionDensity(),
-);
+const {
+  selectedCompanion,
+  companionDensity,
+  selectCompanion,
+  selectCompanionDensity,
+} = useCompanionPreferences();
 const phase = ref<GamePhase>('login');
 const initializing = ref(true);
 const busy = ref(false);
@@ -107,9 +105,6 @@ const lastRating = ref<'again' | 'hard' | 'good' | 'easy'>();
 const trainingStage = ref<InstanceType<typeof GameTrainingStage>>();
 let generation = 0;
 
-const selectedCompanion = computed<CompanionProfile>(
-  () => companionById[selectedCompanionId.value],
-);
 const currentItem = computed<SessionItemView | undefined>(() => {
   const studyItemId = session.value?.session.currentStudyItemId;
   if (studyItemId === null || studyItemId === undefined) {
@@ -151,43 +146,6 @@ function newId(): string {
 
 function currentTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-}
-
-function loadCompanionPreference(): CompanionId {
-  try {
-    return localStorage.getItem('fm.companion') === 'serin' ? 'serin' : 'lia';
-  } catch {
-    return 'lia';
-  }
-}
-
-function selectCompanion(companionId: CompanionId): void {
-  selectedCompanionId.value = companionId;
-  try {
-    localStorage.setItem('fm.companion', companionId);
-  } catch {
-    // Keeping the in-memory choice is enough when storage is unavailable.
-  }
-}
-
-function loadCompanionDensity(): 'quiet' | 'standard' | 'rich' {
-  try {
-    const stored = localStorage.getItem('fm.companionDensity');
-    return stored === 'quiet' || stored === 'rich' ? stored : 'standard';
-  } catch {
-    return 'standard';
-  }
-}
-
-function selectCompanionDensity(
-  density: 'quiet' | 'standard' | 'rich',
-): void {
-  companionDensity.value = density;
-  try {
-    localStorage.setItem('fm.companionDensity', density);
-  } catch {
-    // The current session can still use the preference without persistence.
-  }
 }
 
 function resetPageScroll(): void {
