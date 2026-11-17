@@ -205,6 +205,10 @@ public class ReviewService {
         log.put("answerWasHidden", pending.evidence().answerWasHidden());
         log.put("hintUsed", pending.evidence().hintUsed());
         log.put("answerRevealed", pending.evidence().answerRevealed());
+        pending.evidence().assessment().writeTo(log);
+        if (pending.evidence().assessment().isV2()) {
+            log.put("assessmentStage", "rate");
+        }
         log.put("abandoned", pending.evidence().abandoned());
         if (beforeCard == null) {
             log.putNull("beforeCard");
@@ -282,6 +286,12 @@ public class ReviewService {
         evidence.put("answerWasHidden", request.evidence().answerWasHidden());
         evidence.put("hintUsed", request.evidence().hintUsed());
         evidence.put("answerRevealed", request.evidence().answerRevealed());
+        AssessmentPolicy.Metadata.from(
+                request.evidence().assessmentType(),
+                request.evidence().assessmentPolicyVersion(),
+                request.evidence().assessmentStage(),
+                request.evidence().priorExposure(),
+                request.evidence().explicitNotRemembered()).writeTo(evidence);
         evidence.put("abandoned", request.evidence().abandoned());
         return JsonSupport.fingerprint(objectMapper, value);
     }
@@ -307,22 +317,31 @@ public class ReviewService {
             throw pendingMismatch();
         }
         ReviewEvidence evidence = request.evidence();
-        if (evidence == null || !evidence.userConfirmedRating()
-                || !evidence.answerWasHidden() || evidence.hintUsed()
-                || evidence.answerRevealed() || evidence.abandoned()) {
-            throw new ApiException(HttpStatus.CONFLICT, "FORMAL_REVIEW_INELIGIBLE",
-                    "当前作答不满足正式复习门禁");
+        if (evidence == null) {
+            throw pendingMismatch();
         }
-        if (!pending.path("answerWasHidden").asBoolean()
-                || pending.path("hintUsed").asBoolean()
-                || pending.path("answerRevealed").asBoolean()
-                || attempt.path("abandoned").asBoolean()) {
+        AssessmentPolicy.Metadata evidenceAssessment = AssessmentPolicy.Metadata.from(
+                evidence.assessmentType(),
+                evidence.assessmentPolicyVersion(),
+                evidence.assessmentStage(),
+                evidence.priorExposure(),
+                evidence.explicitNotRemembered());
+        evidenceAssessment.validateStructure();
+        String rejection = AssessmentPolicy.rejection(evidence, request.rating());
+        if (rejection != null) {
             throw new ApiException(HttpStatus.CONFLICT, "FORMAL_REVIEW_INELIGIBLE",
-                    "提示、揭晓或放弃后的作答不能推进正式复习");
+                    "当前作答不满足正式复习门禁：" + rejection);
         }
-        if (!evidence.answerWasHidden()
+        AssessmentPolicy.Metadata pendingAssessment = AssessmentPolicy.Metadata.fromJson(pending);
+        AssessmentPolicy.Metadata attemptAssessment = AssessmentPolicy.Metadata.fromJson(attempt);
+        if (!evidenceAssessment.sameAs(pendingAssessment)
+                || !pendingAssessment.sameAs(attemptAssessment)) {
+            throw pendingMismatch();
+        }
+        if (evidence.answerWasHidden() != pending.path("answerWasHidden").asBoolean()
                 || evidence.hintUsed() != pending.path("hintUsed").asBoolean()
-                || evidence.answerRevealed() != pending.path("answerRevealed").asBoolean()) {
+                || evidence.answerRevealed() != pending.path("answerRevealed").asBoolean()
+                || attempt.path("abandoned").asBoolean()) {
             throw pendingMismatch();
         }
         ObjectNode identity = objectMapper.createObjectNode();
@@ -332,6 +351,7 @@ public class ReviewService {
         identity.put("answerWasHidden", pending.path("answerWasHidden").asBoolean());
         identity.put("hintUsed", pending.path("hintUsed").asBoolean());
         identity.put("answerRevealed", pending.path("answerRevealed").asBoolean());
+        evidenceAssessment.writeTo(identity);
         identity.put("abandoned", attempt.path("abandoned").asBoolean());
         identity.put("submittedAt", JsonSupport.requireLong(pending, "submittedAt"));
         identity.put("reviewSubmissionId", reviewSubmissionId);
@@ -343,7 +363,8 @@ public class ReviewService {
                         pending.path("answerWasHidden").asBoolean(),
                         pending.path("hintUsed").asBoolean(),
                         pending.path("answerRevealed").asBoolean(),
-                        attempt.path("abandoned").asBoolean()),
+                        attempt.path("abandoned").asBoolean(),
+                        pendingAssessment),
                 JsonSupport.fingerprint(objectMapper, identity));
     }
 
@@ -487,6 +508,7 @@ public class ReviewService {
             boolean answerWasHidden,
             boolean hintUsed,
             boolean answerRevealed,
-            boolean abandoned) {
+            boolean abandoned,
+            AssessmentPolicy.Metadata assessment) {
     }
 }

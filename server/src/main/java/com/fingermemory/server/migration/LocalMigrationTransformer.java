@@ -35,7 +35,11 @@ public class LocalMigrationTransformer {
 
         for (ObjectNode record : JsonSupport.objectValues(
                 JsonSupport.requireArray(sourceTables, "appMeta"), "appMeta")) {
-            context.appMeta.add(record.deepCopy());
+            ObjectNode imported = record.deepCopy();
+            if ("data.formatVersion".equals(imported.path("key").asText())) {
+                imported.put("value", "5");
+            }
+            context.appMeta.add(imported);
         }
         for (ObjectNode sourceWord : JsonSupport.objectValues(
                 JsonSupport.requireArray(sourceTables, "words"), "words")) {

@@ -21,9 +21,11 @@ public class UserDataValidator {
     private static final Set<String> RATINGS = Set.of("again", "hard", "good", "easy");
 
     public void validate(ObjectNode root, Set<String> lexiconIds) {
-        if (JsonSupport.requireInt(root, "schemaVersion") != 4
-                || JsonSupport.requireInt(root, "dataFormatVersion") != 4) {
-            throw JsonSupport.validation("仅支持本地 v4 学习数据");
+        int schemaVersion = JsonSupport.requireInt(root, "schemaVersion");
+        int dataFormatVersion = JsonSupport.requireInt(root, "dataFormatVersion");
+        if (!((schemaVersion == 4 && dataFormatVersion == 4)
+                || (schemaVersion == 5 && dataFormatVersion == 5))) {
+            throw JsonSupport.validation("仅支持本地 v4/v5 学习数据");
         }
         JsonNode tablesNode = root.get("tables");
         if (tablesNode == null || !tablesNode.isObject()) {
@@ -93,6 +95,7 @@ public class UserDataValidator {
             if (!studyById.containsKey(studyItemId)) {
                 throw JsonSupport.validation("practice attempt references a missing study item");
             }
+            validateAssessment(attempt, "practice attempt", false);
             String sessionId = nullableIdentifier(attempt, "sessionId");
             if (sessionId != null && !sessionById.containsKey(sessionId)) {
                 throw JsonSupport.validation("practice attempt references a missing session");
@@ -223,6 +226,7 @@ public class UserDataValidator {
             if (!queueStudyItemIds.contains(studyItemId)) {
                 throw JsonSupport.validation("pending answer references an item outside the queue");
             }
+            validateAssessment(pendingAnswer, "pending answer", false);
         }
     }
 
@@ -234,6 +238,7 @@ public class UserDataValidator {
         if (!RATINGS.contains(JsonSupport.requireText(log, "rating", 16))) {
             throw JsonSupport.validation("review log rating is unsupported");
         }
+        validateAssessment(log, "review log", true);
         JsonSupport.requireTimestamp(log, "reviewedAt");
         JsonNode beforeCard = log.get("beforeCard");
         if (beforeCard != null && beforeCard.isObject()) {
@@ -283,6 +288,33 @@ public class UserDataValidator {
         if (weights == null || !weights.isArray() || weights.size() != 34) {
             throw JsonSupport.validation("FSRS-7 scheduler weights must contain 34 values");
         }
+    }
+
+    private void validateAssessment(ObjectNode value, String label, boolean formalLog) {
+        if (!value.has("assessmentPolicyVersion")) {
+            return;
+        }
+        int version = JsonSupport.requireInt(value, "assessmentPolicyVersion");
+        if (version != 1 && version != 2) {
+            throw JsonSupport.validation(label + " assessmentPolicyVersion is unsupported");
+        }
+        if (version != 2) {
+            return;
+        }
+        String type = JsonSupport.requireText(value, "assessmentType", 32);
+        if (!Set.of("typed-recall", "flashcard-self-report", "guided-practice")
+                .contains(type)) {
+            throw JsonSupport.validation(label + " assessmentType is unsupported");
+        }
+        if (formalLog && "guided-practice".equals(type)) {
+            throw JsonSupport.validation("guided practice cannot create a formal review log");
+        }
+        String stage = JsonSupport.requireText(value, "assessmentStage", 32);
+        if (!Set.of("prompt", "attempt", "reveal-for-check", "rate").contains(stage)) {
+            throw JsonSupport.validation(label + " assessmentStage is unsupported");
+        }
+        JsonSupport.requireBoolean(value, "priorExposure");
+        JsonSupport.requireBoolean(value, "explicitNotRemembered");
     }
 
     private String nullableIdentifier(ObjectNode parent, String field) {

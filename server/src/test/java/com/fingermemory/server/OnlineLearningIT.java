@@ -164,6 +164,99 @@ class OnlineLearningIT {
     }
 
     @Test
+    void completesAFlashcardReviewAfterRevealForCheckWithV2Evidence() throws Exception {
+        RegisteredUser user = registerAndLogin("flashcard-user");
+        String lexiconId = createLexicon(user.session(), "翻面卡片词库");
+        CreatedStudyItem created = createWord(
+                user.session(), lexiconId, "memory", "记忆");
+        SessionEnvelope session = createSession(user.session(), created.dataVersion());
+        String sessionId = session.session().path("id").asText();
+        SessionEnvelope current = getSession(user.session(), sessionId);
+        PracticePending pending = submitResponse(
+                user.session(),
+                sessionId,
+                created.studyItemId(),
+                "memory",
+                "flashcard-attempt",
+                "flashcard-review",
+                current.dataVersion(),
+                current.session().path("version").asLong(),
+                "flashcard-self-report",
+                2,
+                "reveal-for-check",
+                false,
+                false,
+                true,
+                true);
+        SessionEnvelope ready = getSession(user.session(), sessionId);
+        ObjectNode review = reviewBody(
+                "good",
+                ready.dataVersion(),
+                0,
+                ready.session().path("version").asLong(),
+                "flashcard-self-report",
+                2,
+                "reveal-for-check",
+                false,
+                false,
+                true,
+                true);
+
+        submitReview(user.session(), sessionId, "flashcard-review", review, 200)
+                .andExpect(jsonPath("$.log.assessmentType").value("flashcard-self-report"))
+                .andExpect(jsonPath("$.log.assessmentPolicyVersion").value(2))
+                .andExpect(jsonPath("$.log.assessmentStage").value("rate"))
+                .andExpect(jsonPath("$.log.answerRevealed").value(true));
+        assertThat(pending.sessionVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void recordsAnExplicitV2NotRememberedEventAsFormalAgain() throws Exception {
+        RegisteredUser user = registerAndLogin("explicit-again-user");
+        String lexiconId = createLexicon(user.session(), "明确遗忘词库");
+        CreatedStudyItem created = createWord(
+                user.session(), lexiconId, "lantern", "提灯");
+        SessionEnvelope session = createSession(user.session(), created.dataVersion());
+        String sessionId = session.session().path("id").asText();
+        SessionEnvelope current = getSession(user.session(), sessionId);
+        submitResponse(
+                user.session(),
+                sessionId,
+                created.studyItemId(),
+                "",
+                "explicit-again-attempt",
+                "explicit-again-review",
+                current.dataVersion(),
+                current.session().path("version").asLong(),
+                "typed-recall",
+                2,
+                "reveal-for-check",
+                true,
+                true,
+                false,
+                true);
+        SessionEnvelope ready = getSession(user.session(), sessionId);
+        ObjectNode review = reviewBody(
+                "again",
+                ready.dataVersion(),
+                0,
+                ready.session().path("version").asLong(),
+                "typed-recall",
+                2,
+                "reveal-for-check",
+                true,
+                true,
+                false,
+                true);
+
+        submitReview(user.session(), sessionId, "explicit-again-review", review, 200)
+                .andExpect(jsonPath("$.log.rating").value("again"))
+                .andExpect(jsonPath("$.log.priorExposure").value(true))
+                .andExpect(jsonPath("$.log.explicitNotRemembered").value(true))
+                .andExpect(jsonPath("$.log.assessmentStage").value("rate"));
+    }
+
+    @Test
     void importsLocalV4IdempotentlyAndMapsIdsPerUser() throws Exception {
         RegisteredUser alice = registerAndLogin("migration-alice");
         ObjectNode snapshot = loadSnapshot();
@@ -229,6 +322,23 @@ class OnlineLearningIT {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM fm_lexicon WHERE owner_id IN (?, ?)",
                 Integer.class, alice.id(), bob.id())).isEqualTo(2);
+    }
+
+    @Test
+    void importsLocalV5AssessmentMetadata() throws Exception {
+        RegisteredUser user = registerAndLogin("migration-v5-user");
+        ObjectNode snapshot = loadSnapshot("local-v5.json");
+        importSnapshot(user.session(), "local-v5-batch", snapshot, 201)
+                .andExpect(jsonPath("$.importedCounts.practiceAttempts").value(1));
+
+        JsonNode attempts = objectMapper.readTree(jdbcTemplate.queryForObject(
+                "SELECT payload_json FROM fm_user_data WHERE owner_id = ?",
+                String.class, user.id())).path("tables").path("practiceAttempts");
+        assertThat(attempts).hasSize(1);
+        assertThat(attempts.get(0).path("assessmentType").asText())
+                .isEqualTo("typed-recall");
+        assertThat(attempts.get(0).path("assessmentPolicyVersion").asInt())
+                .isEqualTo(2);
     }
 
     @Test
@@ -460,6 +570,23 @@ class OnlineLearningIT {
 
     private ObjectNode reviewBody(String rating, long dataVersion,
                                   long reviewVersion, long sessionVersion) {
+        return reviewBody(
+                rating, dataVersion, reviewVersion, sessionVersion,
+                null, null, null, false, false, true, false);
+    }
+
+    private ObjectNode reviewBody(
+            String rating,
+            long dataVersion,
+            long reviewVersion,
+            long sessionVersion,
+            String assessmentType,
+            Integer assessmentPolicyVersion,
+            String assessmentStage,
+            boolean priorExposure,
+            boolean explicitNotRemembered,
+            boolean answerWasHidden,
+            boolean answerRevealed) {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("rating", rating);
         body.put("expectedDataVersion", dataVersion);
@@ -467,9 +594,16 @@ class OnlineLearningIT {
         body.put("expectedSessionVersion", sessionVersion);
         ObjectNode evidence = body.putObject("evidence");
         evidence.put("userConfirmedRating", true);
-        evidence.put("answerWasHidden", true);
+        evidence.put("answerWasHidden", answerWasHidden);
         evidence.put("hintUsed", false);
-        evidence.put("answerRevealed", false);
+        evidence.put("answerRevealed", answerRevealed);
+        if (assessmentType != null) {
+            evidence.put("assessmentType", assessmentType);
+            evidence.put("assessmentPolicyVersion", assessmentPolicyVersion);
+            evidence.put("assessmentStage", assessmentStage);
+            evidence.put("priorExposure", priorExposure);
+            evidence.put("explicitNotRemembered", explicitNotRemembered);
+        }
         evidence.put("abandoned", false);
         return body;
     }
@@ -529,14 +663,55 @@ class OnlineLearningIT {
             String reviewSubmissionId,
             long dataVersion,
             long sessionVersion) throws Exception {
+        return submitResponse(
+                session,
+                sessionId,
+                studyItemId,
+                response,
+                attemptId,
+                reviewSubmissionId,
+                dataVersion,
+                sessionVersion,
+                null,
+                null,
+                null,
+                false,
+                false,
+                true,
+                false);
+    }
+
+    private PracticePending submitResponse(
+            SessionCookie session,
+            String sessionId,
+            String studyItemId,
+            String response,
+            String attemptId,
+            String reviewSubmissionId,
+            long dataVersion,
+            long sessionVersion,
+            String assessmentType,
+            Integer assessmentPolicyVersion,
+            String assessmentStage,
+            boolean priorExposure,
+            boolean explicitNotRemembered,
+            boolean answerWasHidden,
+            boolean answerRevealed) throws Exception {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("practiceAttemptId", attemptId);
         body.put("reviewSubmissionId", reviewSubmissionId);
         body.put("studyItemId", studyItemId);
         body.put("response", response);
-        body.put("answerWasHidden", true);
+        body.put("answerWasHidden", answerWasHidden);
         body.put("hintUsed", false);
-        body.put("answerRevealed", false);
+        body.put("answerRevealed", answerRevealed);
+        if (assessmentType != null) {
+            body.put("assessmentType", assessmentType);
+            body.put("assessmentPolicyVersion", assessmentPolicyVersion);
+            body.put("assessmentStage", assessmentStage);
+            body.put("priorExposure", priorExposure);
+            body.put("explicitNotRemembered", explicitNotRemembered);
+        }
         body.put("abandoned", false);
         body.put("expectedDataVersion", dataVersion);
         body.put("expectedSessionVersion", sessionVersion);
@@ -680,8 +855,12 @@ class OnlineLearningIT {
     }
 
     private ObjectNode loadSnapshot() throws Exception {
+        return loadSnapshot("local-v4.json");
+    }
+
+    private ObjectNode loadSnapshot(String fileName) throws Exception {
         return (ObjectNode) objectMapper.readTree(
-                Files.readString(Path.of("src/test/resources/migration/local-v4.json")));
+                Files.readString(Path.of("src/test/resources/migration/" + fileName)));
     }
 
     private ObjectNode accountBackupAsLocalSnapshot(ObjectNode backup) {

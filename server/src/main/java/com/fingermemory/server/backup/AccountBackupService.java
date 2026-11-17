@@ -230,8 +230,14 @@ public class AccountBackupService {
                 "appMeta", "words", "studyItems", "lexiconItems", "notes",
                 "practiceAttempts", "practiceSessions", "reviewStates", "reviewLogs")) {
             ArrayNode target = targetTables.withArray(table);
-            JsonSupport.requireArray(sourceTables, table)
-                    .forEach(value -> target.add(value.deepCopy()));
+            for (JsonNode value : JsonSupport.requireArray(sourceTables, table)) {
+                ObjectNode record = (ObjectNode) value.deepCopy();
+                if ("appMeta".equals(table)
+                        && "data.formatVersion".equals(record.path("key").asText())) {
+                    record.put("value", "5");
+                }
+                target.add(record);
+            }
         }
         return document;
     }

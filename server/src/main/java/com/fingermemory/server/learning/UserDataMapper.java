@@ -13,7 +13,7 @@ public interface UserDataMapper {
               owner_id, data_version, schema_version, data_format_version, payload_json,
               created_at_ms, updated_at_ms
             ) VALUES (
-              #{ownerId}, 0, 4, 4, CAST(#{payloadJson} AS JSON), #{atMs}, #{atMs}
+              #{ownerId}, 0, 5, 5, CAST(#{payloadJson} AS JSON), #{atMs}, #{atMs}
             )
             """)
     int insertDefault(@Param("ownerId") String ownerId, @Param("payloadJson") String payloadJson,

@@ -214,6 +214,13 @@ public class SessionService {
         ObjectNode wordEntry = documents.requireWordForStudy(locked.document(), studyItem);
         long now = clock.instant().toEpochMilli();
         boolean matched = documents.matchesAnswer(wordEntry, request.response());
+        AssessmentPolicy.Metadata assessment = AssessmentPolicy.Metadata.from(
+                request.assessmentType(),
+                request.assessmentPolicyVersion(),
+                request.assessmentStage(),
+                request.priorExposure(),
+                request.explicitNotRemembered());
+        assessment.validateStructure();
         ObjectNode attempt = locked.document().objectNode();
         attempt.put("id", request.practiceAttemptId());
         attempt.put("studyItemId", request.studyItemId());
@@ -226,6 +233,7 @@ public class SessionService {
         attempt.put("answerWasHidden", request.answerWasHidden());
         attempt.put("hintUsed", request.hintUsed());
         attempt.put("answerRevealed", request.answerRevealed());
+        assessment.writeTo(attempt);
         attempt.put("abandoned", request.abandoned());
         attempt.put("occurredAt", now);
         attempt.put("requestFingerprint", fingerprint);
@@ -237,6 +245,7 @@ public class SessionService {
         pending.put("hintUsed", request.hintUsed());
         pending.put("answerRevealed", request.answerRevealed());
         pending.put("inputMatchedAnswer", matched);
+        assessment.writeTo(pending);
         pending.put("practiceAttemptId", request.practiceAttemptId());
         pending.put("reviewSubmissionId", request.reviewSubmissionId());
         pending.put("submittedAt", now);
@@ -282,6 +291,13 @@ public class SessionService {
         ObjectNode studyItem = documents.requireStudyItem(locked.document(), request.studyItemId());
         ObjectNode wordEntry = documents.requireWordForStudy(locked.document(), studyItem);
         long now = clock.instant().toEpochMilli();
+        AssessmentPolicy.Metadata assessment = AssessmentPolicy.Metadata.from(
+                request.assessmentType(),
+                request.assessmentPolicyVersion(),
+                request.assessmentStage(),
+                request.priorExposure(),
+                request.explicitNotRemembered());
+        assessment.validateStructure();
         ObjectNode attempt = locked.document().objectNode();
         attempt.put("id", request.practiceAttemptId());
         attempt.put("studyItemId", request.studyItemId());
@@ -294,6 +310,7 @@ public class SessionService {
         attempt.put("answerWasHidden", request.answerWasHidden());
         attempt.put("hintUsed", request.hintUsed());
         attempt.put("answerRevealed", request.answerRevealed());
+        assessment.writeTo(attempt);
         attempt.put("abandoned", request.abandoned());
         attempt.put("occurredAt", now);
         attempt.put("requestFingerprint", fingerprint);
@@ -347,6 +364,12 @@ public class SessionService {
         value.put("answerWasHidden", request.answerWasHidden());
         value.put("hintUsed", request.hintUsed());
         value.put("answerRevealed", request.answerRevealed());
+        AssessmentPolicy.Metadata.from(
+                request.assessmentType(),
+                request.assessmentPolicyVersion(),
+                request.assessmentStage(),
+                request.priorExposure(),
+                request.explicitNotRemembered()).writeTo(value);
         value.put("abandoned", request.abandoned());
         return JsonSupport.fingerprint(objectMapper, value);
     }
@@ -361,6 +384,12 @@ public class SessionService {
         value.put("answerWasHidden", request.answerWasHidden());
         value.put("hintUsed", request.hintUsed());
         value.put("answerRevealed", request.answerRevealed());
+        AssessmentPolicy.Metadata.from(
+                request.assessmentType(),
+                request.assessmentPolicyVersion(),
+                request.assessmentStage(),
+                request.priorExposure(),
+                request.explicitNotRemembered()).writeTo(value);
         value.put("abandoned", request.abandoned());
         value.put("outcome", request.outcome());
         return JsonSupport.fingerprint(objectMapper, value);

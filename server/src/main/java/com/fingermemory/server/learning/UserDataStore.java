@@ -75,7 +75,8 @@ public class UserDataStore {
     }
 
     private ObjectNode readNode(UserDataRow row) {
-        if (row.getSchemaVersion() != 4 || row.getDataFormatVersion() != 4) {
+        if (!((row.getSchemaVersion() == 4 && row.getDataFormatVersion() == 4)
+                || (row.getSchemaVersion() == 5 && row.getDataFormatVersion() == 5))) {
             throw new IllegalStateException("Unsupported stored user data format");
         }
         return JsonSupport.copyObject(objectMapper.readTree(row.getPayloadJson()), "user data");

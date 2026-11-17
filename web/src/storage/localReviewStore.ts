@@ -209,6 +209,7 @@ export class LocalReviewStore {
           hintUsed: input.hintUsed,
           answerRevealed: input.answerRevealed,
           ...metadata,
+          assessmentStage: 'rate',
           abandoned: input.abandoned,
           beforeCard,
           afterCard: scheduled.card,

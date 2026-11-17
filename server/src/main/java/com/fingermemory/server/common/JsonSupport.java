@@ -21,8 +21,8 @@ public final class JsonSupport {
 
     public static ObjectNode emptyUserData(ObjectMapper objectMapper) {
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("schemaVersion", 4);
-        root.put("dataFormatVersion", 4);
+        root.put("schemaVersion", 5);
+        root.put("dataFormatVersion", 5);
         ObjectNode tables = root.putObject("tables");
         for (String name : List.of(
                 "appMeta",

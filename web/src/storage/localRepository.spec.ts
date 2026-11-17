@@ -757,7 +757,7 @@ describe('practice and formal review separation', () => {
     expect(result.log).toMatchObject({
       assessmentType: 'flashcard-self-report',
       assessmentPolicyVersion: 2,
-      assessmentStage: 'reveal-for-check',
+      assessmentStage: 'rate',
       answerWasHidden: true,
       answerRevealed: true,
       priorExposure: false,

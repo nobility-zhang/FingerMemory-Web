@@ -2,6 +2,8 @@ package com.fingermemory.server.learning;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -95,6 +97,13 @@ public final class LearningDtos {
             boolean answerWasHidden,
             boolean hintUsed,
             boolean answerRevealed,
+            @Pattern(regexp = "^(typed-recall|flashcard-self-report|guided-practice)$")
+            String assessmentType,
+            @Min(1) @Max(2) Integer assessmentPolicyVersion,
+            @Pattern(regexp = "^(prompt|attempt|reveal-for-check|rate)$")
+            String assessmentStage,
+            Boolean priorExposure,
+            Boolean explicitNotRemembered,
             boolean abandoned,
             @PositiveOrZero long expectedDataVersion,
             @PositiveOrZero long expectedSessionVersion) {
@@ -114,6 +123,13 @@ public final class LearningDtos {
             boolean answerWasHidden,
             boolean hintUsed,
             boolean answerRevealed,
+            @Pattern(regexp = "^(typed-recall|flashcard-self-report|guided-practice)$")
+            String assessmentType,
+            @Min(1) @Max(2) Integer assessmentPolicyVersion,
+            @Pattern(regexp = "^(prompt|attempt|reveal-for-check|rate)$")
+            String assessmentStage,
+            Boolean priorExposure,
+            Boolean explicitNotRemembered,
             boolean abandoned,
             @NotBlank @Pattern(regexp = "^(completed|skipped)$") String outcome,
             @PositiveOrZero long expectedDataVersion,
@@ -138,6 +154,13 @@ public final class LearningDtos {
             boolean answerWasHidden,
             boolean hintUsed,
             boolean answerRevealed,
+            @Pattern(regexp = "^(typed-recall|flashcard-self-report|guided-practice)$")
+            String assessmentType,
+            @Min(1) @Max(2) Integer assessmentPolicyVersion,
+            @Pattern(regexp = "^(prompt|attempt|reveal-for-check|rate)$")
+            String assessmentStage,
+            Boolean priorExposure,
+            Boolean explicitNotRemembered,
             boolean abandoned) {
     }
 

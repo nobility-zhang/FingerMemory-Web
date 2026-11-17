@@ -1,0 +1,86 @@
+{
+  "snapshotVersion": 1,
+  "schemaVersion": 5,
+  "dataFormatVersion": 5,
+  "exportedAt": 1763201000000,
+  "tables": {
+    "appMeta": [
+      {
+        "key": "database.initializedAt",
+        "value": "1763201000000",
+        "updatedAt": 1763201000000
+      },
+      {
+        "key": "data.formatVersion",
+        "value": "5",
+        "updatedAt": 1763201000000
+      }
+    ],
+    "lexicons": [
+      {
+        "id": "lexicon:v5",
+        "name": "v5 评估词库",
+        "description": "H2-01 assessment metadata fixture",
+        "createdAt": 1763201000000,
+        "updatedAt": 1763201000000,
+        "archivedAt": null
+      }
+    ],
+    "words": [
+      {
+        "id": "word:v5",
+        "term": "bridge",
+        "meaning": "桥",
+        "acceptedAnswers": ["bridge"],
+        "hints": [],
+        "normalizedTerm": "bridge",
+        "createdAt": 1763201000000,
+        "updatedAt": 1763201000000
+      }
+    ],
+    "studyItems": [
+      {
+        "id": "study:v5",
+        "wordEntryId": "word:v5",
+        "direction": "meaning-to-spelling",
+        "createdAt": 1763201000000,
+        "updatedAt": 1763201000000
+      }
+    ],
+    "lexiconItems": [
+      {
+        "lexiconId": "lexicon:v5",
+        "studyItemId": "study:v5",
+        "order": 0,
+        "sourceHints": []
+      }
+    ],
+    "notes": [],
+    "practiceAttempts": [
+      {
+        "id": "attempt:v5",
+        "studyItemId": "study:v5",
+        "modeId": "keyboard-recall",
+        "sessionId": null,
+        "direction": "meaning-to-spelling",
+        "promptText": "桥",
+        "response": "bridge",
+        "inputMatchedAnswer": true,
+        "answerWasHidden": true,
+        "hintUsed": false,
+        "answerRevealed": false,
+        "assessmentType": "typed-recall",
+        "assessmentPolicyVersion": 2,
+        "assessmentStage": "attempt",
+        "priorExposure": false,
+        "explicitNotRemembered": false,
+        "abandoned": false,
+        "occurredAt": 1763201000000,
+        "requestFingerprint": "v5-assessment-fixture"
+      }
+    ],
+    "practiceSessions": [],
+    "reviewStates": [],
+    "reviewLogs": []
+  }
+}

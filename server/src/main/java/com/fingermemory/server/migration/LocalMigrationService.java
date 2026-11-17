@@ -257,8 +257,8 @@ public class LocalMigrationService {
                 dataFormat = record.path("value").asText();
             }
         }
-        if (!"4".equals(dataFormat)) {
-            throw JsonSupport.validation("本地快照 data.formatVersion 必须为 4");
+        if (!"4".equals(dataFormat) && !"5".equals(dataFormat)) {
+            throw JsonSupport.validation("本地快照 data.formatVersion 必须为 4 或 5");
         }
         int weights = validateScheduler(snapshot);
         SnapshotCounts counts = counts(tables);
@@ -268,7 +268,7 @@ public class LocalMigrationService {
 
     private ObjectNode requireSnapshot(JsonNode input) {
         if (input == null || !input.isObject()) {
-            throw JsonSupport.validation("请求必须包含本地 v4 快照");
+            throw JsonSupport.validation("请求必须包含本地 v4/v5 快照");
         }
         JsonNode snapshot = input.get("snapshot");
         if (snapshot == null || !snapshot.isObject()) {

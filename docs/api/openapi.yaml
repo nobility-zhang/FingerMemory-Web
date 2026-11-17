@@ -4,7 +4,7 @@ info:
   version: 0.2.0
   description: |
     FingerMemory Web 与 CLI 的共享 HTTP 契约。所有时间为 UTC epoch 毫秒，ID 为不透明字符串。
-    P2 已实现在线队列、服务端会话、正式复习、本地 v4 迁移和用户级备份；
+    P2 已实现在线队列、服务端会话、正式复习、本地 v4/v5 迁移和用户级备份；
     P3 增加游戏流程使用的练习完成命令和共享快捷键契约。
     H0-04 已实现默认管理员一次性初始化、首次改密门禁和 GM 账号/审计基础。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
@@ -193,6 +193,39 @@ components:
     ReviewRating:
       type: string
       enum: [again, hard, good, easy]
+    AssessmentType:
+      type: string
+      enum: [typed-recall, flashcard-self-report, guided-practice]
+      description: |
+        typed-recall 是先隐藏答案再拼写的主动回忆；flashcard-self-report 是先回忆再翻面检查；
+        guided-practice 是已看词、提示、抄写或事先曝光的练习。三者不能互相替代。
+    AssessmentPolicyVersion:
+      type: integer
+      enum: [1, 2]
+      description: |
+        缺失策略字段的历史记录解释为 legacy-v1；新提交使用 2，旧日志不回算。
+    AssessmentStage:
+      type: string
+      enum: [prompt, attempt, reveal-for-check, rate]
+      description: |
+        flashcard-self-report 的正式评分必须先经过 reveal-for-check；guided-practice 永远不写正式状态。
+    AssessmentMetadata:
+      type: object
+      additionalProperties: false
+      required: [assessmentType, assessmentPolicyVersion, assessmentStage, priorExposure, explicitNotRemembered]
+      properties:
+        assessmentType:
+          $ref: '#/components/schemas/AssessmentType'
+        assessmentPolicyVersion:
+          $ref: '#/components/schemas/AssessmentPolicyVersion'
+        assessmentStage:
+          $ref: '#/components/schemas/AssessmentStage'
+        priorExposure:
+          type: boolean
+          description: 作答前是否已看到词面、答案、提示或剧情曝光。
+        explicitNotRemembered:
+          type: boolean
+          description: 玩家是否明确表示“没想起”；该标记只允许对应 Again。
     WordEntry:
       type: object
       required: [id, term, meaning, acceptedAnswers, hints, normalizedTerm, createdAt, updatedAt]
@@ -409,6 +442,8 @@ components:
           oneOf:
             - type: object
               additionalProperties: true
+              description: |
+                可能携带 AssessmentMetadata 字段；缺失策略字段时按 legacy-v1 解释。
             - type: 'null'
         speed:
           type: number
@@ -506,6 +541,16 @@ components:
           type: boolean
         answerRevealed:
           type: boolean
+        assessmentType:
+          $ref: '#/components/schemas/AssessmentType'
+        assessmentPolicyVersion:
+          $ref: '#/components/schemas/AssessmentPolicyVersion'
+        assessmentStage:
+          $ref: '#/components/schemas/AssessmentStage'
+        priorExposure:
+          type: boolean
+        explicitNotRemembered:
+          type: boolean
         abandoned:
           type: boolean
         expectedDataVersion:
@@ -529,6 +574,16 @@ components:
         hintUsed:
           type: boolean
         answerRevealed:
+          type: boolean
+        assessmentType:
+          $ref: '#/components/schemas/AssessmentType'
+        assessmentPolicyVersion:
+          $ref: '#/components/schemas/AssessmentPolicyVersion'
+        assessmentStage:
+          $ref: '#/components/schemas/AssessmentStage'
+        priorExposure:
+          type: boolean
+        explicitNotRemembered:
           type: boolean
         abandoned:
           type: boolean
@@ -564,6 +619,16 @@ components:
             hintUsed:
               type: boolean
             answerRevealed:
+              type: boolean
+            assessmentType:
+              $ref: '#/components/schemas/AssessmentType'
+            assessmentPolicyVersion:
+              $ref: '#/components/schemas/AssessmentPolicyVersion'
+            assessmentStage:
+              $ref: '#/components/schemas/AssessmentStage'
+            priorExposure:
+              type: boolean
+            explicitNotRemembered:
               type: boolean
             abandoned:
               type: boolean
@@ -1820,7 +1885,7 @@ paths:
           description: 用户统计
   /migrations/local/preview:
     post:
-      summary: 预览本地 v4 数据迁移
+      summary: 预览本地 v4/v5 数据迁移
       x-implementation-status: implemented
       security:
         - cookieAuth: []
@@ -1847,7 +1912,7 @@ paths:
                 $ref: '#/components/schemas/MigrationPreview'
   /migrations/local:
     post:
-      summary: 原子导入本地 v4 数据批次
+      summary: 原子导入本地 v4/v5 数据批次
       x-implementation-status: implemented
       security:
         - cookieAuth: []

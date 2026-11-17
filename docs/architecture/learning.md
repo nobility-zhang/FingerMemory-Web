@@ -6,7 +6,7 @@
 
 ### M1 核心表
 
-M1-02 落地 schema v1；当前已通过 Dexie v4 迁移到词条、学习目标、练习会话、练习、复习状态和日志分离的结构，并补齐会话队列来源。定义位于 `web/src/storage/database.ts`，页面只接收 repository 接口，不直接访问 Dexie 表。
+M1-02 落地 schema v1；当前已通过 Dexie v5 迁移到词条、学习目标、练习会话、练习、复习状态和日志分离的结构，并补齐会话队列来源与学习规则 v2 评估元数据。定义位于 `web/src/storage/database.ts`，页面只接收 repository 接口，不直接访问 Dexie 表。
 
 | 表 | 关键字段 | 说明 |
 | --- | --- | --- |
@@ -48,7 +48,7 @@ Flyway `V2__online_learning_and_receipts.sql` 增加：
 
 | 表 | 说明 |
 | --- | --- |
-| `fm_user_data` | 每个用户一行 schema/data format v4 快照，保存词条、学习目标、笔记、练习、会话、正式状态和日志；事务内 `SELECT ... FOR UPDATE`，`data_version` 单调递增。 |
+| `fm_user_data` | 每个用户一行 schema/data format v5 快照，保存词条、学习目标、笔记、练习、会话、正式状态和日志；旧 v4 行在 V5 迁移后保留原业务记录，事务内 `SELECT ... FOR UPDATE`，`data_version` 单调递增。 |
 | `fm_review_receipt` | 用户范围正式复习 submissionId 唯一回执，保存请求指纹和第一次响应。 |
 | `fm_reward_event` | 用户、事件类型和事件 key 唯一；正式复习奖励与状态/日志同事务，导入历史标记为不可奖励。 |
 | `fm_migration_receipt` | 用户范围迁移批次唯一回执。 |
@@ -57,7 +57,7 @@ Flyway `V2__online_learning_and_receipts.sql` 增加：
 
 `V3__backfill_user_data.sql` 为 P1 升级前已有账号回填空 v4 快照，避免升级后首次并发访问竞争创建同一用户行。
 
-选择用户行锁加紧凑 v4 快照，而不是为个人规模拆成大量热表：它让会话、日志链、状态和迁移映射共享一个清晰事务边界，也直接复用客户端既有 v4 校验模型。`fm_lexicon` 仍是独立词库投影；导入批次通过 `import_batch_id` 隔离同名和 ID 空间。后续规模证据需要拆表时，必须保持现有 API、回执和版本语义。
+选择用户行锁加紧凑 v5 快照，而不是为个人规模拆成大量热表：它让会话、日志链、状态和迁移映射共享一个清晰事务边界，也直接复用客户端既有 v4/v5 校验模型。`fm_lexicon` 仍是独立词库投影；导入批次通过 `import_batch_id` 隔离同名和 ID 空间。后续规模证据需要拆表时，必须保持现有 API、回执和版本语义。
 
 ## API 与认证边界
 
@@ -107,7 +107,8 @@ P0 核查结论详见 `docs/architecture/fsrs.md`：当前没有通过 FSRS-7/34
 - M3 通过测试夹具固定输入时间、评分和模型参数，验证相同输入得到稳定结果；只断言能反映失败路径的字段，不复制整个第三方输出对象。
 - 评分使用 Again/Hard/Good/Easy 显式映射；输入正确性、输入速度、动画结果和提示状态只形成作答事实或正式复习门禁，不直接代替用户评分。
 - 评分前通过只读 `previewReviewIntervals` 使用当前卡片、锁定配置和同一个评分时间计算四档预计到期；预览不写状态或日志，最终提交仍由 `submitReview` 原子推进。
-- 当前实现为 legacy-v1 的隐藏/无提示门禁；新增卡片自评和明确遗忘路径按下文 assessmentPolicyVersion=2 迁移，不能只改 UI。
+- legacy-v1 日志继续按旧的隐藏/无提示门禁只读解释；新本地与账号流程使用
+  `assessmentPolicyVersion=2` 的显式评估元数据，不能只改 UI 或把旧日志回算成新规则。
 - 旧 A1 是历史策略，不再作为翻面卡片的限制；A3 同一目标同一会话最多一次正式复习的约束继续有效。旧日志保持原始语义，不回算。
 - 同会话上限由 `submitReview` 在状态与日志事务内再次检查，不依赖 UI 按钮状态；重复的 `submissionId` 仍先按幂等返回原结果。
 - 诊断查询以只读事务汇总每个学习目标唯一的状态、词条和全部不可变日志，并核对相邻日志前后卡片及最新日志与当前状态；异常返回可定位的问题文本，不修改数据。
@@ -116,11 +117,13 @@ P0 核查结论详见 `docs/architecture/fsrs.md`：当前没有通过 FSRS-7/34
 ## 学习规则 v2 与版本兼容
 
 - `assessmentType` 为 `typed-recall`、`flashcard-self-report`、`guided-practice`；和模式、遭遇、客户端来源分别保存。
-- 新评估记录包含 `assessmentPolicyVersion`、展示/尝试/检查答案阶段、是否事先曝光、使用提示、明确“未想起”、评分及持久提交 ID。字段名以定稿 OpenAPI 为准，不将这些示意字段当作现有接口。
+- 当前本地 v5、服务端 DTO/快照与 OpenAPI 同名字段为 `assessmentType`、
+  `assessmentPolicyVersion`、`assessmentStage`、`priorExposure`、
+  `explicitNotRemembered`；正式日志的阶段为 `rate`。
 - 翻面卡片是 prompt→attempt→reveal-for-check→rate；reveal-for-check 合法后允许四档评分。主动“没想起”进入检查答案并明确 Again。服务端不能将揭晓统一当作弊，也不能只凭客户端一个布尔值跳过阶段检查。
 - 拼写回忆独立作答后才揭晓；作答前请求帮助可选择记录失败 Again，再进入 guided-practice。不得先抄正确答案再算 Good/Easy。
 - 保持现有同目标同会话一次正式提交；Again 的下一学习步骤按调度新建到期任务/后续会话，而非同会话无限重记。
-- 旧记录缺失策略字段时解释为 legacy-v1。新本地 schema/备份版本和服务端数据快照版本按实际实现递增；旧版本读取器遇到未来格式应拒绝写入，不能把新记录误当旧门禁处理。
+- 旧记录缺失策略字段时解释为 legacy-v1，不补写字段、不重算、不追溯补发奖励。当前本地 schema/data format、备份导入和服务器快照使用 v5；迁移入口继续接受 v4 并为新记录写入 v5，未来格式必须拒绝而不是降级误读。
 - 不重放旧日志、不改变 FSRS 模型/权重、不追溯补发剧情或经验。扩展 OpenAPI、Zod、Java 校验器、worker 输入边界测试和 CLI 类型时同步提供新旧 fixture。
 
 

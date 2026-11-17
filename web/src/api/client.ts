@@ -163,6 +163,15 @@ export class AccountApi implements AccountClient {
     reviewSubmissionId: string;
     studyItemId: string;
     response: string;
+    assessmentType?: 'typed-recall' | 'flashcard-self-report' | 'guided-practice';
+    assessmentPolicyVersion?: 1 | 2;
+    assessmentStage?: 'prompt' | 'attempt' | 'reveal-for-check' | 'rate';
+    priorExposure?: boolean;
+    explicitNotRemembered?: boolean;
+    answerWasHidden?: boolean;
+    hintUsed?: boolean;
+    answerRevealed?: boolean;
+    abandoned?: boolean;
     expectedDataVersion: number;
     expectedSessionVersion: number;
   }): Promise<PracticeResponseResult> {
@@ -176,10 +185,15 @@ export class AccountApi implements AccountClient {
           reviewSubmissionId: input.reviewSubmissionId,
           studyItemId: input.studyItemId,
           response: input.response,
-          answerWasHidden: true,
-          hintUsed: false,
-          answerRevealed: false,
-          abandoned: false,
+          answerWasHidden: input.answerWasHidden ?? true,
+          hintUsed: input.hintUsed ?? false,
+          answerRevealed: input.answerRevealed ?? false,
+          assessmentType: input.assessmentType,
+          assessmentPolicyVersion: input.assessmentPolicyVersion,
+          assessmentStage: input.assessmentStage,
+          priorExposure: input.priorExposure,
+          explicitNotRemembered: input.explicitNotRemembered,
+          abandoned: input.abandoned ?? false,
           expectedDataVersion: input.expectedDataVersion,
           expectedSessionVersion: input.expectedSessionVersion,
         }),
@@ -192,6 +206,11 @@ export class AccountApi implements AccountClient {
     practiceAttemptId: string;
     studyItemId: string;
     response: string;
+    assessmentType?: 'typed-recall' | 'flashcard-self-report' | 'guided-practice';
+    assessmentPolicyVersion?: 1 | 2;
+    assessmentStage?: 'prompt' | 'attempt' | 'reveal-for-check' | 'rate';
+    priorExposure?: boolean;
+    explicitNotRemembered?: boolean;
     answerWasHidden: boolean;
     hintUsed: boolean;
     answerRevealed: boolean;
@@ -212,6 +231,11 @@ export class AccountApi implements AccountClient {
           answerWasHidden: input.answerWasHidden,
           hintUsed: input.hintUsed,
           answerRevealed: input.answerRevealed,
+          assessmentType: input.assessmentType,
+          assessmentPolicyVersion: input.assessmentPolicyVersion,
+          assessmentStage: input.assessmentStage,
+          priorExposure: input.priorExposure,
+          explicitNotRemembered: input.explicitNotRemembered,
           abandoned: input.abandoned,
           outcome: input.outcome,
           expectedDataVersion: input.expectedDataVersion,
@@ -247,6 +271,15 @@ export class AccountApi implements AccountClient {
     sessionId: string;
     submissionId: string;
     rating: 'again' | 'hard' | 'good' | 'easy';
+    assessmentType?: 'typed-recall' | 'flashcard-self-report' | 'guided-practice';
+    assessmentPolicyVersion?: 1 | 2;
+    assessmentStage?: 'prompt' | 'attempt' | 'reveal-for-check' | 'rate';
+    priorExposure?: boolean;
+    explicitNotRemembered?: boolean;
+    answerWasHidden?: boolean;
+    hintUsed?: boolean;
+    answerRevealed?: boolean;
+    abandoned?: boolean;
     expectedDataVersion: number;
     expectedReviewVersion: number;
     expectedSessionVersion: number;
@@ -266,10 +299,15 @@ export class AccountApi implements AccountClient {
           expectedSessionVersion: input.expectedSessionVersion,
           evidence: {
             userConfirmedRating: true,
-            answerWasHidden: true,
-            hintUsed: false,
-            answerRevealed: false,
-            abandoned: false,
+            answerWasHidden: input.answerWasHidden ?? true,
+            hintUsed: input.hintUsed ?? false,
+            answerRevealed: input.answerRevealed ?? false,
+            assessmentType: input.assessmentType,
+            assessmentPolicyVersion: input.assessmentPolicyVersion,
+            assessmentStage: input.assessmentStage,
+            priorExposure: input.priorExposure,
+            explicitNotRemembered: input.explicitNotRemembered,
+            abandoned: input.abandoned ?? false,
           },
         }),
       },

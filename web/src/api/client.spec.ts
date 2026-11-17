@@ -143,6 +143,13 @@ describe('AccountApi', () => {
       sessionId: 'session-1',
       submissionId: 'submission-1',
       rating: 'good',
+      assessmentType: 'flashcard-self-report',
+      assessmentPolicyVersion: 2,
+      assessmentStage: 'reveal-for-check',
+      priorExposure: false,
+      explicitNotRemembered: false,
+      answerWasHidden: true,
+      answerRevealed: true,
       expectedDataVersion: 2,
       expectedReviewVersion: 0,
       expectedSessionVersion: 1,
@@ -160,6 +167,10 @@ describe('AccountApi', () => {
       evidence: {
         userConfirmedRating: true,
         answerWasHidden: true,
+        answerRevealed: true,
+        assessmentType: 'flashcard-self-report',
+        assessmentPolicyVersion: 2,
+        assessmentStage: 'reveal-for-check',
       },
     });
   });
