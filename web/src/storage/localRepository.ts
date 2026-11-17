@@ -34,7 +34,6 @@ import type {
   UpdateLexiconInput,
   UpdateStudyItemInput,
 } from '../core/repository';
-import { StudyItemNotFoundError } from '../core/repository';
 import type { ReviewScheduler } from '../core/scheduler';
 import {
   normalizeStudyTerm,
@@ -59,8 +58,8 @@ import { LocalPracticeSessionStore } from './localPracticeSessionStore';
 import { LocalReviewStore } from './localReviewStore';
 import { LocalLexiconStore } from './localLexiconStore';
 import { LocalPracticeQueueStore } from './localPracticeQueueStore';
+import { LocalStudyNoteStore } from './localStudyNoteStore';
 import {
-  assertRepositoryIdentifier,
   assertRepositoryTimestamp,
 } from './learningRecordInputs';
 import {
@@ -91,6 +90,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   private readonly reviewStore: LocalReviewStore;
   private readonly lexiconStore: LocalLexiconStore;
   private readonly practiceQueueStore: LocalPracticeQueueStore;
+  private readonly studyNoteStore: LocalStudyNoteStore;
 
   constructor(
     private readonly database: FingerMemoryDatabase,
@@ -104,6 +104,7 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
     this.reviewStore = new LocalReviewStore(database, this.scheduler);
     this.lexiconStore = new LocalLexiconStore(database, idFactory);
     this.practiceQueueStore = new LocalPracticeQueueStore(database);
+    this.studyNoteStore = new LocalStudyNoteStore(database);
   }
 
   async initialize(): Promise<StorageStatus> {
@@ -285,50 +286,11 @@ class DexieFingerMemoryRepository implements FingerMemoryRepository {
   }
 
   async listStudyNotes(): Promise<StudyNote[]> {
-    await this.database.open();
-    const notes = await this.database.notes.toArray();
-    return notes.sort(
-      (left, right) =>
-        left.studyItemId.localeCompare(right.studyItemId) ||
-        right.updatedAt - left.updatedAt ||
-        left.id.localeCompare(right.id),
-    );
+    return this.studyNoteStore.listStudyNotes();
   }
 
   async saveStudyNote(input: SaveStudyNoteInput): Promise<StudyNote | undefined> {
-    assertRepositoryIdentifier(input.studyItemId, 'study item id');
-    assertRepositoryTimestamp(input.now, 'study note update time');
-    await this.database.open();
-
-    return this.database.transaction(
-      'rw',
-      [this.database.studyItems, this.database.notes],
-      async () => {
-        if ((await this.database.studyItems.get(input.studyItemId)) === undefined) {
-          throw new StudyItemNotFoundError(input.studyItemId);
-        }
-        const existing = await this.database.notes
-          .where('studyItemId')
-          .equals(input.studyItemId)
-          .first();
-        if (input.content.trim().length === 0) {
-          if (existing !== undefined) {
-            await this.database.notes.delete(existing.id);
-          }
-          return undefined;
-        }
-
-        const note: StudyNote = {
-          id: existing?.id ?? `note:${input.studyItemId}`,
-          studyItemId: input.studyItemId,
-          content: input.content,
-          createdAt: existing?.createdAt ?? input.now,
-          updatedAt: input.now,
-        };
-        await this.database.notes.put(note);
-        return note;
-      },
-    );
+    return this.studyNoteStore.saveStudyNote(input);
   }
 
   async ensureStarterContent(): Promise<PracticeItem[]> {
