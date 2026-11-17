@@ -17,9 +17,7 @@ import {
 import {
   accountApi,
   type AccountClient,
-  type LexiconView,
   type PendingAnswerView,
-  type QueuePlanView,
   type ReviewPreviewView,
   type SessionEnvelope,
   type SessionItemView,
@@ -34,6 +32,7 @@ import type { GameRunResult } from './types';
 import { gameErrorMessage } from './gameErrorMessage';
 import { useGameAuthentication } from './useGameAuthentication';
 import { useCompanionPreferences } from './useCompanionPreferences';
+import { useGameLobby } from './useGameLobby';
 import {
   resolveGameShortcut,
   type GamePhase,
@@ -78,11 +77,7 @@ const {
 });
 const phase = ref<GamePhase>('login');
 const busy = ref(false);
-const lobbyError = ref<string | null>(null);
 const sessionError = ref<string | null>(null);
-const plan = ref<QueuePlanView>();
-const lexicons = ref<LexiconView[]>([]);
-const sessions = ref<SessionEnvelope[]>([]);
 const session = ref<SessionEnvelope>();
 const answer = ref('');
 const pendingAnswer = ref<PendingAnswerView>();
@@ -112,7 +107,21 @@ const startedAt = ref(0);
 const endedAt = ref(0);
 const lastRating = ref<'again' | 'hard' | 'good' | 'easy'>();
 const trainingStage = ref<InstanceType<typeof GameTrainingStage>>();
-let generation = 0;
+const {
+  plan,
+  lexicons,
+  sessions,
+  loading: lobbyLoading,
+  error: lobbyError,
+  activeSession,
+  load: loadLobby,
+  fetchActiveSessions,
+  dispose: disposeLobby,
+} = useGameLobby({
+  api: () => props.api,
+  describeError: gameErrorMessage,
+  timeZone: currentTimeZone,
+});
 
 const currentItem = computed<SessionItemView | undefined>(() => {
   const studyItemId = session.value?.session.currentStudyItemId;
@@ -121,7 +130,6 @@ const currentItem = computed<SessionItemView | undefined>(() => {
   }
   return session.value?.items.find((item) => item.studyItem.id === studyItemId);
 });
-const activeSession = computed(() => sessions.value[0]);
 const currentHint = computed(() => {
   const hints = currentItem.value?.wordEntry.hints ?? [];
   return hints[hintIndex.value - 1] ?? null;
@@ -184,36 +192,6 @@ function resetRun(): void {
   startedAt.value = 0;
   endedAt.value = 0;
   lastRating.value = undefined;
-}
-
-async function loadLobby(): Promise<void> {
-  if (user.value === null) {
-    return;
-  }
-  const request = ++generation;
-  lobbyError.value = null;
-  busy.value = true;
-  try {
-    const [nextPlan, nextLexicons, nextSessions] = await Promise.all([
-      props.api.loadQueuePlan({ timeZone: currentTimeZone() }),
-      props.api.listLexicons(),
-      props.api.listActiveSessions(),
-    ]);
-    if (request !== generation) {
-      return;
-    }
-    plan.value = nextPlan;
-    lexicons.value = nextLexicons;
-    sessions.value = nextSessions.sessions;
-  } catch (cause) {
-    if (request === generation) {
-      lobbyError.value = gameErrorMessage(cause);
-    }
-  } finally {
-    if (request === generation) {
-      busy.value = false;
-    }
-  }
 }
 
 async function initializeGame(): Promise<void> {
@@ -591,7 +569,7 @@ async function reloadSession(): Promise<void> {
   busy.value = true;
   sessionError.value = null;
   try {
-    sessions.value = (await props.api.listActiveSessions()).sessions;
+    await fetchActiveSessions();
     const refreshed = sessions.value.find(
       (value) => value.session.id === current.session.id,
     );
@@ -739,7 +717,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  generation += 1;
+  disposeLobby();
   disposeAuthentication();
   window.removeEventListener('keydown', handleGlobalKeydown);
   if (focusMode.value) {
@@ -873,7 +851,7 @@ onBeforeUnmount(() => {
       :session-count="sessions.length"
       :companion-density="companionDensity"
       :reduce-motion="reduceMotion"
-      :loading="busy"
+      :loading="busy || lobbyLoading"
       :error="lobbyError"
       @start="startTraining"
       @resume="enterSession"
