@@ -137,6 +137,7 @@ describe('InnLobby', () => {
     expect(Object.keys(lia.portraits)).toEqual(companionExpressions);
     expect(Object.keys(serin.portraits)).toEqual(companionExpressions);
     expect(new Set(Object.values(lia.portraits)).size).toBe(6);
+    expect(new Set(Object.values(serin.portraits)).size).toBe(6);
     expect(companions.map((companion) => companion.id)).toEqual(['lia', 'serin']);
   });
 
