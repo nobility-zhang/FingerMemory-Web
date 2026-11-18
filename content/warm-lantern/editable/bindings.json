@@ -52,6 +52,28 @@
         "friend",
         "return"
       ]
+    },
+    {
+      "nodeId": "coast.tidepools",
+      "wordKeys": [
+        "tide",
+        "shell",
+        "wave"
+      ]
+    },
+    {
+      "nodeId": "coast.letter",
+      "wordKeys": [
+        "shore",
+        "drift"
+      ]
+    },
+    {
+      "nodeId": "coast.lighthouse",
+      "wordKeys": [
+        "beacon",
+        "lighthouse"
+      ]
     }
   ]
 }

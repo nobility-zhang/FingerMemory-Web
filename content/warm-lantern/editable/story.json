@@ -185,6 +185,119 @@
           "type": "chapter-end",
           "title": "第二章完成",
           "text": "钟塔重新走动。菲妮收起地图筒，已经站在旅团身边准备出发。",
+          "nextNodeId": "coast.invitation"
+        }
+      ]
+    },
+    {
+      "chapterId": "coast-1",
+      "title": "潮声海湾",
+      "nodes": [
+        {
+          "nodeId": "coast.invitation",
+          "type": "choice",
+          "title": "潮声海湾",
+          "sceneId": "coast-beach",
+          "costumeId": "beach-swimwear",
+          "text": "第二章的钟声落下后，海风把一张潮湿的漂流信吹到脚边。莉娅把外衣收进布包，瑟琳把记事册塞进草袋，海湾的支路在午后的阳光里展开。",
+          "choices": [
+            {
+              "choiceId": "tidepools",
+              "label": "先去潮汐浅滩查看路标",
+              "targetNodeId": "coast.tidepools"
+            },
+            {
+              "choiceId": "letter",
+              "label": "先把漂流信整理好",
+              "targetNodeId": "coast.letter"
+            },
+            {
+              "choiceId": "continue-main",
+              "label": "不绕路，继续去古树之心",
+              "targetNodeId": "chapter3.arrival"
+            }
+          ]
+        },
+        {
+          "nodeId": "coast.tidepools",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "潮汐浅滩",
+          "sceneId": "coast-tidepools",
+          "costumeId": "beach-swimwear",
+          "text": "潮水退到礁石外，浅滩里留下贝壳、发亮的海藻和一条被冲刷得发白的旧路标。旅伴蹲下来，把 tide 和 shell 写在水边的沙上。",
+          "nextNodeId": "coast.guardian"
+        },
+        {
+          "nodeId": "coast.letter",
+          "type": "dialogue",
+          "speaker": "瑟琳",
+          "portraitCharacterId": "serin",
+          "title": "漂流信",
+          "sceneId": "coast-tidepools",
+          "costumeId": "beach-swimwear",
+          "text": "瑟琳把信纸压在干燥的礁石上，读出被盐渍咬过的字：“请把 light 带给还在海上的人。”她把 shore 和 drift 圈在页角，抬头看见潮水正在退去。",
+          "nextNodeId": "coast.guardian"
+        },
+        {
+          "nodeId": "coast.guardian",
+          "type": "encounter",
+          "title": "潮汐守卫",
+          "sceneId": "coast-tidepools",
+          "costumeId": "beach-swimwear",
+          "encounterId": "tide-guardian",
+          "victoryNodeId": "coast.victory",
+          "rescueNodeId": "coast.rescue",
+          "text": "一只由海水和碎光组成的潮汐守卫从浅滩里站起。它没有夺走路标，只要求你们把刚才看见的词真正想起来。"
+        },
+        {
+          "nodeId": "coast.victory",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "潮水让路",
+          "sceneId": "coast-lighthouse",
+          "costumeId": "beach-swimwear",
+          "text": "潮汐守卫散成一片细小的浪花。灯塔的方向亮起一点暖光，旅伴把灯塔的方位记在漂流信背面，准备沿着海崖去点亮它。",
+          "nextNodeId": "coast.camp"
+        },
+        {
+          "nodeId": "coast.rescue",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "海边休息点",
+          "sceneId": "coast-lighthouse",
+          "costumeId": "beach-swimwear",
+          "text": "你被带回海崖下的浅滩。旅伴把水壶和毛巾递过来，没有责怪你；漂流信还压在石头下，潮声也还在继续。",
+          "nextNodeId": "coast.camp"
+        },
+        {
+          "nodeId": "coast.camp",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "潮声营地",
+          "sceneId": "coast-beach",
+          "costumeId": "beach-swimwear",
+          "recollectionId": "tide-song",
+          "recollectionTitle": "潮声与漂流信",
+          "recollectionText": "莉娅和瑟琳在潮声里把漂流信收进旅记，灯塔的暖光第一次照到海岸。",
+          "text": "你们在背风的礁石后生起一小堆火。莉娅晾好毛巾，瑟琳把信纸夹进记事册；可以在这里切换带队伙伴，也可以让潮声陪你们多坐一会儿。",
+          "nextNodeId": "coast.lighthouse"
+        },
+        {
+          "nodeId": "coast.lighthouse",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "潮声灯塔",
+          "sceneId": "coast-lighthouse",
+          "costumeId": "summer-travel",
+          "text": "离开浅滩前，大家换回轻便的旅行装。灯塔重新亮起，beacon 和 lighthouse 也留在旅记里；回程的路标不再被潮水遮住。",
+          "nextNodeId": "coast.end"
+        },
+        {
+          "nodeId": "coast.end",
+          "type": "chapter-end",
+          "title": "潮声海湾完成",
+          "text": "海风把回信送回旅团手中。你们没有催自己记住所有词，只把这一段潮声和亮起的灯一起收好。",
           "nextNodeId": "chapter3.arrival"
         }
       ]

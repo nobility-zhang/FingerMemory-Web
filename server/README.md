@@ -100,7 +100,8 @@ manifest/TSV/章节/角色/卡牌/遭遇/资源校验器；相同 owner 与 cont
 词条导入账号学习快照并创建在线会话。剧情动作、遭遇创建和战斗结算都使用
 owner 范围、`Idempotency-Key`、请求指纹、`runVersion` 与不可变事件；遭遇绑定唯一
 `card-battle-v1`，只有服务端战斗进入 victory/defeat 后才能推进到对应剧情节点。
-仓库内的第一章可编辑源与 LFS 成品包见 `content/warm-lantern/`。
+仓库内的主线三章加潮声海湾支线可编辑源与 LFS 成品包见 `content/warm-lantern/`；
+当前完整包为 `warm-lantern-3.0.0.fmbook`，旧 `1.0.0`/`2.0.0` 保留给固定版本 run。
 
 遭遇胜利会固定三选一牌组奖励，奖励先保存再推进剧情；run 牌组限制 12–18 张且
 同定义最多三张。角色解锁与剧情回忆按 owner 去重，菲妮在第二章节点加入后可在

@@ -26,6 +26,15 @@
         "herb-pouch",
         "observe-signpost"
       ]
+    },
+    {
+      "encounterId": "tide-guardian",
+      "battleRulesVersion": "card-battle-v1",
+      "rewardCardIds": [
+        "herb-pouch",
+        "observe-signpost",
+        "party-strike"
+      ]
     }
   ]
 }
