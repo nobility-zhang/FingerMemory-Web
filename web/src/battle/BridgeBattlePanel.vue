@@ -184,6 +184,12 @@ const phaseLabel = computed(() => {
       return '准备中';
   }
 });
+const audioStatusLabel = computed(() => {
+  if (!props.enableAudio || audioStatus.value === 'ready') {
+    return '';
+  }
+  return audioStatus.value === 'error' ? '音效不可用' : '音效加载中';
+});
 const shortcutContext = computed<BattleShortcutContext>(() => {
   if (battlePaused.value) {
     return 'paused';
@@ -460,6 +466,7 @@ function chooseCard(card: BattleEnvelopeView['battle']['hand'][number]): void {
     selectedCard.value = card;
     selectedTargetIndex.value = 0;
     notice.value = '选择目标后确认出牌。';
+    focusCurrentContext();
     return;
   }
   void playCard(card, undefined);
@@ -797,8 +804,9 @@ onBeforeUnmount(() => {
       <div class="battle-status">
         <span data-field="battle-phase">{{ phaseLabel }}</span>
         <span data-field="battle-version">v{{ battle?.stateVersion ?? 0 }}</span>
-        <span data-field="shortcut-context">{{ shortcutContext }}</span>
-        <span v-if="enableAudio" data-field="audio-status">{{ audioStatus }}</span>
+        <span v-if="audioStatusLabel" data-field="audio-status">
+          {{ audioStatusLabel }}
+        </span>
         <span
           v-if="enableAudio && audioRateLimitedCount > 0"
           data-field="audio-rate-limited"
@@ -941,9 +949,9 @@ onBeforeUnmount(() => {
 
         <section v-if="battle.battle.phase === 'learning'" class="learning-panel">
           <p class="section-label">本回合唯一学习任务</p>
-          <strong v-if="currentItem" class="learning-meaning">
+          <p v-if="currentItem" class="learning-meaning" tabindex="0">
             {{ currentItem.wordEntry.meaning }}
-          </strong>
+          </p>
           <p v-else class="battle-message battle-message--error">
             当前学习目标不可用，不能伪造战斗能量。
           </p>
@@ -1374,6 +1382,7 @@ onBeforeUnmount(() => {
 .learning-meaning {
   display: block;
   max-height: min(32vh, 16rem);
+  margin: 0;
   overflow: auto;
   color: #fff1cd;
   font-size: clamp(1.5rem, 4vw, 2.4rem);
@@ -1559,7 +1568,8 @@ input:disabled {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+.learning-meaning:focus-visible {
   outline: 3px solid rgb(225 196 119 / 64%);
   outline-offset: 2px;
 }

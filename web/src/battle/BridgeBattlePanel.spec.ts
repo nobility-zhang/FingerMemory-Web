@@ -306,6 +306,7 @@ describe('BridgeBattlePanel', () => {
     await vi.waitFor(() => {
       expect(buttonByText(root, 'bridge-guardian')).toBeDefined();
       expect(root.querySelector('[data-shortcut-context="target-select"]')).not.toBeNull();
+      expect(document.activeElement?.textContent).toContain('bridge-guardian');
     });
     pressKey('Escape');
     await vi.waitFor(() => {
