@@ -15,6 +15,7 @@
     "check": "npm run type-check && npm run lint",
     "test": "vitest run",
     "audio:flip": "node scripts/generate-flashcard-flip-sound.mjs",
+    "audio:battle": "node scripts/generate-battle-sounds.mjs",
     "test:p2-cross": "node scripts/p2-cross-client.mjs",
     "test:p3-fixture": "node scripts/p3-browser-fixture.mjs",
     "test:watch": "vitest",
