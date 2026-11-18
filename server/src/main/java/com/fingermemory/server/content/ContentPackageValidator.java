@@ -112,6 +112,7 @@ public class ContentPackageValidator {
             validateBindings(expanded, vocabulary, story.nodeIds());
             CardSummary cards = validateCards(expanded);
             EncounterSummary encounters = validateEncounters(expanded, cards.cardIds());
+            validateStoryReferences(story, encounters.encounterIds());
             CharacterSummary characters = validateCharacters(expanded, cards.cardIds());
             List<ContentPackageDtos.AssetView> assets =
                     validateAssets(expanded, characters.assetPaths());
@@ -333,6 +334,7 @@ public class ContentPackageValidator {
         }
         Set<String> nodeIds = new HashSet<>();
         Map<String, Set<String>> transitions = new HashMap<>();
+        Map<String, String> encounterByNode = new HashMap<>();
         boolean hasEnding = false;
         for (JsonNode chapter : chapters) {
             requiredIdentifier(chapter, "chapterId");
@@ -354,15 +356,30 @@ public class ContentPackageValidator {
                 Set<String> targets = transitions.computeIfAbsent(
                         nodeId,
                         ignored -> new HashSet<>());
+                if ("choice".equals(type) && requiredArray(node, "choices").isEmpty()) {
+                    throw invalid("choice 节点至少需要一个选项：" + nodeId);
+                }
                 if (node.has("nextNodeId") && !node.path("nextNodeId").isNull()) {
                     targets.add(requiredIdentifier(node, "nextNodeId"));
                 }
                 if (node.has("choices")) {
                     JsonNode choices = requiredArray(node, "choices");
+                    Set<String> choiceIds = new HashSet<>();
                     for (JsonNode choice : choices) {
+                        String choiceId = requiredIdentifier(choice, "choiceId");
+                        if (!choiceIds.add(choiceId)) {
+                            throw invalid("节点 " + nodeId + " 的 choiceId 重复：" + choiceId);
+                        }
                         requiredText(choice, "label", 512);
                         targets.add(requiredIdentifier(choice, "targetNodeId"));
                     }
+                }
+                if ("encounter".equals(type)) {
+                    encounterByNode.put(
+                            nodeId,
+                            requiredIdentifier(node, "encounterId"));
+                    targets.add(requiredIdentifier(node, "victoryNodeId"));
+                    targets.add(requiredIdentifier(node, "rescueNodeId"));
                 }
             }
         }
@@ -376,7 +393,11 @@ public class ContentPackageValidator {
         if (!hasEnding) {
             throw invalid("故事至少需要一个 chapter-end 节点");
         }
-        return new StorySummary(chapters.size(), nodeIds, transitions);
+        return new StorySummary(
+                chapters.size(),
+                nodeIds,
+                transitions,
+                encounterByNode);
     }
 
     private void validateBindings(
@@ -458,6 +479,19 @@ public class ContentPackageValidator {
             validateReferences(rewardCardIds, cardIds, "奖励卡牌");
         }
         return new EncounterSummary(encounterIds);
+    }
+
+    private void validateStoryReferences(
+            StorySummary story,
+            Set<String> encounterIds) {
+        for (Map.Entry<String, String> entry : story.encounterByNode().entrySet()) {
+            String encounterId = entry.getValue();
+            if (!encounterIds.contains(encounterId)) {
+                throw invalid(
+                        "节点 " + entry.getKey()
+                                + " 引用了不存在的 encounterId：" + encounterId);
+            }
+        }
     }
 
     private CharacterSummary validateCharacters(Path expanded, Set<String> cardIds)
@@ -933,7 +967,8 @@ public class ContentPackageValidator {
     private record StorySummary(
             int chapterCount,
             Set<String> nodeIds,
-            Map<String, Set<String>> transitions) {
+            Map<String, Set<String>> transitions,
+            Map<String, String> encounterByNode) {
     }
 
     private record CardSummary(Set<String> cardIds) {

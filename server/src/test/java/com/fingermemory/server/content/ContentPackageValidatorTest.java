@@ -51,7 +51,7 @@ class ContentPackageValidatorTest {
         assertThat(result.contentHash()).matches("[a-f0-9]{64}");
         assertThat(result.wordCount()).isEqualTo(1);
         assertThat(result.chapterCount()).isEqualTo(1);
-        assertThat(result.nodeCount()).isEqualTo(3);
+        assertThat(result.nodeCount()).isEqualTo(6);
         assertThat(result.characterCount()).isEqualTo(1);
         assertThat(result.cardCount()).isEqualTo(1);
         assertThat(result.encounterCount()).isEqualTo(1);
@@ -119,6 +119,55 @@ class ContentPackageValidatorTest {
         assertInvalid(zip(unbound), "没有剧情绑定");
     }
 
+    @Test
+    void rejectsEncounterWithoutContinuationBranchesAndDuplicateChoiceIds()
+            throws Exception {
+        Map<String, byte[]> missingBranches = validFiles();
+        missingBranches.put(
+                "story.json",
+                """
+                {"chapters":[{"chapterId":"chapter-1","title":"暖灯与失语之森","nodes":[
+                  {"nodeId":"inn","type":"choice","choices":[
+                    {"choiceId":"prepare","label":"准备出发","targetNodeId":"bridge"}
+                  ]},
+                  {"nodeId":"bridge","type":"encounter","encounterId":"bridge-guardian",
+                    "victoryNodeId":"camp"},
+                  {"nodeId":"camp","type":"dialogue","nextNodeId":"end"},
+                  {"nodeId":"rest","type":"dialogue","nextNodeId":"end"},
+                  {"nodeId":"end","type":"chapter-end"}
+                ]}]}
+                """.getBytes(StandardCharsets.UTF_8));
+        assertInvalid(zip(missingBranches), "rescueNodeId");
+
+        Map<String, byte[]> duplicateChoices = validFiles();
+        duplicateChoices.put(
+                "story.json",
+                """
+                {"chapters":[{"chapterId":"chapter-1","title":"暖灯与失语之森","nodes":[
+                  {"nodeId":"inn","type":"choice","choices":[
+                    {"choiceId":"prepare","label":"准备出发","targetNodeId":"bridge"},
+                    {"choiceId":"prepare","label":"检查提灯","targetNodeId":"bridge"}
+                  ]},
+                  {"nodeId":"bridge","type":"encounter","encounterId":"bridge-guardian",
+                    "victoryNodeId":"camp","rescueNodeId":"rest"},
+                  {"nodeId":"camp","type":"dialogue","nextNodeId":"end"},
+                  {"nodeId":"rest","type":"dialogue","nextNodeId":"end"},
+                  {"nodeId":"end","type":"chapter-end"}
+                ]}]}
+                """.getBytes(StandardCharsets.UTF_8));
+        assertInvalid(zip(duplicateChoices), "choiceId 重复");
+    }
+
+    @Test
+    void rejectsEncounterThatDoesNotExistInEncounterManifest() throws Exception {
+        Map<String, byte[]> files = validFiles();
+        files.put(
+                "story.json",
+                storyJson("missing-encounter").getBytes(StandardCharsets.UTF_8));
+
+        assertInvalid(zip(files), "不存在的 encounterId");
+    }
+
     private void assertInvalid(byte[] archive, String message) throws IOException {
         Path workspace = Files.createTempDirectory(tempDirectory, "invalid-");
         assertThatThrownBy(() -> validator.validate(
@@ -149,17 +198,11 @@ class ContentPackageValidatorTest {
         files.put(
                 "bindings.json",
                 """
-                {"bindings":[{"nodeId":"bridge","wordKeys":["lantern"]}]}
+                {"bindings":[{"nodeId":"preparation","wordKeys":["lantern"]}]}
                 """.getBytes(StandardCharsets.UTF_8));
         files.put(
                 "story.json",
-                """
-                {"chapters":[{"chapterId":"chapter-1","title":"暖灯与失语之森","nodes":[
-                  {"nodeId":"inn","type":"dialogue","nextNodeId":"bridge"},
-                  {"nodeId":"bridge","type":"encounter","choices":[{"label":"休息","targetNodeId":"rest"}]},
-                  {"nodeId":"rest","type":"chapter-end"}
-                ]}]}
-                """.getBytes(StandardCharsets.UTF_8));
+                storyJson("bridge-guardian").getBytes(StandardCharsets.UTF_8));
         files.put(
                 "cards.json",
                 """
@@ -183,6 +226,25 @@ class ContentPackageValidatorTest {
                 "assets.json",
                 assetsJson(sha256(ONE_PIXEL_PNG)).getBytes(StandardCharsets.UTF_8));
         return files;
+    }
+
+    private String storyJson(String encounterId) {
+        return """
+                {"chapters":[{"chapterId":"chapter-1","title":"暖灯与失语之森","nodes":[
+                  {"nodeId":"inn","type":"choice","title":"旅店","text":"莉娅把暖灯递给你。",
+                    "choices":[{"choiceId":"prepare","label":"准备出发","targetNodeId":"preparation"}]},
+                  {"nodeId":"preparation","type":"dialogue","speaker":"莉娅",
+                    "title":"行囊","text":"带上提灯，沿旧路去溪桥。","nextNodeId":"bridge"},
+                  {"nodeId":"bridge","type":"encounter","title":"溪桥","text":"雾中守卫挡住去路。",
+                    "encounterId":"%s","victoryNodeId":"camp","rescueNodeId":"rest"},
+                  {"nodeId":"camp","type":"camp","speaker":"莉娅","title":"营火",
+                    "text":"火光照亮找回的路标。","nextNodeId":"end"},
+                  {"nodeId":"rest","type":"camp","speaker":"瑟琳","title":"救援",
+                    "text":"伙伴把你带回营火。","nextNodeId":"end"},
+                  {"nodeId":"end","type":"chapter-end","title":"第一章结束",
+                    "text":"暖灯仍在燃烧。"}
+                ]}]}
+                """.formatted(encounterId);
     }
 
     private String manifestJson(

@@ -29,7 +29,7 @@ assets/             # PNG/WebP/JPEG、已声明音频；首版无 3D 模型依�
 
 包内 TSV 固定有表头 `wordKey, term, meaning, acceptedAnswers, hints`（实际以 Tab 分隔）；acceptedAnswers/hints 是 JSON 字符串数组，由标准 TSV 引用/转义承载，空字段解释为 []，不能用逗号再次手工切分。普通旧 TSV 仍是无表头的词面/释义/提示列，导入器必须显式区分两种格式。编码 UTF-8，包内 wordKey 唯一且稳定。
 
-固定节点类型为 dialogue、choice、explore、encounter、camp、chapter-end。首版遭遇类型为 `card-battle-v1`，溪桥守卫是该类型的配置实例。包可配置背景、对白、词组绑定、技能参数和转移，不能执行 JS/Lua、动态 eval、任意 HTML 或自由表达式。
+固定节点类型为 dialogue、choice、explore、encounter、camp、chapter-end。首版遭遇类型为 `card-battle-v1`，溪桥守卫是该类型的配置实例。每个选项必须有节点内唯一的稳定 `choiceId`；encounter 节点必须声明 `encounterId`、`victoryNodeId` 和 `rescueNodeId`，三个引用都由安装校验解析。包可配置背景、对白、词组绑定、技能参数和转移，不能执行 JS/Lua、动态 eval、任意 HTML 或自由表达式。
 
 条件使用有界白名单，如 flagEquals、nodeCompleted、encounterResolved、characterUnlocked、bondMilestoneReached；动作使用 setFlag、startEncounter、unlockNode、unlockCharacter、finishChapter、finishBook。保存前验证目标节点、资源/角色/词条引用、可达入口与结局、可退出路径和非法自动循环。需要循环重访的营地必须是显式玩家动作，不能无限自动执行节点。
 
