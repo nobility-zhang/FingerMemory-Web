@@ -1,4 +1,9 @@
-export const FLASHCARD_FLIP_SOUND_KEY = 'flashcard-flip';
+import {
+  GAME_SOUND_KEYS,
+  type GameSoundKey,
+} from './soundCatalog';
+
+export const FLASHCARD_FLIP_SOUND_KEY = GAME_SOUND_KEYS.flashcardFlip;
 
 export type GameBridgeEvent =
   | {
@@ -17,21 +22,35 @@ export type GameBridgeEvent =
       muted: boolean;
     }
   | {
+      type: 'audio-volume';
+      volume: number;
+    }
+  | {
+      type: 'audio-pause';
+      paused: boolean;
+    }
+  | {
       type: 'audio-play';
       eventId: string;
-      soundKey: typeof FLASHCARD_FLIP_SOUND_KEY;
+      soundKey: GameSoundKey;
       volume: number;
     }
   | {
       type: 'sound-played';
       eventId: string;
-      soundKey: typeof FLASHCARD_FLIP_SOUND_KEY;
+      soundKey: GameSoundKey;
       accepted: boolean;
+    }
+  | {
+      type: 'sound-skipped';
+      eventId: string;
+      soundKey: GameSoundKey;
+      reason: 'rate-limit' | 'paused';
     }
   | {
       type: 'sound-error';
       eventId: string;
-      soundKey: typeof FLASHCARD_FLIP_SOUND_KEY;
+      soundKey: GameSoundKey;
       message: string;
     }
   | {

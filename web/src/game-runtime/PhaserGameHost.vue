@@ -11,14 +11,19 @@ import {
   createPhaserAudioGame,
   type PhaserAudioGameController,
 } from './PhaserAudioGame';
+import type { GameSoundKey } from './soundCatalog';
 
 const props = withDefaults(
   defineProps<{
     muted?: boolean;
+    volume?: number;
+    paused?: boolean;
     createGame?: typeof createPhaserAudioGame;
   }>(),
   {
     muted: false,
+    volume: 1,
+    paused: false,
     createGame: () => createPhaserAudioGame,
   },
 );
@@ -32,6 +37,7 @@ const controller = shallowRef<PhaserAudioGameController>();
 const runtimeState = ref<'starting' | 'ready' | 'error'>('starting');
 const unlocked = ref(false);
 const lastPlayedEventId = ref('');
+const skippedCount = ref(0);
 const runtimeError = ref('');
 let generation = 0;
 let disposed = false;
@@ -39,7 +45,7 @@ let unsubscribeBridge: (() => void) | undefined;
 
 function handleBridgeEvent(event: GameBridgeEvent): void {
   if (event.type === 'game-ready') {
-    runtimeState.value = 'ready';
+    runtimeState.value = runtimeError.value.length === 0 ? 'ready' : 'error';
   } else if (event.type === 'audio-unlocked') {
     unlocked.value = true;
   } else if (event.type === 'sound-played' && event.accepted) {
@@ -47,6 +53,8 @@ function handleBridgeEvent(event: GameBridgeEvent): void {
   } else if (event.type === 'sound-error') {
     runtimeState.value = 'error';
     runtimeError.value = event.message;
+  } else if (event.type === 'sound-skipped') {
+    skippedCount.value += 1;
   }
   emit('event', event);
 }
@@ -67,6 +75,8 @@ async function start(): Promise<void> {
     }
     unsubscribeBridge = nextController.bridge.on(handleBridgeEvent);
     nextController.setMuted(props.muted);
+    nextController.setVolume(props.volume);
+    nextController.setPaused(props.paused);
     controller.value = nextController;
     if (nextController.isReady()) {
       emit('event', { type: 'game-ready' });
@@ -94,16 +104,49 @@ function playFlip(eventId: string): void {
   controller.value?.playFlip(eventId);
 }
 
+function playSound(
+  soundKey: GameSoundKey,
+  eventId: string,
+  volume = 1,
+): void {
+  if (props.muted) {
+    return;
+  }
+  controller.value?.playSound(soundKey, eventId, volume);
+}
+
 function setMuted(muted: boolean): void {
   controller.value?.setMuted(muted);
 }
 
-defineExpose({ playFlip, setMuted });
+function setVolume(volume: number): void {
+  controller.value?.setVolume(volume);
+}
+
+function setPaused(paused: boolean): void {
+  controller.value?.setPaused(paused);
+}
+
+defineExpose({ playSound, playFlip, setMuted, setVolume, setPaused });
 
 watch(
   () => props.muted,
   (muted) => {
     controller.value?.setMuted(muted);
+  },
+);
+
+watch(
+  () => props.volume,
+  (volume) => {
+    controller.value?.setVolume(volume);
+  },
+);
+
+watch(
+  () => props.paused,
+  (paused) => {
+    controller.value?.setPaused(paused);
   },
 );
 
@@ -130,7 +173,10 @@ onBeforeUnmount(() => {
     :data-audio-status="runtimeState"
     :data-audio-unlocked="unlocked"
     :data-audio-muted="muted"
+    :data-audio-volume="volume"
+    :data-audio-paused="paused"
     :data-last-audio-event="lastPlayedEventId"
+    :data-audio-skipped-count="skippedCount"
     :data-audio-error="runtimeError"
   ></div>
 </template>

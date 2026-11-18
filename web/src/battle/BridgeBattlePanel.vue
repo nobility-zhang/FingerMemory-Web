@@ -24,6 +24,7 @@ import {
   type CompanionId,
 } from '../companions/catalog';
 import { CARD_DEFINITIONS } from './cards';
+import { battleSoundCues } from './soundEvents';
 import type { CardDefinition } from './types';
 import PhaserGameHost from '../game-runtime/PhaserGameHost.vue';
 import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
@@ -77,10 +78,15 @@ let claimActionId = '';
 const audio = usePhaserAudio(toRef(props, 'enableAudio'));
 const {
   muted: audioMuted,
+  volume: audioVolume,
+  paused: audioPaused,
   status: audioStatus,
+  rateLimitedCount: audioRateLimitedCount,
   setHost: setAudioHost,
   toggleMuted: toggleAudioMuted,
-  playFlip: playBattleAudio,
+  playSound: playBattleSound,
+  setVolume: setAudioVolume,
+  setPaused: setAudioPaused,
   handleRuntimeEvent: handleAudioRuntimeEvent,
 } = audio;
 
@@ -196,6 +202,15 @@ async function loadLearningSession(sessionId: string): Promise<void> {
   emit('sessionChanged', next);
 }
 
+function playBattleEvents(
+  events: ReadonlyArray<Record<string, unknown>>,
+  prefix: string,
+): void {
+  for (const cue of battleSoundCues(events, prefix)) {
+    playBattleSound(cue.soundKey, cue.eventId, cue.volumeScale);
+  }
+}
+
 async function startBattle(): Promise<void> {
   const initial = props.session.session;
   if (
@@ -225,6 +240,7 @@ async function startBattle(): Promise<void> {
       return;
     }
     battle.value = created;
+    playBattleEvents(created.events, `battle-start:${created.battle.battleId}`);
     await loadLearningSession(initial.id);
     notice.value = '溪桥迷雾守卫挡住了去路，先完成这一轮学习。';
   } catch (cause) {
@@ -343,8 +359,9 @@ async function submitRating(
     battle.value = claimed;
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
+    const completedClaimActionId = claimActionId;
     claimActionId = '';
-    playBattleAudio(`bridge-learning:${pending.reviewSubmissionId}`);
+    playBattleEvents(claimed.events, `learning-claim:${completedClaimActionId}`);
     notice.value = '学习行动完成，获得 3 点能量。现在选择你的战术牌。';
   } catch (cause) {
     error.value = errorMessage(cause);
@@ -397,7 +414,7 @@ async function playCard(
     });
     battle.value = updated;
     selectedCard.value = undefined;
-    playBattleAudio(`bridge-card:${actionId}`);
+    playBattleEvents(updated.events, `card:${actionId}`);
     notice.value = '战术牌已结算。';
   } catch (cause) {
     error.value = errorMessage(cause);
@@ -430,7 +447,7 @@ async function useCompanionSkill(): Promise<void> {
       actionId,
       expectedStateVersion: current.stateVersion,
     });
-    playBattleAudio(`bridge-companion:${actionId}`);
+    playBattleEvents(battle.value.events, `companion:${actionId}`);
     notice.value = `${companion.value.name}的协助已经生效。`;
   } catch (cause) {
     error.value = errorMessage(cause);
@@ -468,7 +485,7 @@ async function endTurn(): Promise<void> {
     });
     battle.value = updated;
     selectedCard.value = undefined;
-    playBattleAudio(`bridge-turn:${actionId}`);
+    playBattleEvents(updated.events, `turn:${actionId}`);
     if (
       updated.battle.phase === 'learning'
       && updated.battle.learningTask !== null
@@ -508,6 +525,12 @@ onBeforeUnmount(() => {
         <span data-field="battle-phase">{{ phaseLabel }}</span>
         <span data-field="battle-version">v{{ battle?.stateVersion ?? 0 }}</span>
         <span v-if="enableAudio" data-field="audio-status">{{ audioStatus }}</span>
+        <span
+          v-if="enableAudio && audioRateLimitedCount > 0"
+          data-field="audio-rate-limited"
+        >
+          限频 {{ audioRateLimitedCount }}
+        </span>
         <button
           v-if="enableAudio"
           type="button"
@@ -517,6 +540,28 @@ onBeforeUnmount(() => {
           @click="toggleAudioMuted"
         >
           {{ audioMuted ? '静音中' : '音效' }}
+        </button>
+        <label v-if="enableAudio" class="audio-volume-control">
+          <span>音量</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            :value="audioVolume"
+            aria-label="音效音量"
+            @input="setAudioVolume(Number(($event.target as HTMLInputElement).value))"
+          />
+        </label>
+        <button
+          v-if="enableAudio"
+          type="button"
+          class="audio-command"
+          :aria-label="audioPaused ? '继续音效' : '暂停音效'"
+          :title="audioPaused ? '继续音效' : '暂停音效'"
+          @click="setAudioPaused(!audioPaused)"
+        >
+          {{ audioPaused ? '继续音效' : '暂停音效' }}
         </button>
       </div>
     </header>
@@ -689,6 +734,8 @@ onBeforeUnmount(() => {
       v-if="enableAudio"
       :ref="setAudioHost"
       :muted="audioMuted"
+      :volume="audioVolume"
+      :paused="audioPaused"
       @event="handleAudioRuntimeEvent"
     />
   </section>
@@ -763,6 +810,19 @@ onBeforeUnmount(() => {
   background: transparent;
   color: #d6bd78;
   cursor: pointer;
+}
+
+.audio-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #b9cec0;
+  font-size: 0.7rem;
+}
+
+.audio-volume-control input {
+  width: 74px;
+  accent-color: #d6bd78;
 }
 
 .battle-stage {
