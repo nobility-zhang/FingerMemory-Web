@@ -69,7 +69,6 @@ public class ContentPackageService {
         requireIdempotencyKey(idempotencyKey);
         Path workspace = createWorkspace();
         Path finalDirectory = null;
-        boolean ownsFinalDirectory = false;
         String fingerprint = null;
         ValidatedContentPackage validated = null;
         try {
@@ -110,19 +109,19 @@ public class ContentPackageService {
             }
 
             finalDirectory = finalDirectory(ownerId, validated.contentHash());
-            if (Files.exists(finalDirectory)) {
-                deleteRecursively(finalDirectory);
+            if (!Files.isDirectory(finalDirectory)) {
+                try {
+                    Files.createDirectories(finalDirectory.getParent());
+                    moveDirectory(validated.extractedDirectory(), finalDirectory);
+                } catch (IOException exception) {
+                    if (!Files.isDirectory(finalDirectory)) {
+                        throw new ApiException(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                "CONTENT_STORAGE_FAILED",
+                                "内容资源存储失败");
+                    }
+                }
             }
-            try {
-                Files.createDirectories(finalDirectory.getParent());
-                moveDirectory(validated.extractedDirectory(), finalDirectory);
-            } catch (IOException exception) {
-                throw new ApiException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "CONTENT_STORAGE_FAILED",
-                        "内容资源存储失败");
-            }
-            ownsFinalDirectory = true;
             String storageRelativePath =
                     packageRoot.relativize(finalDirectory).toString().replace('\\', '/');
             long now = clock.instant().toEpochMilli();
@@ -131,38 +130,31 @@ public class ContentPackageService {
                     validated,
                     storageRelativePath,
                     now);
-            Path createdDirectory = finalDirectory;
-            try {
-                ContentPackageDtos.InstallResult installed = transactionTemplate.execute(status -> {
-                    mapper.insert(row);
-                    for (ContentPackageDtos.AssetView asset : packageData.assets()) {
-                        mapper.insertAsset(new ContentAssetRow(
-                                ownerId,
-                                row.id(),
-                                asset.path(),
-                                asset.sha256(),
-                                asset.mime(),
-                                asset.byteSize(),
-                                asset.kind(),
-                                asset.license(),
-                                now));
-                    }
-                    ContentPackageDtos.InstallResult response =
-                            result("installed", toView(row));
-                    insertReceipt(
+            ContentPackageDtos.InstallResult installed = transactionTemplate.execute(status -> {
+                mapper.insert(row);
+                for (ContentPackageDtos.AssetView asset : packageData.assets()) {
+                    mapper.insertAsset(new ContentAssetRow(
                             ownerId,
-                            idempotencyKey,
-                            packageData.contentHash(),
                             row.id(),
-                            response);
-                    return response;
-                });
-                ownsFinalDirectory = false;
-                return installed;
-            } catch (RuntimeException exception) {
-                deleteRecursively(createdDirectory);
-                throw exception;
-            }
+                            asset.path(),
+                            asset.sha256(),
+                            asset.mime(),
+                            asset.byteSize(),
+                            asset.kind(),
+                            asset.license(),
+                            now));
+                }
+                ContentPackageDtos.InstallResult response =
+                        result("installed", toView(row));
+                insertReceipt(
+                        ownerId,
+                        idempotencyKey,
+                        packageData.contentHash(),
+                        row.id(),
+                        response);
+                return response;
+            });
+            return installed;
         } catch (RuntimeException exception) {
             if (fingerprint != null) {
                 ContentInstallationReceiptRow receipt =
@@ -193,9 +185,6 @@ public class ContentPackageService {
             throw exception;
         } finally {
             deleteRecursively(workspace);
-            if (ownsFinalDirectory && finalDirectory != null) {
-                deleteRecursively(finalDirectory);
-            }
         }
     }
 

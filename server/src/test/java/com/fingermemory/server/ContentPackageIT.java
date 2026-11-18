@@ -236,8 +236,12 @@ class ContentPackageIT {
             start.countDown();
             MvcResult firstResult = first.get(10, TimeUnit.SECONDS);
             MvcResult secondResult = second.get(10, TimeUnit.SECONDS);
-            assertThat(firstResult.getResponse().getStatus()).isEqualTo(201);
-            assertThat(secondResult.getResponse().getStatus()).isEqualTo(201);
+            assertThat(firstResult.getResponse().getStatus())
+                    .as(firstResult.getResponse().getContentAsString())
+                    .isEqualTo(201);
+            assertThat(secondResult.getResponse().getStatus())
+                    .as(secondResult.getResponse().getContentAsString())
+                    .isEqualTo(201);
             String firstId = JsonPath.read(
                     firstResult.getResponse().getContentAsString(),
                     "$.installation.id");
