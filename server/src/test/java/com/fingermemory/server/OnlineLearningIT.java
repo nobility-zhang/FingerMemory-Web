@@ -43,6 +43,9 @@ class OnlineLearningIT {
 
     @BeforeEach
     void cleanDatabase() {
+        jdbcTemplate.update("DELETE FROM fm_content_asset");
+        jdbcTemplate.update("DELETE FROM fm_content_installation_receipt");
+        jdbcTemplate.update("DELETE FROM fm_content_installation");
         jdbcTemplate.update("DELETE FROM SPRING_SESSION_ATTRIBUTES");
         jdbcTemplate.update("DELETE FROM SPRING_SESSION");
         jdbcTemplate.update("DELETE FROM fm_gm_action_receipt");

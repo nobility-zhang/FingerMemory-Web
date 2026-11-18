@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -41,6 +42,13 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException exception) {
         return ResponseEntity.badRequest()
                 .body(new ApiError("VALIDATION_FAILED", "请求 JSON 无法解析"));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleUploadLimit(
+            MaxUploadSizeExceededException exception) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ApiError("PAYLOAD_TOO_LARGE", "内容包请求超过 50 MiB 上限"));
     }
 
     @ExceptionHandler(DuplicateKeyException.class)

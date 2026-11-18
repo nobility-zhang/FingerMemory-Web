@@ -15,6 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestBodyLimitFilter extends OncePerRequestFilter {
     private static final long MAX_MIGRATION_BYTES = 20L * 1024 * 1024;
+    private static final long MAX_MULTIPART_PACKAGE_BYTES = 52L * 1024 * 1024;
 
     private final ApiErrorWriter errorWriter;
 
@@ -29,16 +30,24 @@ public class RequestBodyLimitFilter extends OncePerRequestFilter {
         }
         String path = request.getRequestURI();
         return !path.startsWith("/api/v1/migrations/local")
-                && !path.startsWith("/api/v1/backup/import");
+                && !path.startsWith("/api/v1/backup/import")
+                && !path.startsWith("/api/v1/content-packages");
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         long contentLength = request.getContentLengthLong();
-        if (contentLength > MAX_MIGRATION_BYTES) {
+        long limit = request.getRequestURI().startsWith("/api/v1/content-packages")
+                ? MAX_MULTIPART_PACKAGE_BYTES
+                : MAX_MIGRATION_BYTES;
+        if (contentLength > limit) {
             errorWriter.write(response, HttpStatus.PAYLOAD_TOO_LARGE.value(),
-                    new ApiError("PAYLOAD_TOO_LARGE", "迁移或恢复请求超过 20 MiB 上限"));
+                    new ApiError(
+                            "PAYLOAD_TOO_LARGE",
+                            limit == MAX_MULTIPART_PACKAGE_BYTES
+                                    ? "内容包请求超过 50 MiB 上限"
+                                    : "迁移或恢复请求超过 20 MiB 上限"));
             return;
         }
         filterChain.doFilter(request, response);

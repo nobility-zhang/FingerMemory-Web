@@ -10,6 +10,7 @@ server/target/
 
 # Local execution state and verification artifacts
 /.local/
+/server/.local/
 /docs/evidence/
 /docs/handoff-*.md
 **/test-results/

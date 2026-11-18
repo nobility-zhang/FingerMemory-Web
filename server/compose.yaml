@@ -40,6 +40,7 @@ services:
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       FSRS_WORKER_URL: http://fsrs-worker:8090
+      CONTENT_PACKAGE_ROOT: /var/lib/finger-memory/content
     ports:
       - 127.0.0.1:${APP_PORT:-8080}:8080
     read_only: true
@@ -47,6 +48,8 @@ services:
       - /tmp
     cap_drop:
       - ALL
+    volumes:
+      - content-data:/var/lib/finger-memory/content
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -84,3 +87,4 @@ services:
 
 volumes:
   db-data:
+  content-data:

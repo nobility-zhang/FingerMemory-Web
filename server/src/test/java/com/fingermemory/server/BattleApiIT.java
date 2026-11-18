@@ -46,6 +46,9 @@ class BattleApiIT {
 
     @BeforeEach
     void cleanDatabase() {
+        jdbcTemplate.update("DELETE FROM fm_content_asset");
+        jdbcTemplate.update("DELETE FROM fm_content_installation_receipt");
+        jdbcTemplate.update("DELETE FROM fm_content_installation");
         jdbcTemplate.update("DELETE FROM fm_battle_event");
         jdbcTemplate.update("DELETE FROM fm_battle_receipt");
         jdbcTemplate.update("DELETE FROM fm_battle_learning_task");

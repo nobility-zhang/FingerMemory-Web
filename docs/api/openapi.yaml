@@ -819,6 +819,136 @@ components:
         nextStudyItemId:
           type: string
           maxLength: 128
+    ContentPackagePreview:
+      type: object
+      additionalProperties: false
+      required:
+        - fileName
+        - title
+        - namespace
+        - bookId
+        - contentVersion
+        - contentHash
+        - engineVersion
+        - entryNodeId
+        - wordCount
+        - chapterCount
+        - nodeCount
+        - characterCount
+        - cardCount
+        - encounterCount
+        - assetCount
+        - warnings
+      properties:
+        fileName:
+          type: string
+        title:
+          type: string
+        namespace:
+          type: string
+        bookId:
+          type: string
+        contentVersion:
+          type: string
+        contentHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        engineVersion:
+          type: string
+        entryNodeId:
+          type: string
+        wordCount:
+          type: integer
+          minimum: 1
+        chapterCount:
+          type: integer
+          minimum: 1
+        nodeCount:
+          type: integer
+          minimum: 1
+        characterCount:
+          type: integer
+          minimum: 0
+        cardCount:
+          type: integer
+          minimum: 0
+        encounterCount:
+          type: integer
+          minimum: 0
+        assetCount:
+          type: integer
+          minimum: 0
+        warnings:
+          type: array
+          items:
+            type: string
+    ContentPackageInstallation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - namespace
+        - bookId
+        - contentVersion
+        - contentHash
+        - title
+        - entryNodeId
+        - status
+        - wordCount
+        - chapterCount
+        - nodeCount
+        - characterCount
+        - cardCount
+        - encounterCount
+        - assetCount
+        - installedAtMs
+      properties:
+        id:
+          type: string
+          maxLength: 36
+        namespace:
+          type: string
+        bookId:
+          type: string
+        contentVersion:
+          type: string
+        contentHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        title:
+          type: string
+        entryNodeId:
+          type: string
+        status:
+          type: string
+          enum: [installed]
+        wordCount:
+          type: integer
+        chapterCount:
+          type: integer
+        nodeCount:
+          type: integer
+        characterCount:
+          type: integer
+        cardCount:
+          type: integer
+        encounterCount:
+          type: integer
+        assetCount:
+          type: integer
+        installedAtMs:
+          type: integer
+          minimum: 0
+    ContentPackageInstallResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, installation]
+      properties:
+        outcome:
+          type: string
+          enum: [installed, duplicate]
+        installation:
+          $ref: '#/components/schemas/ContentPackageInstallation'
     SnapshotCounts:
       type: object
       additionalProperties:
@@ -2414,6 +2544,159 @@ paths:
                     $ref: '#/components/schemas/SnapshotCounts'
         '409':
           $ref: '#/components/responses/Conflict'
+  /content-packages/preview:
+    post:
+      summary: 校验 .fmbook 并返回预览，不写安装或资源
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 内容包校验通过
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentPackagePreview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          description: 内容包超过 50 MiB
+  /content-packages:
+    get:
+      summary: 列出当前账号已安装内容包
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: 当前 owner 的不可变安装列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentPackageInstallation'
+    post:
+      summary: 原子安装当前 owner 的不可变 .fmbook 版本
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: 新内容包安装完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentPackageInstallResult'
+        '200':
+          description: 相同 owner/内容哈希已存在，返回同一安装
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentPackageInstallResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          description: 内容包超过 50 MiB
+  /content-packages/{id}:
+    get:
+      summary: 读取当前 owner 的指定内容安装
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+      responses:
+        '200':
+          description: 内容安装
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentPackageInstallation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /content-packages/{id}/assets/{assetPath}:
+    get:
+      summary: 读取当前 owner 已安装包中的白名单媒体
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/EntityId'
+        - name: assetPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 图片或音频资源
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+            audio/ogg:
+              schema:
+                type: string
+                format: binary
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
   "/gm/context":
     get:
       tags:
