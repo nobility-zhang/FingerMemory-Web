@@ -33,6 +33,10 @@ export const SOUND_URLS: Readonly<Record<GameSoundKey, string>> = {
     '../assets/audio/battle-rescue.wav',
     import.meta.url,
   ).href,
+  'ambient-coast': new URL(
+    '../assets/audio/ambient-coast.wav',
+    import.meta.url,
+  ).href,
 };
 
 const MAX_ACTIVE_SOUNDS = 8;
@@ -42,6 +46,8 @@ export interface PhaserAudioGameController {
   isReady(): boolean;
   getLastSoundError(): Extract<GameBridgeEvent, { type: 'sound-error' }> | null;
   playSound(soundKey: GameSoundKey, eventId: string, volume?: number): void;
+  playAmbient(soundKey: GameSoundKey, eventId: string, volume?: number): void;
+  stopAmbient(eventId: string): void;
   playFlip(eventId: string): void;
   setMuted(muted: boolean): void;
   setVolume(volume: number): void;
@@ -59,6 +65,12 @@ interface PendingPlay {
   volume: number;
 }
 
+interface PendingAmbient {
+  soundKey: GameSoundKey;
+  eventId: string;
+  volume: number;
+}
+
 function clampVolume(volume: number): number {
   return Math.min(1, Math.max(0, volume));
 }
@@ -71,6 +83,7 @@ export async function createPhaserAudioGame(
   let gameReady = false;
   let pendingUnlockEventId: string | null = null;
   let pendingPlay: PendingPlay | null = null;
+  let pendingAmbient: PendingAmbient | null = null;
   let muted = false;
   let paused = false;
   let volume = 1;
@@ -117,12 +130,33 @@ export async function createPhaserAudioGame(
       });
       pendingPlay = null;
     }
+    if (pendingAmbient !== null) {
+      bridge.emit({
+        type: 'audio-ambient-play',
+        eventId: pendingAmbient.eventId,
+        soundKey: pendingAmbient.soundKey,
+        volume: pendingAmbient.volume,
+      });
+      pendingAmbient = null;
+    }
   });
 
   const AudioScene = class extends Phaser.Scene {
     private rune?: Phaser.GameObjects.Arc;
     private stopBridge?: () => void;
     private activeSounds: unknown[] = [];
+    private ambientSound: unknown;
+
+    private stopAmbientSound(): void {
+      if (this.ambientSound === undefined || this.ambientSound === null) {
+        return;
+      }
+      const stop = Reflect.get(this.ambientSound, 'stop');
+      if (typeof stop === 'function') {
+        Reflect.apply(stop, this.ambientSound, []);
+      }
+      this.ambientSound = undefined;
+    }
 
     private handleLoadError = (file: { key?: string; src?: string }): void => {
       const soundKey = file.key;
@@ -202,6 +236,43 @@ export async function createPhaserAudioGame(
           bridge.emit({ type: 'audio-unlocked', eventId: event.eventId });
           return;
         }
+        if (event.type === 'audio-ambient-play') {
+          if (paused) {
+            bridge.emit({
+              type: 'sound-skipped',
+              eventId: event.eventId,
+              soundKey: event.soundKey,
+              reason: 'paused',
+            });
+            return;
+          }
+          try {
+            this.stopAmbientSound();
+            const played = this.sound.play(event.soundKey, {
+              loop: true,
+              volume: clampVolume(event.volume),
+            });
+            this.ambientSound = played;
+            const accepted = played !== false && played !== null;
+            bridge.emit({
+              type: 'ambient-started',
+              eventId: event.eventId,
+              soundKey: event.soundKey,
+              accepted,
+            });
+            if (accepted) {
+              this.game.events.emit('fm:audio-pulse');
+            }
+          } catch (error) {
+            reportSoundError(event.eventId, event.soundKey, error);
+          }
+          return;
+        }
+        if (event.type === 'audio-ambient-stop') {
+          this.stopAmbientSound();
+          bridge.emit({ type: 'ambient-stopped', eventId: event.eventId });
+          return;
+        }
         if (event.type !== 'audio-play') {
           return;
         }
@@ -254,6 +325,7 @@ export async function createPhaserAudioGame(
         this.load.off('loaderror', this.handleLoadError);
         this.stopBridge?.();
         this.stopBridge = undefined;
+        this.stopAmbientSound();
         this.activeSounds = [];
         this.game.events.off('fm:audio-pulse', this.flashRune, this);
       });
@@ -320,6 +392,31 @@ export async function createPhaserAudioGame(
     });
   }
 
+  function requestAmbient(
+    soundKey: GameSoundKey,
+    eventId: string,
+    requestedVolume = 1,
+  ): void {
+    const playVolume = clampVolume(
+      (requestedVolume <= 1 ? requestedVolume : 1)
+        * GAME_SOUND_BASE_VOLUME[soundKey],
+    );
+    if (paused || !gameReady) {
+      pendingAmbient = { soundKey, eventId, volume: playVolume };
+      if (!paused) {
+        bridge.emit({ type: 'audio-unlock', eventId: `unlock:${eventId}` });
+      }
+      return;
+    }
+    bridge.emit({ type: 'audio-unlock', eventId: `unlock:${eventId}` });
+    bridge.emit({
+      type: 'audio-ambient-play',
+      eventId,
+      soundKey,
+      volume: playVolume,
+    });
+  }
+
   return {
     bridge,
     isReady(): boolean {
@@ -330,6 +427,13 @@ export async function createPhaserAudioGame(
     },
     playSound(soundKey: GameSoundKey, eventId: string, requestedVolume = 1): void {
       requestPlay(soundKey, eventId, requestedVolume);
+    },
+    playAmbient(soundKey: GameSoundKey, eventId: string, requestedVolume = 1): void {
+      requestAmbient(soundKey, eventId, requestedVolume);
+    },
+    stopAmbient(eventId: string): void {
+      pendingAmbient = null;
+      bridge.emit({ type: 'audio-ambient-stop', eventId });
     },
     playFlip(eventId: string): void {
       requestPlay(FLASHCARD_FLIP_SOUND_KEY, eventId);

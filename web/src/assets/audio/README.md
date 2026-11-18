@@ -46,3 +46,20 @@ Regenerate deterministically:
 cd web
 npm run audio:battle
 ```
+
+## `ambient-coast.wav`
+
+- Generator: `web/scripts/generate-ambient-sounds.mjs`.
+- License: distributed with this repository under the project license.
+- Format: mono, 44.1 kHz, 16-bit PCM WAV, 12-second loop.
+- SHA256: `a2d9dca5613062ddd4a6c004aea5994d24600f193339264ca6b880de4c60c886`.
+- Use: looping surf, distant gulls, and low tide atmosphere for the coast
+  adventure. It is managed by the same Phaser `SoundManager` as one-shot
+  battle and flashcard effects.
+
+Regenerate deterministically:
+
+```sh
+cd web
+npm run audio:ambient
+```

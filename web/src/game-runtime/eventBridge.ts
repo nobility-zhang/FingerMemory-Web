@@ -54,6 +54,26 @@ export type GameBridgeEvent =
       message: string;
     }
   | {
+      type: 'audio-ambient-play';
+      eventId: string;
+      soundKey: GameSoundKey;
+      volume: number;
+    }
+  | {
+      type: 'audio-ambient-stop';
+      eventId: string;
+    }
+  | {
+      type: 'ambient-started';
+      eventId: string;
+      soundKey: GameSoundKey;
+      accepted: boolean;
+    }
+  | {
+      type: 'ambient-stopped';
+      eventId: string;
+    }
+  | {
       type: 'game-destroyed';
     };
 

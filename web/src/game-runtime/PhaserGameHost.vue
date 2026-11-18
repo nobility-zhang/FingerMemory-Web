@@ -125,6 +125,21 @@ function playSound(
   controller.value?.playSound(soundKey, eventId, volume);
 }
 
+function playAmbient(
+  soundKey: GameSoundKey,
+  eventId: string,
+  volume = 1,
+): void {
+  if (props.muted) {
+    return;
+  }
+  controller.value?.playAmbient(soundKey, eventId, volume);
+}
+
+function stopAmbient(eventId: string): void {
+  controller.value?.stopAmbient(eventId);
+}
+
 function setMuted(muted: boolean): void {
   controller.value?.setMuted(muted);
 }
@@ -137,7 +152,15 @@ function setPaused(paused: boolean): void {
   controller.value?.setPaused(paused);
 }
 
-defineExpose({ playSound, playFlip, setMuted, setVolume, setPaused });
+defineExpose({
+  playSound,
+  playAmbient,
+  stopAmbient,
+  playFlip,
+  setMuted,
+  setVolume,
+  setPaused,
+});
 
 watch(
   () => props.muted,

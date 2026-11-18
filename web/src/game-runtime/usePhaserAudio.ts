@@ -15,6 +15,8 @@ export type PhaserAudioStatus = 'idle' | 'starting' | 'ready' | 'error';
 
 export interface PhaserAudioHostHandle {
   playSound(soundKey: GameSoundKey, eventId: string, volume?: number): void;
+  playAmbient(soundKey: GameSoundKey, eventId: string, volume?: number): void;
+  stopAmbient(eventId: string): void;
   playFlip(eventId: string): void;
   setMuted(muted: boolean): void;
   setVolume(volume: number): void;
@@ -63,6 +65,10 @@ export function usePhaserAudio(enabled: Ref<boolean>) {
       && value !== null
       && 'playSound' in value
       && typeof value.playSound === 'function'
+      && 'playAmbient' in value
+      && typeof value.playAmbient === 'function'
+      && 'stopAmbient' in value
+      && typeof value.stopAmbient === 'function'
       && 'playFlip' in value
       && typeof value.playFlip === 'function'
       && 'setMuted' in value
@@ -94,6 +100,20 @@ export function usePhaserAudio(enabled: Ref<boolean>) {
 
   function playFlip(eventId: string): void {
     playSound('flashcard-flip', eventId);
+  }
+
+  function playAmbient(
+    soundKey: GameSoundKey,
+    eventId: string,
+  ): void {
+    if (!enabled.value || muted.value) {
+      return;
+    }
+    host.value?.playAmbient(soundKey, eventId);
+  }
+
+  function stopAmbient(eventId: string): void {
+    host.value?.stopAmbient(eventId);
   }
 
   function handleRuntimeEvent(event: GameBridgeEvent): void {
@@ -152,6 +172,8 @@ export function usePhaserAudio(enabled: Ref<boolean>) {
     setVolume,
     setPaused,
     playSound,
+    playAmbient,
+    stopAmbient,
     playFlip,
     handleRuntimeEvent,
   };

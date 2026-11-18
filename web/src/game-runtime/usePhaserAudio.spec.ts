@@ -26,6 +26,8 @@ describe('usePhaserAudio', () => {
 
     const host = {
       playSound: vi.fn(),
+      playAmbient: vi.fn(),
+      stopAmbient: vi.fn(),
       playFlip: vi.fn(),
       setMuted: vi.fn(),
       setVolume: vi.fn(),
@@ -34,6 +36,10 @@ describe('usePhaserAudio', () => {
     audio!.setHost(host);
     audio!.playSound('battle-hit', 'hit-1', 0.5);
     expect(host.playSound).toHaveBeenCalledWith('battle-hit', 'hit-1', 0.5);
+    audio!.playAmbient('ambient-coast', 'coast-1');
+    expect(host.playAmbient).toHaveBeenCalledWith('ambient-coast', 'coast-1');
+    audio!.stopAmbient('coast-stop-1');
+    expect(host.stopAmbient).toHaveBeenCalledWith('coast-stop-1');
 
     audio!.setVolume(0.2);
     expect(host.setVolume).toHaveBeenLastCalledWith(0.2);

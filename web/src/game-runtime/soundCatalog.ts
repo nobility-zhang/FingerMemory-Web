@@ -9,6 +9,7 @@ export const GAME_SOUND_KEYS = {
   battleEnemyTurn: 'battle-enemy-turn',
   battleVictory: 'battle-victory',
   battleRescue: 'battle-rescue',
+  ambientCoast: 'ambient-coast',
 } as const;
 
 export type GameSoundKey =
@@ -25,6 +26,7 @@ export const GAME_SOUND_BASE_VOLUME: Readonly<Record<GameSoundKey, number>> = {
   'battle-enemy-turn': 0.5,
   'battle-victory': 0.52,
   'battle-rescue': 0.42,
+  'ambient-coast': 0.22,
 };
 
 export function isGameSoundKey(value: string): value is GameSoundKey {
