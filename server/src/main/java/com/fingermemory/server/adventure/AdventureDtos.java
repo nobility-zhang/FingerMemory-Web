@@ -44,6 +44,8 @@ public final class AdventureDtos {
             String text,
             String encounterId,
             String portraitCharacterId,
+            String sceneId,
+            String costumeId,
             List<Choice> choices) {
     }
 

@@ -83,7 +83,7 @@ export function createBattleState(input: CreateBattleInput): BattleState {
     block: 0,
   };
   const enemies = input.enemies ?? [{
-    id: 'bridge-guardian',
+    id: input.encounterId,
     hp: 36,
     maxHp: 36,
     block: 0,

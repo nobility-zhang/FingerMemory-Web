@@ -208,6 +208,49 @@ class ContentPackageIT {
     }
 
     @Test
+    void rejectsUnknownSceneAndCostumeIdentifiers() throws Exception {
+        RegisteredUser user = registerAndLogin("content-scene-contract");
+        Csrf csrf = csrf(user.session());
+        Map<String, byte[]> files = validFiles();
+        String story = new String(
+                files.get("story.json"),
+                StandardCharsets.UTF_8);
+        files.put(
+                "story.json",
+                story.replace(
+                        "\"type\":\"choice\"",
+                        "\"type\":\"choice\",\"sceneId\":\"coast-missing\","
+                                + "\"costumeId\":\"beach-swimwear\"")
+                        .getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/v1/content-packages/preview")
+                        .file(fmbook(zip(files)))
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CONTENT_PACKAGE_INVALID"))
+                .andExpect(jsonPath("$.message").value("未知场景 ID：coast-missing"));
+
+        files = validFiles();
+        story = new String(files.get("story.json"), StandardCharsets.UTF_8);
+        files.put(
+                "story.json",
+                story.replace(
+                        "\"type\":\"choice\"",
+                        "\"type\":\"choice\",\"sceneId\":\"coast-beach\","
+                                + "\"costumeId\":\"winter-coat\"")
+                        .getBytes(StandardCharsets.UTF_8));
+
+        mockMvc.perform(multipart("/api/v1/content-packages/preview")
+                        .file(fmbook(zip(files)))
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CONTENT_PACKAGE_INVALID"))
+                .andExpect(jsonPath("$.message").value("未知角色服装：winter-coat"));
+    }
+
+    @Test
     void concurrentSameIdempotencyKeyReturnsTheFirstInstallation() throws Exception {
         RegisteredUser user = registerAndLogin("content-concurrent");
         Csrf csrf = csrf(user.session());

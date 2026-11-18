@@ -6,6 +6,7 @@ import {
   onMounted,
   ref,
   toRef,
+  watch,
 } from 'vue';
 import { CircleHelp } from '@lucide/vue';
 import {
@@ -24,7 +25,10 @@ import {
   companionById,
   type CompanionExpression,
   type CompanionId,
+  type CompanionCostumeId,
 } from '../companions/catalog';
+import type { AdventureBattleTheme } from '../adventure/sceneCatalog';
+import type { GameSoundKey } from '../game-runtime/soundCatalog';
 import BattleShortcutHelp from './BattleShortcutHelp.vue';
 import { CARD_DEFINITIONS } from './cards';
 import { resolveBattlePresentationMode } from './presentation';
@@ -64,7 +68,14 @@ const props = withDefaults(
     api?: BattleApi;
     session: SessionEnvelope;
     companionKey?: CompanionId;
+    companionCostumeId?: CompanionCostumeId;
     initialBattleId?: string;
+    encounterId?: string;
+    encounterTitle?: string;
+    encounterKicker?: string;
+    enemyName?: string;
+    battleTheme?: AdventureBattleTheme;
+    ambientKey?: GameSoundKey;
     finishLabel?: string;
     enableAudio?: boolean;
     reduceMotion?: boolean;
@@ -72,7 +83,14 @@ const props = withDefaults(
   {
     api: () => accountApi,
     companionKey: 'lia',
+    companionCostumeId: 'summer-travel',
     initialBattleId: undefined,
+    encounterId: 'bridge-guardian',
+    encounterTitle: '雾中的守卫',
+    encounterKicker: '溪桥 · 教学遭遇',
+    enemyName: '桥雾守卫',
+    battleTheme: 'bridge',
+    ambientKey: undefined,
     finishLabel: '返回在线学习',
     enableAudio: false,
     reduceMotion: false,
@@ -124,6 +142,8 @@ const {
   setHost: setAudioHost,
   toggleMuted: toggleAudioMuted,
   playSound: playBattleSound,
+  playAmbient,
+  stopAmbient,
   setVolume: setAudioVolume,
   setPaused: setAudioPaused,
   handleRuntimeEvent: handleAudioRuntimeEvent,
@@ -182,13 +202,16 @@ const phaseLabel = computed(() => {
     case 'player-action':
       return '玩家行动';
     case 'victory':
-      return '迷雾散去';
+      return props.battleTheme === 'coast' ? '潮声平息' : '迷雾散去';
     case 'defeat':
       return '需要救援';
     default:
       return '准备中';
   }
 });
+const battleClassName = computed(
+  () => `battle-theme-${props.battleTheme}`,
+);
 const audioStatusLabel = computed(() => {
   if (!props.enableAudio || audioStatus.value === 'ready') {
     return '';
@@ -329,7 +352,7 @@ async function startBattle(): Promise<void> {
     }
     const created = await props.api.createBattle({
       battleId: newId(),
-      encounterId: 'bridge-guardian',
+      encounterId: props.encounterId,
       sessionId: initial.id,
       studyItemId: initial.currentStudyItemId,
       companionKey: props.companionKey,
@@ -343,7 +366,7 @@ async function startBattle(): Promise<void> {
     battle.value = created;
     playBattleEvents(created.events, `battle-start:${created.battle.battleId}`);
     await loadLearningSession(initial.id);
-    notice.value = '溪桥迷雾守卫挡住了去路，先完成这一轮学习。';
+    notice.value = `${props.enemyName}挡住了去路，先完成这一轮学习。`;
     focusCurrentContext();
   } catch (cause) {
     if (!disposed && lifecycle === generation) {
@@ -789,6 +812,34 @@ function focusCurrentContext(): void {
   });
 }
 
+let ambientPlaying: GameSoundKey | undefined;
+
+function syncAmbient(): void {
+  if (
+    !props.enableAudio
+    || audioMuted.value
+    || audioStatus.value !== 'ready'
+    || props.ambientKey === undefined
+  ) {
+    if (ambientPlaying !== undefined) {
+      stopAmbient(`ambient-stop:${ambientPlaying}`);
+      ambientPlaying = undefined;
+    }
+    return;
+  }
+  if (ambientPlaying === props.ambientKey) {
+    return;
+  }
+  if (ambientPlaying !== undefined) {
+    stopAmbient(`ambient-stop:${ambientPlaying}`);
+  }
+  playAmbient(
+    props.ambientKey,
+    `ambient-start:${props.ambientKey}`,
+  );
+  ambientPlaying = props.ambientKey;
+}
+
 function handleMotionPreference(event: MediaQueryListEvent): void {
   systemReducedMotion.value = event.matches;
 }
@@ -800,10 +851,25 @@ onMounted(() => {
   void startBattle();
 });
 
+watch(
+  [
+    () => props.enableAudio,
+    () => props.ambientKey,
+    audioMuted,
+    audioStatus,
+  ],
+  syncAmbient,
+  { immediate: true },
+);
+
 onBeforeUnmount(() => {
   disposed = true;
   generation += 1;
   motionPreference?.removeEventListener('change', handleMotionPreference);
+  if (ambientPlaying !== undefined) {
+    stopAmbient(`ambient-stop:${ambientPlaying}`);
+    ambientPlaying = undefined;
+  }
 });
 </script>
 
@@ -811,8 +877,9 @@ onBeforeUnmount(() => {
   <section
     ref="battleRoot"
     class="bridge-battle"
-    :class="`presentation-${presentationMode}`"
+    :class="[`presentation-${presentationMode}`, battleClassName]"
     data-testid="bridge-battle"
+    :data-encounter-id="battle?.battle.encounterId ?? encounterId"
     tabindex="-1"
     data-battle-renderer="dom"
     :data-presentation-mode="presentationMode"
@@ -824,8 +891,8 @@ onBeforeUnmount(() => {
   >
     <header class="battle-heading">
       <div>
-        <p class="battle-kicker">溪桥 · 教学遭遇</p>
-        <h3>雾中的守卫</h3>
+        <p class="battle-kicker">{{ encounterKicker }}</p>
+        <h3>{{ encounterTitle }}</h3>
       </div>
       <div class="battle-status">
         <span data-field="battle-phase">{{ phaseLabel }}</span>
@@ -895,7 +962,7 @@ onBeforeUnmount(() => {
 
     <section v-if="battlePaused" class="battle-pause-panel" aria-labelledby="battle-pause-title">
       <p class="section-label">战斗已暂停</p>
-      <h4 id="battle-pause-title">溪桥与手牌仍保持当前状态。</h4>
+      <h4 id="battle-pause-title">{{ encounterTitle }}与手牌仍保持当前状态。</h4>
       <p>服务端没有收到撤退或结束命令。按 Enter 或 Escape 继续。</p>
       <button ref="resumeButton" type="button" class="battle-primary" @click="resumeBattle">
         继续战斗
@@ -915,7 +982,7 @@ onBeforeUnmount(() => {
       <p v-if="notice" class="battle-message" role="status">{{ notice }}</p>
 
       <section v-if="loading" class="battle-loading" role="status">
-        正在进入溪桥...
+        正在进入{{ encounterTitle }}...
       </section>
 
       <template v-else-if="battle">
@@ -925,15 +992,16 @@ onBeforeUnmount(() => {
           <div class="bridge-line">
             <span></span><span></span><span></span><span></span>
           </div>
-          <div class="enemy-figure" aria-label="溪桥迷雾守卫">
+          <div class="enemy-figure" :aria-label="enemyName">
             <span class="enemy-eye"></span>
-            <strong>桥雾守卫</strong>
+            <strong>{{ enemyName }}</strong>
             <small>{{ battle.battle.encounterId }}</small>
           </div>
           <div class="companion-figure">
             <CompanionPortrait
               :companion="companion"
               :expression="companionExpression"
+              :costume-id="companionCostumeId"
               :reduce-motion="presentationMode !== 'animated'"
             />
             <div class="companion-caption">
@@ -1082,9 +1150,17 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-else class="battle-result">
-          <p class="section-label">{{ battle.battle.phase === 'victory' ? '桥面重见天日' : '救援信号' }}</p>
+          <p class="section-label">
+            {{ battle.battle.phase === 'victory'
+              ? (battleTheme === 'coast' ? '潮汐退去' : '桥面重见天日')
+              : '救援信号' }}
+          </p>
           <h4>
-            {{ battle.battle.phase === 'victory' ? '溪桥的路标重新亮了起来' : '伙伴会把你带回营地' }}
+            {{ battle.battle.phase === 'victory'
+              ? (battleTheme === 'coast'
+                ? `${enemyName}让开了路`
+                : '溪桥的路标重新亮了起来')
+              : '伙伴会把你带回营地' }}
           </h4>
           <p>
             {{ battle.battle.phase === 'victory'
@@ -1120,6 +1196,27 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   background: #142d2e;
   color: #edf3e9;
+}
+
+.bridge-battle.battle-theme-coast {
+  border-color: #9ec9bd;
+  background:
+    linear-gradient(180deg, rgb(18 72 78 / 88%), rgb(11 46 54 / 96%)),
+    #123c43;
+}
+
+.battle-theme-coast .battle-stage {
+  background:
+    linear-gradient(180deg, rgb(71 160 159 / 28%), rgb(11 38 45 / 72%)),
+    #164c53;
+}
+
+.battle-theme-coast .battle-kicker {
+  color: #a8ddd0;
+}
+
+.battle-theme-coast .enemy-figure {
+  background: linear-gradient(160deg, rgb(109 205 192 / 32%), rgb(6 42 51 / 84%));
 }
 
 .bridge-battle > *,

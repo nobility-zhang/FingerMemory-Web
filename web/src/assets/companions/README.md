@@ -88,6 +88,32 @@ files are `1440x810` JPEG quality 86 derivatives from the `1672x941` source PNGs
   runtime `scenes/camp/runtime/camp-fire.jpg` SHA256
   `c5118c5f5ceae28c6c55d6daea182af4249316ad53554aad28b0d0a30b9f258e`.
 
+## Coast Scenes
+
+Three original 16:9 coast backgrounds extend the same painterly medieval
+fantasy direction. They contain no people, text, UI, logos, watermarks, modern
+equipment, or sexualized imagery. Sources are `1672x941` PNGs; runtime files are
+`1440x810` JPEG quality 86 derivatives.
+
+- Beach: broad sand, gentle surf, shells, driftwood, tide pools, and distant
+  cliffs at warm late afternoon.
+  Source `scenes/coast/source/coast-beach.png` SHA256
+  `686b308a4ce640d0403221578b3b0ad6712b491415a35fc923b5b7f9d007d717`;
+  runtime `scenes/coast/runtime/coast-beach.jpg` SHA256
+  `8102ff79deaa6fa84e28d40aad007c84564cdd57a956d214a2eae31ae35063a6`.
+- Tidepools: low-tide rocks, clear shallow pools, seaweed, shells, a hand-made
+  marker, and a folded drift letter.
+  Source `scenes/coast/source/coast-tidepools.png` SHA256
+  `459c16a61d5006152786eae662c37a0cc932a78510268d39d046c567b80fc361`;
+  runtime `scenes/coast/runtime/coast-tidepools.jpg` SHA256
+  `8b74922a150e57fe42e9e861937599882378b045de7d0d49a6b13e45205976de`.
+- Lighthouse: old stone lighthouse, cliff walk, warm lantern, sea mist, and
+  seabirds at blue hour.
+  Source `scenes/coast/source/coast-lighthouse.png` SHA256
+  `8d28fcda16abc7137e556ce729290ca5a0b69657314ffb0b4d86a906e38a651b`;
+  runtime `scenes/coast/runtime/coast-lighthouse.jpg` SHA256
+  `51cd26158ca648902ace340db4d6aabdbe921fdf4f80a27a9d536fdaafb4cde7`.
+
 ## Serin
 
 Serin is an original 14-year-old traveling note-keeper. Her H1-02 redesign uses

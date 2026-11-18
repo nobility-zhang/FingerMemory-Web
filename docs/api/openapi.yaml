@@ -865,6 +865,13 @@ components:
         portraitCharacterId:
           type: string
           enum: [lia, serin, fina]
+        sceneId:
+          type: string
+          enum:
+            [inn-warm-lantern, forest-path, bridge-guardian, camp-fire, coast-beach, coast-tidepools, coast-lighthouse]
+        costumeId:
+          type: string
+          enum: [summer-travel, beach-swimwear]
         choices:
           type: array
           items:

@@ -818,6 +818,8 @@ public class AdventureService {
                         node.text(),
                         node.encounterId(),
                         node.portraitCharacterId(),
+                        node.sceneId(),
+                        node.costumeId(),
                         node.choices().stream()
                                 .map(choice -> new AdventureDtos.Choice(
                                         choice.choiceId(),

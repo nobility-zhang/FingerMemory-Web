@@ -110,6 +110,18 @@ describe('card-battle-v1 deterministic fixture', () => {
     expect(first.hand).toEqual(second.hand);
     expect(different.hand).not.toEqual(first.hand);
   });
+
+  it('uses the authored encounter identity for non-bridge battles', () => {
+    const state = createBattleState({
+      battleId: 'tide-battle',
+      encounterId: 'tide-guardian',
+      shuffle: false,
+    });
+
+    expect(state.encounterId).toBe('tide-guardian');
+    expect(state.enemies[0]?.id).toBe('tide-guardian');
+    expect(state.currentIntent.enemyId).toBe('tide-guardian');
+  });
 });
 
 describe('battle command boundaries', () => {

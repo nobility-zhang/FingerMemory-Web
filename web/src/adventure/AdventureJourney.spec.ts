@@ -1,7 +1,7 @@
 import { createApp, nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AdventureRunView } from '../api/client';
-import { lia } from '../companions/catalog';
+import { lia, portraitsFor } from '../companions/catalog';
 import AdventureJourney from './AdventureJourney.vue';
 
 function run(overrides: Partial<AdventureRunView> = {}): AdventureRunView {
@@ -173,6 +173,35 @@ describe('AdventureJourney', () => {
       camp.querySelector<HTMLElement>('.adventure-journey')?.style
         .getPropertyValue('--scene-background'),
     ).toContain('camp-fire');
+  });
+
+  it('renders the coast scene, swimwear and authored tide encounter copy', async () => {
+    const root = mountJourney(run({
+      currentNode: {
+        nodeId: 'coast.tide-guardian',
+        chapterId: 'coast-1',
+        type: 'encounter',
+        title: '潮汛石阶',
+        speaker: '莉娅',
+        text: '潮水拍过旧石阶。',
+        encounterId: 'tide-guardian',
+        sceneId: 'coast-tidepools',
+        costumeId: 'beach-swimwear',
+        choices: [],
+      },
+    }));
+    await nextTick();
+
+    const scene = root.querySelector<HTMLElement>('.adventure-journey');
+    expect(scene?.dataset.sceneId).toBe('coast-tidepools');
+    expect(scene?.dataset.costumeId).toBe('beach-swimwear');
+    expect(scene?.style.getPropertyValue('--scene-background'))
+      .toContain('coast-tidepools');
+    expect(root.querySelector<HTMLImageElement>('.companion-portrait img')
+      ?.getAttribute('src')).toBe(portraitsFor(lia, 'beach-swimwear').concern);
+    expect(root.textContent).toContain('潮汐浅滩 · 遭遇');
+    expect(root.textContent).toContain('开始潮汐浅滩战斗');
+    expect(root.textContent).toContain('潮汐守卫');
   });
 
   it('renders authored Fina portraits, camp switching and a three-choice reward', async () => {

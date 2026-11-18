@@ -48,7 +48,18 @@ function handleHostEvent(event: GameBridgeEvent): void {
 }
 
 function syncAmbient(): void {
-  if (!props.enabled || audioStatus.value !== 'ready') {
+  if (
+    !props.enabled
+    || audioMuted.value
+    || audioStatus.value !== 'ready'
+  ) {
+    if (playingKey.value !== undefined) {
+      stopAmbient(`ambient-stop:${playingKey.value}`);
+      playingKey.value = undefined;
+    }
+    return;
+  }
+  if (playingKey.value === props.ambientKey) {
     return;
   }
   if (playingKey.value !== undefined) {
@@ -65,7 +76,12 @@ function syncAmbient(): void {
 }
 
 watch(
-  () => [props.enabled, props.ambientKey, audioStatus.value] as const,
+  () => [
+    props.enabled,
+    props.ambientKey,
+    audioMuted.value,
+    audioStatus.value,
+  ] as const,
   syncAmbient,
   { immediate: true },
 );

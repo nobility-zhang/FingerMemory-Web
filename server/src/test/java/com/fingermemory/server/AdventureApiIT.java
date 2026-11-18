@@ -460,7 +460,11 @@ class AdventureApiIT {
                 "expectedVersion", 7,
                 "action", "advance"))
                 .andExpect(jsonPath("$.run.currentNode.nodeId")
-                        .value("chapter2.camp"));
+                        .value("chapter2.camp"))
+                .andExpect(jsonPath("$.run.currentNode.sceneId")
+                        .value("coast-beach"))
+                .andExpect(jsonPath("$.run.currentNode.costumeId")
+                        .value("beach-swimwear"));
         action(csrf, runId, "three-switch-fina", Map.of(
                 "expectedVersion", 8,
                 "action", "select-companion",
@@ -886,7 +890,9 @@ class AdventureApiIT {
                       "recollectionId":"fina-met","recollectionTitle":"相遇",
                       "recollectionText":"在钟塔下遇见菲妮。","nextNodeId":"chapter2.camp"},
                     {"nodeId":"chapter2.camp","type":"camp","title":"营地二",
-                      "speaker":"旅伴","text":"可以切换伙伴。","nextNodeId":"chapter2.bridge"},
+                      "speaker":"旅伴","text":"可以切换伙伴。",
+                      "sceneId":"coast-beach","costumeId":"beach-swimwear",
+                      "nextNodeId":"chapter2.bridge"},
                     {"nodeId":"chapter2.bridge","type":"encounter","title":"桥二",
                       "text":"第二场战斗。","encounterId":"clockwork-sentinel",
                       "victoryNodeId":"chapter2.after","rescueNodeId":"chapter2.rescue"},

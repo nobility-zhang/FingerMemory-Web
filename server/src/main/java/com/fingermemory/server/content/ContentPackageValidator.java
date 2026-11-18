@@ -66,6 +66,16 @@ public class ContentPackageValidator {
             "damage", "block", "heal", "draw", "apply-burn");
     private static final Set<String> EXPRESSIONS = Set.of(
             "neutral", "welcome", "cheer", "concern", "relief", "surprise");
+    private static final Set<String> COSTUMES = Set.of(
+            "summer-travel", "beach-swimwear");
+    private static final Set<String> SCENES = Set.of(
+            "inn-warm-lantern",
+            "forest-path",
+            "bridge-guardian",
+            "camp-fire",
+            "coast-beach",
+            "coast-tidepools",
+            "coast-lighthouse");
     private static final Set<String> REJECTED_EXTENSIONS = Set.of(
             "svg", "html", "htm", "js", "mjs", "cjs", "glb", "gltf", "exe", "sh");
     private static final Set<String> ASSET_EXTENSIONS = Set.of(
@@ -354,6 +364,18 @@ public class ContentPackageValidator {
                 }
                 if (node.has("portraitCharacterId")) {
                     requiredIdentifier(node, "portraitCharacterId");
+                }
+                if (node.has("sceneId")) {
+                    String sceneId = requiredText(node, "sceneId", 64);
+                    if (!SCENES.contains(sceneId)) {
+                        throw invalid("未知场景 ID：" + sceneId);
+                    }
+                }
+                if (node.has("costumeId")) {
+                    String costumeId = requiredText(node, "costumeId", 64);
+                    if (!COSTUMES.contains(costumeId)) {
+                        throw invalid("未知角色服装：" + costumeId);
+                    }
                 }
                 if (node.has("unlockCharacterId")) {
                     requiredIdentifier(node, "unlockCharacterId");

@@ -51,14 +51,14 @@ public class BattleEngine {
                 shuffled.rngState(),
                 new BattleState.Party(30, 30, 0),
                 List.of(new BattleState.Enemy(
-                        "bridge-guardian", 36, 36, 0, null)),
+                        command.encounterId(), 36, 36, 0, null)),
                 0,
                 shuffled.cards(),
                 0,
                 List.of(),
                 List.of(),
                 List.of(),
-                new BattleState.Intent("bridge-guardian", "attack", 6),
+                new BattleState.Intent(command.encounterId(), "attack", 6),
                 List.of(
                         new BattleState.IntentTemplate("attack", 6),
                         new BattleState.IntentTemplate("defend", 6),
@@ -509,7 +509,9 @@ public class BattleEngine {
                 draw.state().discardPile(),
                 draw.state().exhaustPile(),
                 new BattleState.Intent(
-                        "bridge-guardian", nextIntent.type(), nextIntent.value()),
+                        afterIntent.enemies().get(0).id(),
+                        nextIntent.type(),
+                        nextIntent.value()),
                 draw.state().intentCycle(),
                 nextIntentIndex,
                 null,

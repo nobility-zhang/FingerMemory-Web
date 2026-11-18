@@ -85,6 +85,8 @@ public class AdventurePackageReader {
                 text(node, "recollectionTitle", null),
                 text(node, "recollectionText", null),
                 text(node, "portraitCharacterId", null),
+                text(node, "sceneId", null),
+                text(node, "costumeId", null),
                 List.copyOf(choices));
     }
 
@@ -178,6 +180,8 @@ public class AdventurePackageReader {
             String recollectionTitle,
             String recollectionText,
             String portraitCharacterId,
+            String sceneId,
+            String costumeId,
             List<AdventureChoice> choices) {
     }
 

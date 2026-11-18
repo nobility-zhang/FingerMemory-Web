@@ -18,11 +18,8 @@ import {
 } from '../api/client';
 import BridgeBattlePanel from '../battle/BridgeBattlePanel.vue';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
-import forestBackground from '../assets/scenes/forest/runtime/forest-path.jpg';
-import bridgeBackground from '../assets/scenes/bridge/runtime/bridge-guardian.jpg';
-import campBackground from '../assets/scenes/camp/runtime/camp-fire.jpg';
-import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 import type {
+  CompanionCostumeId,
   CompanionExpression,
   CompanionId,
   CompanionProfile,
@@ -31,6 +28,8 @@ import {
   companionById,
   companions,
 } from '../companions/catalog';
+import AdventureAmbientAudio from './AdventureAmbientAudio.vue';
+import { sceneForNode } from './sceneCatalog';
 
 const props = withDefaults(
   defineProps<{
@@ -67,6 +66,10 @@ const emit = defineEmits<{
 
 const node = computed(() => props.run.currentNode);
 const fixedHash = computed(() => props.run.contentHash.slice(0, 8));
+const scene = computed(() => sceneForNode(node.value));
+const sceneCostumeId = computed<CompanionCostumeId>(
+  () => node.value.costumeId ?? 'summer-travel',
+);
 const sceneCompanion = computed(() => {
   const portraitCharacterId = node.value.portraitCharacterId;
   return portraitCharacterId === undefined
@@ -78,18 +81,7 @@ const availableCompanions = computed(() =>
     props.run.unlockedCharacters.includes(candidate.id),
   ),
 );
-const sceneBackground = computed(() => {
-  if (node.value.nodeId.startsWith('inn.')) {
-    return innBackground;
-  }
-  if (node.value.type === 'encounter') {
-    return bridgeBackground;
-  }
-  if (node.value.type === 'camp' || node.value.type === 'chapter-end') {
-    return campBackground;
-  }
-  return forestBackground;
-});
+const sceneBackground = computed(() => scene.value.background);
 const speaker = computed(() => {
   const value = node.value.speaker.trim();
   if (value.length === 0 || value === '旅伴' || value === 'companion') {
@@ -115,16 +107,14 @@ const expression = computed<CompanionExpression>(() => {
 });
 const sceneLabel = computed(() => {
   switch (node.value.type) {
-    case 'choice':
-      return '旅途抉择';
     case 'encounter':
-      return '溪桥遭遇';
+      return `${scene.value.label} · 遭遇`;
     case 'camp':
-      return '营火检查点';
+      return `${scene.value.label} · 营地`;
     case 'chapter-end':
-      return '章节结算';
+      return `${scene.value.label} · 结算`;
     default:
-      return '旅途对白';
+      return scene.value.label;
   }
 });
 const canAdvance = computed(
@@ -138,6 +128,30 @@ const battleReady = computed(
 const battleCompanionKey = computed<CompanionId>(
   () => props.run.companionKey,
 );
+const encounterEnemyName = computed(() => {
+  switch (node.value.encounterId) {
+    case 'clockwork-sentinel':
+      return '钟摆守卫';
+    case 'heartwood-guardian':
+      return '古树守卫';
+    case 'tide-guardian':
+      return '潮汐守卫';
+    default:
+      return '桥雾守卫';
+  }
+});
+const encounterBrief = computed(() => {
+  if (node.value.encounterId === 'tide-guardian') {
+    return '潮汐守卫踏过被海水淹没的石阶。先完成这一轮回忆，再决定攻势。';
+  }
+  if (node.value.encounterId === 'clockwork-sentinel') {
+    return '钟摆守卫沿着齿轮移动。先完成这一轮回忆，再选择出牌。';
+  }
+  if (node.value.encounterId === 'heartwood-guardian') {
+    return '古树守卫守着最后一封信。先完成这一轮回忆，再决定如何前进。';
+  }
+  return '雾中的守卫没有让路。先完成这一轮回忆，再决定如何出牌。';
+});
 const primaryLabel = computed(() => {
   if (node.value.type === 'camp') {
     return '在营火旁收好笔记';
@@ -158,6 +172,8 @@ function finishBattle(): void {
     :data-node-id="node.nodeId"
     :data-content-version="run.contentVersion"
     :data-content-hash="run.contentHash"
+    :data-scene-id="scene.id"
+    :data-costume-id="sceneCostumeId"
     :style="{ '--scene-background': `url(${sceneBackground})` }"
     :aria-labelledby="`adventure-${node.nodeId}`"
   >
@@ -178,6 +194,13 @@ function finishBattle(): void {
         <code>{{ fixedHash }}</code>
       </div>
     </header>
+
+    <AdventureAmbientAudio
+      v-if="enableAudio && !battleReady && scene.ambientKey"
+      :enabled="enableAudio"
+      :ambient-key="scene.ambientKey"
+      :label="`${scene.label}环境音`"
+    />
 
     <div v-if="run.status === 'completed'" class="journey-complete" role="status">
       <Sparkles :size="22" aria-hidden="true" />
@@ -230,7 +253,14 @@ function finishBattle(): void {
         :api="api"
         :session="session!"
         :companion-key="battleCompanionKey"
+        :companion-costume-id="sceneCostumeId"
         :initial-battle-id="run.battleId"
+        :encounter-id="node.encounterId ?? 'bridge-guardian'"
+        :encounter-title="node.title"
+        :encounter-kicker="`${scene.label} · 遭遇`"
+        :enemy-name="encounterEnemyName"
+        :battle-theme="scene.battleTheme"
+        :ambient-key="scene.ambientKey"
         finish-label="继续剧情"
         :enable-audio="enableAudio"
         :reduce-motion="reduceMotion"
@@ -275,9 +305,7 @@ function finishBattle(): void {
           </div>
 
           <div v-else-if="node.type === 'encounter'" class="encounter-actions">
-            <p>
-              雾中的守卫没有让路。先完成这一轮回忆，再决定如何出牌。
-            </p>
+            <p>{{ encounterBrief }}</p>
             <button
               type="button"
               class="journey-primary"
@@ -285,7 +313,7 @@ function finishBattle(): void {
               @click="emit('start-encounter')"
             >
               <Play :size="18" aria-hidden="true" />
-              开始溪桥战斗
+              开始{{ scene.label }}战斗
             </button>
           </div>
 
@@ -339,6 +367,7 @@ function finishBattle(): void {
           <CompanionPortrait
             :companion="sceneCompanion"
             :expression="expression"
+            :costume-id="sceneCostumeId"
             :reduce-motion="reduceMotion"
           />
           <div class="companion-line">

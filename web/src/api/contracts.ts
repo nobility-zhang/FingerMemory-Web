@@ -267,6 +267,15 @@ export interface AdventureNodeView {
   text: string;
   encounterId?: string;
   portraitCharacterId?: 'lia' | 'serin' | 'fina';
+  sceneId?:
+    | 'inn-warm-lantern'
+    | 'forest-path'
+    | 'bridge-guardian'
+    | 'camp-fire'
+    | 'coast-beach'
+    | 'coast-tidepools'
+    | 'coast-lighthouse';
+  costumeId?: 'summer-travel' | 'beach-swimwear';
   choices: AdventureChoiceView[];
 }
 
