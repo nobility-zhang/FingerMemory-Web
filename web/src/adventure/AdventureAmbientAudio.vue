@@ -103,6 +103,7 @@ onBeforeUnmount(() => {
     :data-ambient-status="audioStatus"
     :data-ambient-muted="audioMuted"
     :data-ambient-paused="audioPaused"
+    :data-ambient-volume="audioVolume"
     :data-last-ambient-event="lastEvent"
   >
     <PhaserGameHost

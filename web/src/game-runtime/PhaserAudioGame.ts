@@ -148,7 +148,11 @@ export async function createPhaserAudioGame(
     private ambientSound: unknown;
 
     private stopAmbientSound(): void {
-      if (this.ambientSound === undefined || this.ambientSound === null) {
+      if (
+        typeof this.ambientSound !== 'object'
+        || this.ambientSound === null
+      ) {
+        this.ambientSound = undefined;
         return;
       }
       const stop = Reflect.get(this.ambientSound, 'stop');
@@ -252,8 +256,8 @@ export async function createPhaserAudioGame(
               loop: true,
               volume: clampVolume(event.volume),
             });
-            this.ambientSound = played;
-            const accepted = played !== false && played !== null;
+            const accepted = typeof played === 'object' && played !== null;
+            this.ambientSound = accepted ? played : undefined;
             bridge.emit({
               type: 'ambient-started',
               eventId: event.eventId,
