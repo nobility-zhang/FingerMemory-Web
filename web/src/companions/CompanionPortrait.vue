@@ -1,24 +1,28 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type {
+  CompanionCostumeId,
   CompanionExpression,
   CompanionProfile,
 } from './catalog';
+import { portraitsFor } from './catalog';
 
 const props = withDefaults(
   defineProps<{
     companion: CompanionProfile;
     expression?: CompanionExpression;
+    costumeId?: CompanionCostumeId;
     reduceMotion?: boolean;
   }>(),
   {
     expression: 'neutral',
+    costumeId: 'summer-travel',
     reduceMotion: false,
   },
 );
 
 const source = computed(
-  () => props.companion.portraits[props.expression],
+  () => portraitsFor(props.companion, props.costumeId)[props.expression],
 );
 const alternativeText = computed(
   () => `${props.companion.name}，${props.companion.epithet}的全景立绘`,
@@ -31,6 +35,7 @@ const alternativeText = computed(
     :class="[`expression-${expression}`, { 'reduce-motion': reduceMotion }]"
     :data-companion="companion.id"
     :data-expression="expression"
+    :data-costume-id="costumeId"
   >
     <img :src="source" :alt="alternativeText" draggable="false" />
   </figure>

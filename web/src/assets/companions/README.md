@@ -133,6 +133,64 @@ Runtime SHA256:
 The two characters keep separate source and runtime trees. Their first-screen
 runtime files total approximately 4.6 MiB including the inn JPEG.
 
+## Beach Swimwear Variants
+
+Lia and Serin each have a `beach-swimwear` costume with the same six stable
+expressions. These are ordinary age-appropriate one-piece beach outfits, made
+from the existing character identity anchors rather than recolored travel
+clothes. Lia wears a mist-blue swim dress with cream piping and carries a folded
+towel. Serin wears a moss-green short-sleeved swim dress with ivory trim and
+carries a straw beach bag with her field notebook. Both keep their established
+faces, hair, accessories, natural same-age proportions, relaxed standing pose,
+transparent background and non-sexualized camera.
+
+The source files are `1024x1536` RGBA PNGs. Runtime files are shared
+`480x720` RGBA derivatives.
+
+### Lia Beach Swimwear Source SHA256
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `cbd64790b5c3910f9c57d1f36e37a15faca76ba1e6c47800555ed8039f91d208` |
+| welcome | `d1f746cb2613ec13e850e5a93a9af9a2a954e93838ba37d5b617816a42c6835e` |
+| cheer | `89b9e3b866dfa6d5c844f5f727d0b919449009251ba8f60c76c2fa7d63e471f2` |
+| concern | `79620687aeebf25901221f70f74b5c2cb2675f7dec245260b92de81a08e863b5` |
+| relief | `12ccbe086cece5ceb171c3397ae688e48b9e5f09e696ee01939e16f65beb2c91` |
+| surprise | `533c6c2c8c24e506c42040c84d0ceada66b981119387cd58f9ba18b9a89126b9` |
+
+### Lia Beach Swimwear Runtime SHA256
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `72f5818d599d71b949d5d4cb842b273869a39b8a8816db17e8b3f28823a21f66` |
+| welcome | `dddca7a374e70876c66351187f76ba457b7f7429bf571c70c7669737fa978dc9` |
+| cheer | `862f6566dc7d2681e188906b2ecacbe51d8df6e0881efb9384513cc2177aa529` |
+| concern | `521d2fbb82db1bc5bacb10b6b670bbe63daf8123d350ff600337cdf70d09af70` |
+| relief | `1f07e76ecd9564e89452773a4ba84e174f4e86b4dfaa525bc8ea86fdffd09bf1` |
+| surprise | `d2e79f2719bd473afcada2c479d9c6c81934a5f324da24c5216512c35f391360` |
+
+### Serin Beach Swimwear Source SHA256
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `7a14302cc2156978814db017a977e40c3316c46d58ec640956f0ec8b67bb7039` |
+| welcome | `430cb81ee27d56596157ff8686ad2d8cca5fa112a8cf457bdbfcce5444556d1a` |
+| cheer | `b54ed5296e0179d12e4fb263a3d12c614fc39c5d2fae5fc3e367395bd62dc9b9` |
+| concern | `6487f2ff98f6b53e851f917a44f31017e09c8c5aed8f428cf8e0fd48d111c35b` |
+| relief | `ed79aef9ac7b1191d8ab35d205107305a1217dd233737b07194cb59dc1a031c4` |
+| surprise | `27c2902f4d00a78e923ea5fbdfb828636f5cfcdb1bdbd0d28db215e2d270ab02` |
+
+### Serin Beach Swimwear Runtime SHA256
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `035a24a75706446d16d302f2c4d08241c750ce4ee55a38515248b0e07bc044a5` |
+| welcome | `d8ca4e5ca90a7d395c30ae0650f36c2de86e59ae64f6de649846fa0f9209974f` |
+| cheer | `ef2e40c5169dc4d5b5155edb076ac30e72ab8eb2c377f33c550c5c41d8364246` |
+| concern | `51eb8197a7783c4f5dd5fa1fa40108ea488d91da63922a2cccb3322231e7937d` |
+| relief | `d9550d09fd2913026c518dac859ff655bd25d68bad3c09a4653b79402eac41be` |
+| surprise | `11b66e32360d08e6a0f183a9f8c540b99eb47dd3c31d4fa5e99b439980bd6143` |
+
 ## Fina
 
 Fina is an original 16-year-old traveling cartographer. Her H5-03 standard uses

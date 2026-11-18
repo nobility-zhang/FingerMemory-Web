@@ -16,6 +16,18 @@ import finaNeutral from '../assets/companions/fina/runtime/neutral.png';
 import finaRelief from '../assets/companions/fina/runtime/relief.png';
 import finaSurprise from '../assets/companions/fina/runtime/surprise.png';
 import finaWelcome from '../assets/companions/fina/runtime/welcome.png';
+import liaBeachCheer from '../assets/companions/lia/beach-swimwear/runtime/cheer.png';
+import liaBeachConcern from '../assets/companions/lia/beach-swimwear/runtime/concern.png';
+import liaBeachNeutral from '../assets/companions/lia/beach-swimwear/runtime/neutral.png';
+import liaBeachRelief from '../assets/companions/lia/beach-swimwear/runtime/relief.png';
+import liaBeachSurprise from '../assets/companions/lia/beach-swimwear/runtime/surprise.png';
+import liaBeachWelcome from '../assets/companions/lia/beach-swimwear/runtime/welcome.png';
+import serinBeachCheer from '../assets/companions/serin/beach-swimwear/runtime/cheer.png';
+import serinBeachConcern from '../assets/companions/serin/beach-swimwear/runtime/concern.png';
+import serinBeachNeutral from '../assets/companions/serin/beach-swimwear/runtime/neutral.png';
+import serinBeachRelief from '../assets/companions/serin/beach-swimwear/runtime/relief.png';
+import serinBeachSurprise from '../assets/companions/serin/beach-swimwear/runtime/surprise.png';
+import serinBeachWelcome from '../assets/companions/serin/beach-swimwear/runtime/welcome.png';
 
 export const companionExpressions = [
   'neutral',
@@ -32,6 +44,14 @@ export const companionIds = ['lia', 'serin', 'fina'] as const;
 
 export type CompanionId = (typeof companionIds)[number];
 
+export const companionCostumeIds = [
+  'summer-travel',
+  'beach-swimwear',
+] as const;
+
+export type CompanionCostumeId = (typeof companionCostumeIds)[number];
+export type CompanionPortraitSet = Record<CompanionExpression, string>;
+
 export interface CompanionDialogue {
   welcome: string;
   again: string;
@@ -45,21 +65,64 @@ export interface CompanionProfile {
   id: CompanionId;
   name: string;
   epithet: string;
-  portraits: Record<CompanionExpression, string>;
+  portraits: CompanionPortraitSet;
+  costumes: Partial<Record<CompanionCostumeId, CompanionPortraitSet>>;
   dialogue: CompanionDialogue;
 }
+
+const liaTravelPortraits: CompanionPortraitSet = {
+  neutral,
+  welcome,
+  cheer,
+  concern,
+  relief,
+  surprise,
+};
+
+const liaBeachPortraits: CompanionPortraitSet = {
+  neutral: liaBeachNeutral,
+  welcome: liaBeachWelcome,
+  cheer: liaBeachCheer,
+  concern: liaBeachConcern,
+  relief: liaBeachRelief,
+  surprise: liaBeachSurprise,
+};
+
+const serinTravelPortraits: CompanionPortraitSet = {
+  neutral: serinNeutral,
+  welcome: serinWelcome,
+  cheer: serinCheer,
+  concern: serinConcern,
+  relief: serinRelief,
+  surprise: serinSurprise,
+};
+
+const serinBeachPortraits: CompanionPortraitSet = {
+  neutral: serinBeachNeutral,
+  welcome: serinBeachWelcome,
+  cheer: serinBeachCheer,
+  concern: serinBeachConcern,
+  relief: serinBeachRelief,
+  surprise: serinBeachSurprise,
+};
+
+const finaTravelPortraits: CompanionPortraitSet = {
+  neutral: finaNeutral,
+  welcome: finaWelcome,
+  cheer: finaCheer,
+  concern: finaConcern,
+  relief: finaRelief,
+  surprise: finaSurprise,
+};
 
 export const lia: CompanionProfile = {
   id: 'lia',
   name: '莉娅',
   epithet: '暖灯旅店的看板娘',
-  portraits: {
-    neutral,
-    welcome,
-    cheer,
-    concern,
-    relief,
-    surprise,
+  portraits: liaTravelPortraits,
+  costumes: {
+    'summer-travel': liaTravelPortraits,
+    'beach-swimwear': liaBeachPortraits,
   },
   dialogue: {
     welcome: '热茶刚好。今天的旅途笔记里还有几枚词，我会陪你一项项收好。',
@@ -75,13 +138,10 @@ export const serin: CompanionProfile = {
   id: 'serin',
   name: '瑟琳',
   epithet: '古树契约的旅行祭司',
-  portraits: {
-    neutral: serinNeutral,
-    welcome: serinWelcome,
-    cheer: serinCheer,
-    concern: serinConcern,
-    relief: serinRelief,
-    surprise: serinSurprise,
+  portraits: serinTravelPortraits,
+  costumes: {
+    'summer-travel': serinTravelPortraits,
+    'beach-swimwear': serinBeachPortraits,
   },
   dialogue: {
     welcome: '先看清楚，再往前走。今天也不用赶时间，我会替你记下每一个路标。',
@@ -97,13 +157,9 @@ export const fina: CompanionProfile = {
   id: 'fina',
   name: '菲妮',
   epithet: '罗盘与远路的绘图师',
-  portraits: {
-    neutral: finaNeutral,
-    welcome: finaWelcome,
-    cheer: finaCheer,
-    concern: finaConcern,
-    relief: finaRelief,
-    surprise: finaSurprise,
+  portraits: finaTravelPortraits,
+  costumes: {
+    'summer-travel': finaTravelPortraits,
   },
   dialogue: {
     welcome: '地图给我看看。迷路也没关系，我会先找到最近的水源，再把你带回来。',
@@ -122,3 +178,10 @@ export const companionById: Record<CompanionId, CompanionProfile> = {
   serin,
   fina,
 };
+
+export function portraitsFor(
+  companion: CompanionProfile,
+  costumeId: CompanionCostumeId = 'summer-travel',
+): CompanionPortraitSet {
+  return companion.costumes[costumeId] ?? companion.portraits;
+}
