@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "namespace": "fm.demo",
+  "bookId": "warm-lantern",
+  "contentVersion": "1.0.0",
+  "title": "暖灯与失语之森",
+  "engineRange": {
+    "minInclusive": "0.3.0",
+    "maxExclusive": "0.4.0"
+  },
+  "entryNodeId": "inn.arrival",
+  "seriesId": "warm-lantern",
+  "capabilities": [
+    "card-battle-v1"
+  ],
+  "requires": []
+}

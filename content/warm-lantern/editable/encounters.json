@@ -1,0 +1,9 @@
+{
+  "encounters": [
+    {
+      "encounterId": "bridge-guardian",
+      "battleRulesVersion": "card-battle-v1",
+      "rewardCardIds": []
+    }
+  ]
+}

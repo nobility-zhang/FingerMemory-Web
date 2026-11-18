@@ -1,0 +1,91 @@
+{
+  "chapters": [
+    {
+      "chapterId": "chapter-1",
+      "title": "暖灯与失语之森",
+      "nodes": [
+        {
+          "nodeId": "inn.arrival",
+          "type": "choice",
+          "title": "暖灯旅店",
+          "text": "信纸边缘又淡了一角。旅伴把暖灯放在桌沿，替你留出靠近炉火的位置。",
+          "choices": [
+            {
+              "choiceId": "prepare",
+              "label": "拿起暖灯，准备出发",
+              "targetNodeId": "inn.preparation"
+            }
+          ]
+        },
+        {
+          "nodeId": "inn.preparation",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "临行前的笔记",
+          "text": "旅伴在便笺上写下 lantern，又把纸角折进你的地图。今晚先记住它，再让灯光替你引路。",
+          "nextNodeId": "forest.signpost"
+        },
+        {
+          "nodeId": "forest.signpost",
+          "type": "choice",
+          "title": "失语之森",
+          "text": "两道路痕都通向溪桥。雾里有木头受压的轻响，也有守卫缓慢的呼吸声。",
+          "choices": [
+            {
+              "choiceId": "cross",
+              "label": "沿提灯照亮的旧路前进",
+              "targetNodeId": "bridge.guardian"
+            }
+          ]
+        },
+        {
+          "nodeId": "bridge.guardian",
+          "type": "encounter",
+          "title": "雾中溪桥",
+          "text": "桥雾聚成守卫。它没有夺走道路，只要求你们用真实的回忆换取每一次行动。",
+          "encounterId": "bridge-guardian",
+          "victoryNodeId": "bridge.crossed",
+          "rescueNodeId": "bridge.assisted"
+        },
+        {
+          "nodeId": "bridge.crossed",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "桥后的灯影",
+          "text": "迷雾散开时，旅伴替你把暖灯重新举高。你们没有猜中答案，而是真的把词从记忆里找了回来。",
+          "nextNodeId": "camp.letter"
+        },
+        {
+          "nodeId": "bridge.assisted",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "溪桥救援",
+          "text": "你被带回安全的路边。旅伴没有责怪，只把水袋递给你，又把这次没想起来的词认真地圈了一遍。",
+          "nextNodeId": "camp.fire"
+        },
+        {
+          "nodeId": "camp.letter",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "伙伴的对话",
+          "text": "“你把 promise 和 guardian 都写对了。”旅伴靠在你身边，“明天再看见这座桥时，我们会记得今晚的火光。”",
+          "nextNodeId": "camp.fire"
+        },
+        {
+          "nodeId": "camp.fire",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "营火",
+          "text": "暖灯挂在树梢，营火把第一章的路标照得清清楚楚。你们把今天的词一条条收进旅途笔记。",
+          "nextNodeId": "chapter1.end"
+        },
+        {
+          "nodeId": "chapter1.end",
+          "type": "chapter-end",
+          "title": "第一章完成",
+          "text": "旅伴在营火旁合上笔记。第一段旅途已经写入存档，下一次仍会从这盏暖灯继续。"
+        }
+      ]
+    }
+  ]
+}

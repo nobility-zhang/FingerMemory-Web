@@ -1,0 +1,25 @@
+{
+  "bindings": [
+    {
+      "nodeId": "inn.preparation",
+      "wordKeys": [
+        "lantern"
+      ]
+    },
+    {
+      "nodeId": "forest.signpost",
+      "wordKeys": [
+        "forest",
+        "bridge"
+      ]
+    },
+    {
+      "nodeId": "camp.letter",
+      "wordKeys": [
+        "promise",
+        "guardian",
+        "campfire"
+      ]
+    }
+  ]
+}

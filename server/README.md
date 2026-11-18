@@ -98,6 +98,7 @@ manifest/TSV/章节/角色/卡牌/遭遇/资源校验器；相同 owner 与 cont
 词条导入账号学习快照并创建在线会话。剧情动作、遭遇创建和战斗结算都使用
 owner 范围、`Idempotency-Key`、请求指纹、`runVersion` 与不可变事件；遭遇绑定唯一
 `card-battle-v1`，只有服务端战斗进入 victory/defeat 后才能推进到对应剧情节点。
+仓库内的第一章可编辑源与 LFS 成品包见 `content/warm-lantern/`。
 
 ## 运维账号命令
 
