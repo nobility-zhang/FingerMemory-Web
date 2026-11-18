@@ -984,6 +984,7 @@ onBeforeUnmount(() => {
                   v-if="enableAudio"
                   :ref="setAudioHost"
                   :muted="audioMuted"
+                  :volume="audioVolume"
                   @event="handleAudioRuntimeEvent"
                 />
               </template>
