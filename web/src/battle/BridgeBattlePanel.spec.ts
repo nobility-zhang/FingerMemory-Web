@@ -145,7 +145,10 @@ function buttonByText(root: ParentNode, text: string): HTMLButtonElement {
 }
 
 function pressKey(key: string, overrides: KeyboardEventInit = {}): void {
-  window.dispatchEvent(new KeyboardEvent('keydown', {
+  const target = document.querySelector<HTMLElement>(
+    '[data-testid="bridge-battle"]',
+  ) ?? document.body;
+  target.dispatchEvent(new KeyboardEvent('keydown', {
     key,
     bubbles: true,
     cancelable: true,
@@ -261,6 +264,9 @@ describe('BridgeBattlePanel', () => {
       expect(root.textContent).toContain('提灯');
       expect(root.querySelector('[data-field="party-hp"]')?.textContent)
         .toContain('30/30');
+      expect(document.activeElement).toBe(
+        root.querySelector('.battle-answer-row input'),
+      );
     });
 
     const answer = root.querySelector<HTMLInputElement>('input');
@@ -268,6 +274,15 @@ describe('BridgeBattlePanel', () => {
     answer!.dispatchEvent(new Event('input', { bubbles: true }));
     await nextTick();
     pressKey('Enter');
+    await nextTick();
+    expect(JSON.parse(
+      root.querySelector<HTMLElement>('[data-testid="bridge-battle"]')
+        ?.dataset.lastShortcutInput ?? '{}',
+    )).toMatchObject({
+      key: 'Enter',
+      context: 'learning-input',
+      action: 'submit-answer',
+    });
     await vi.waitFor(() => {
       expect(buttonByText(root, 'GOOD')).toBeDefined();
       expect(root.querySelector('[data-shortcut-context="rating"]')).not.toBeNull();

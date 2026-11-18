@@ -170,7 +170,7 @@ export function resolveBattleShortcut(
     return input.key === 'Enter' ? { type: 'finish' } : null;
   }
 
-  if (input.isInteractiveTarget && input.key === 'Enter') {
+  if (input.isInteractiveTarget && !input.isEditable && input.key === 'Enter') {
     return null;
   }
 

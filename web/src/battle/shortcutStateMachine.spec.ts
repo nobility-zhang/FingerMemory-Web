@@ -26,7 +26,10 @@ function shortcut(
 describe('battle shortcut state machine', () => {
   it('submits learning input only without IME, repeat or command modifiers', () => {
     expect(shortcut('learning-input', 'Enter')).toEqual({ type: 'submit-answer' });
-    expect(shortcut('learning-input', 'Enter', { isEditable: true }))
+    expect(shortcut('learning-input', 'Enter', {
+      isEditable: true,
+      isInteractiveTarget: true,
+    }))
       .toEqual({ type: 'submit-answer' });
     expect(shortcut('learning-input', 'Enter', { isComposing: true })).toBeNull();
     expect(shortcut('learning-input', 'Enter', { repeat: true })).toBeNull();

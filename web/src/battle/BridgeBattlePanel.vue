@@ -96,6 +96,13 @@ const shortcutHelpOpen = ref(false);
 const shortcutPreferences = ref(loadBattleShortcutPreferences());
 const resumeButton = ref<HTMLButtonElement>();
 const systemReducedMotion = ref(false);
+const lastShortcutInput = ref<{
+  key: string;
+  context: BattleShortcutContext;
+  isComposing: boolean;
+  repeat: boolean;
+  action: string;
+}>();
 let motionPreference: MediaQueryList | undefined;
 let focusBeforePause: HTMLElement | null = null;
 let generation = 0;
@@ -305,6 +312,7 @@ async function startBattle(): Promise<void> {
     playBattleEvents(created.events, `battle-start:${created.battle.battleId}`);
     await loadLearningSession(initial.id);
     notice.value = '溪桥迷雾守卫挡住了去路，先完成这一轮学习。';
+    focusCurrentContext();
   } catch (cause) {
     if (!disposed && lifecycle === generation) {
       error.value = errorMessage(cause);
@@ -365,6 +373,7 @@ async function submitAnswer(): Promise<void> {
       expectedReviewVersion: item.reviewVersion,
     });
     notice.value = '答案已保存，请选择本次回忆评分。评分不会改变基础能量。';
+    focusCurrentContext();
   } catch (cause) {
     error.value = errorMessage(cause);
   } finally {
@@ -425,6 +434,7 @@ async function submitRating(
     claimActionId = '';
     playBattleEvents(claimed.events, `learning-claim:${completedClaimActionId}`);
     notice.value = '学习行动完成，获得 3 点能量。现在选择你的战术牌。';
+    focusCurrentContext();
   } catch (cause) {
     error.value = errorMessage(cause);
   } finally {
@@ -459,6 +469,7 @@ function cancelTargetSelection(): void {
   selectedCard.value = undefined;
   selectedTargetIndex.value = 0;
   notice.value = '已取消目标选择。';
+  focusCurrentContext();
 }
 
 function cycleTarget(direction: 'previous' | 'next'): void {
@@ -501,6 +512,7 @@ async function playCard(
     selectedTargetIndex.value = 0;
     playBattleEvents(updated.events, `card:${actionId}`);
     notice.value = '战术牌已结算。';
+    focusCurrentContext();
   } catch (cause) {
     error.value = errorMessage(cause);
   } finally {
@@ -534,6 +546,7 @@ async function useCompanionSkill(): Promise<void> {
     });
     playBattleEvents(battle.value.events, `companion:${actionId}`);
     notice.value = `${companion.value.name}的协助已经生效。`;
+    focusCurrentContext();
   } catch (cause) {
     error.value = errorMessage(cause);
   } finally {
@@ -580,6 +593,7 @@ async function endTurn(): Promise<void> {
       await loadLearningSession(updated.battle.learningTask.sessionId);
       notice.value = '敌方行动结束，下一轮学习任务已经冻结。';
     }
+    focusCurrentContext();
   } catch (cause) {
     error.value = errorMessage(cause);
   } finally {
@@ -686,9 +700,6 @@ function performBattleShortcut(action: BattleShortcutAction): void {
 }
 
 function handleBattleKeydown(event: KeyboardEvent): void {
-  if (event.defaultPrevented) {
-    return;
-  }
   const target = event.target;
   const isEditable = target instanceof HTMLElement
     && (
@@ -714,11 +725,35 @@ function handleBattleKeydown(event: KeyboardEvent): void {
     altKey: event.altKey,
     shiftKey: event.shiftKey,
   });
+  lastShortcutInput.value = {
+    key: event.key,
+    context: shortcutContext.value,
+    isComposing: event.isComposing,
+    repeat: event.repeat,
+    action: action?.type ?? 'none',
+  };
   if (action === null) {
     return;
   }
   event.preventDefault();
   performBattleShortcut(action);
+}
+
+function focusCurrentContext(): void {
+  void nextTick(() => {
+    const selectors: Partial<Record<BattleShortcutContext, string>> = {
+      'learning-input': '.battle-answer-row input:not(:disabled)',
+      rating: '.battle-rating-grid button:not(:disabled)',
+      'card-select': '.card-button:not(:disabled)',
+      'target-select': '.target-row button:not(:disabled)',
+      result: '.battle-result button:not(:disabled)',
+    };
+    const selector = selectors[shortcutContext.value];
+    const target = selector === undefined
+      ? undefined
+      : battleRoot.value?.querySelector<HTMLElement>(selector);
+    (target ?? battleRoot.value)?.focus();
+  });
 }
 
 function handleMotionPreference(event: MediaQueryListEvent): void {
@@ -729,7 +764,6 @@ onMounted(() => {
   motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   systemReducedMotion.value = motionPreference?.matches ?? false;
   motionPreference?.addEventListener('change', handleMotionPreference);
-  window.addEventListener('keydown', handleBattleKeydown);
   void startBattle();
 });
 
@@ -737,7 +771,6 @@ onBeforeUnmount(() => {
   disposed = true;
   generation += 1;
   motionPreference?.removeEventListener('change', handleMotionPreference);
-  window.removeEventListener('keydown', handleBattleKeydown);
 });
 </script>
 
@@ -747,11 +780,14 @@ onBeforeUnmount(() => {
     class="bridge-battle"
     :class="`presentation-${presentationMode}`"
     data-testid="bridge-battle"
+    tabindex="-1"
     data-battle-renderer="dom"
     :data-presentation-mode="presentationMode"
     :data-shortcut-context="shortcutContext"
     :data-battle-paused="battlePaused"
     :data-end-turn-shortcut="shortcutPreferences.endTurn"
+    :data-last-shortcut-input="JSON.stringify(lastShortcutInput)"
+    @keydown="handleBattleKeydown"
   >
     <header class="battle-heading">
       <div>
