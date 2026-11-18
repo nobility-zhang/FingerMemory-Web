@@ -6,9 +6,16 @@ spring:
   session:
     jdbc:
       initialize-schema: never
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 52MB
 
 app:
   auth:
     registration-enabled: true
     login-attempts-per-minute: 100
     register-attempts-per-minute: 100
+  content:
+    package-root: ${java.io.tmpdir}/finger-memory-content-test
+    engine-version: 0.3.0

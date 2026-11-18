@@ -21,6 +21,8 @@
     <java.version>21</java.version>
     <mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
     <bucket4j.version>8.22.0</bucket4j.version>
+    <commons-compress.version>1.28.0</commons-compress.version>
+    <commons-csv.version>1.14.1</commons-csv.version>
   </properties>
 
   <dependencies>
@@ -74,6 +76,16 @@
     <dependency>
       <groupId>com.github.ben-manes.caffeine</groupId>
       <artifactId>caffeine</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-compress</artifactId>
+      <version>${commons-compress.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-csv</artifactId>
+      <version>${commons-csv.version}</version>
     </dependency>
 
     <dependency>

@@ -28,6 +28,10 @@ spring:
       path: /
   jackson:
     default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 52MB
 
 mybatis:
   configuration:
@@ -60,3 +64,6 @@ app:
     worker-url: ${FSRS_WORKER_URL:http://127.0.0.1:8090}
     connect-timeout-ms: ${FSRS_CONNECT_TIMEOUT_MS:500}
     request-timeout-ms: ${FSRS_REQUEST_TIMEOUT_MS:1500}
+  content:
+    package-root: ${CONTENT_PACKAGE_ROOT:./.local/content-packages}
+    engine-version: ${CONTENT_ENGINE_VERSION:0.3.0}
