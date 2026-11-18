@@ -105,6 +105,13 @@ describe('PhaserGameHost', () => {
         accepted: true,
       },
     ]);
+    const runtime = root.querySelector<HTMLElement>(
+      '[data-phaser-runtime="audio"]',
+    );
+    expect(JSON.parse(runtime?.dataset.audioEvents ?? '[]')).toEqual([
+      { soundKey: 'flashcard-flip', eventId: 'flip-1' },
+      { soundKey: 'battle-hit', eventId: 'hit-1' },
+    ]);
 
     muted.value = true;
     volume.value = 0.6;

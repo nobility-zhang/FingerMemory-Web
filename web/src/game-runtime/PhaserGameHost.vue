@@ -39,9 +39,11 @@ const unlocked = ref(false);
 const lastPlayedEventId = ref('');
 const skippedCount = ref(0);
 const runtimeError = ref('');
+const playedEvents = ref<Array<{ soundKey: GameSoundKey; eventId: string }>>([]);
 let generation = 0;
 let disposed = false;
 let unsubscribeBridge: (() => void) | undefined;
+const AUDIO_EVENT_HISTORY_LIMIT = 24;
 
 function handleBridgeEvent(event: GameBridgeEvent): void {
   if (event.type === 'game-ready') {
@@ -50,6 +52,10 @@ function handleBridgeEvent(event: GameBridgeEvent): void {
     unlocked.value = true;
   } else if (event.type === 'sound-played' && event.accepted) {
     lastPlayedEventId.value = event.eventId;
+    playedEvents.value = [
+      ...playedEvents.value.slice(-(AUDIO_EVENT_HISTORY_LIMIT - 1)),
+      { soundKey: event.soundKey, eventId: event.eventId },
+    ];
   } else if (event.type === 'sound-error') {
     runtimeState.value = 'error';
     runtimeError.value = event.message;
@@ -176,6 +182,7 @@ onBeforeUnmount(() => {
     :data-audio-volume="volume"
     :data-audio-paused="paused"
     :data-last-audio-event="lastPlayedEventId"
+    :data-audio-events="JSON.stringify(playedEvents)"
     :data-audio-skipped-count="skippedCount"
     :data-audio-error="runtimeError"
   ></div>
