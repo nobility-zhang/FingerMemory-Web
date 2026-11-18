@@ -18,6 +18,10 @@ import {
 } from '../api/client';
 import BridgeBattlePanel from '../battle/BridgeBattlePanel.vue';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
+import forestBackground from '../assets/scenes/forest/runtime/forest-path.jpg';
+import bridgeBackground from '../assets/scenes/bridge/runtime/bridge-guardian.jpg';
+import campBackground from '../assets/scenes/camp/runtime/camp-fire.jpg';
+import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 import type {
   CompanionExpression,
   CompanionId,
@@ -57,6 +61,18 @@ const emit = defineEmits<{
 
 const node = computed(() => props.run.currentNode);
 const fixedHash = computed(() => props.run.contentHash.slice(0, 8));
+const sceneBackground = computed(() => {
+  if (node.value.nodeId.startsWith('inn.')) {
+    return innBackground;
+  }
+  if (node.value.type === 'encounter') {
+    return bridgeBackground;
+  }
+  if (node.value.type === 'camp' || node.value.type === 'chapter-end') {
+    return campBackground;
+  }
+  return forestBackground;
+});
 const speaker = computed(() => {
   const value = node.value.speaker.trim();
   if (value.length === 0 || value === '旅伴' || value === 'companion') {
@@ -125,6 +141,7 @@ function finishBattle(): void {
     :data-node-id="node.nodeId"
     :data-content-version="run.contentVersion"
     :data-content-hash="run.contentHash"
+    :style="{ '--scene-background': `url(${sceneBackground})` }"
     :aria-labelledby="`adventure-${node.nodeId}`"
   >
     <header class="journey-heading">
@@ -201,8 +218,6 @@ function finishBattle(): void {
       <div v-else class="journey-stage">
         <div class="scene-atmosphere" aria-hidden="true">
           <span class="scene-light"></span>
-          <span class="scene-path"></span>
-          <span class="scene-horizon"></span>
         </div>
 
         <div class="journey-copy">
@@ -289,6 +304,7 @@ function finishBattle(): void {
   --scene-deep: #14211d;
   --scene-middle: #31473b;
   --scene-warm: #bd8b4f;
+  --scene-background: none;
   position: relative;
   display: grid;
   min-height: calc(100vh - 150px);
@@ -298,7 +314,9 @@ function finishBattle(): void {
   border-radius: 8px;
   padding: clamp(18px, 3vw, 34px);
   background:
-    radial-gradient(circle at 72% 24%, rgb(224 172 92 / 18%), transparent 24%),
+    linear-gradient(90deg, rgb(17 12 13 / 90%) 0 38%, rgb(17 12 13 / 42%) 56%, transparent 82%),
+    linear-gradient(180deg, transparent 52%, rgb(12 10 12 / 58%) 100%),
+    var(--scene-background) center / cover no-repeat,
     linear-gradient(135deg, var(--scene-deep), var(--scene-middle));
   color: #f7ead5;
   isolation: isolate;
@@ -418,8 +436,9 @@ function finishBattle(): void {
   overflow: hidden;
   border: 1px solid rgb(234 205 145 / 20%);
   background:
-    linear-gradient(180deg, transparent 42%, rgb(12 10 12 / 82%) 100%),
-    linear-gradient(120deg, var(--scene-deep), var(--scene-middle));
+    linear-gradient(90deg, rgb(12 10 12 / 84%) 0 38%, rgb(12 10 12 / 18%) 58%, transparent 84%),
+    linear-gradient(180deg, transparent 40%, rgb(12 10 12 / 82%) 100%),
+    var(--scene-background) center / cover no-repeat;
 }
 
 .scene-atmosphere {
@@ -431,12 +450,10 @@ function finishBattle(): void {
 
 .scene-atmosphere::before {
   position: absolute;
-  inset: 18% 6% auto;
-  height: 48%;
+  inset: 0;
   background:
-    radial-gradient(ellipse at 30% 80%, rgb(31 55 38 / 85%) 0 20%, transparent 21%),
-    radial-gradient(ellipse at 58% 74%, rgb(29 48 35 / 92%) 0 24%, transparent 25%),
-    radial-gradient(ellipse at 84% 82%, rgb(34 54 38 / 78%) 0 21%, transparent 22%);
+    radial-gradient(circle at 76% 25%, rgb(255 214 151 / 8%), transparent 27%),
+    linear-gradient(180deg, rgb(12 13 16 / 8%), rgb(11 10 12 / 30%));
   content: "";
 }
 
@@ -449,27 +466,6 @@ function finishBattle(): void {
   border-radius: 50%;
   background: radial-gradient(circle, rgb(255 212 139 / 28%), transparent 68%);
   filter: blur(10px);
-}
-
-.scene-path {
-  position: absolute;
-  right: 15%;
-  bottom: -12%;
-  width: 32%;
-  height: 58%;
-  background: linear-gradient(180deg, transparent, rgb(154 121 78 / 28%));
-  clip-path: polygon(46% 0, 60% 0, 100% 100%, 0 100%);
-  transform: rotate(-6deg);
-}
-
-.scene-horizon {
-  position: absolute;
-  right: 10%;
-  bottom: 27%;
-  left: 18%;
-  height: 4px;
-  background: linear-gradient(90deg, transparent, var(--scene-warm), transparent);
-  opacity: 0.34;
 }
 
 .journey-copy {
@@ -628,6 +624,10 @@ button:disabled {
 @media (max-width: 900px) {
   .adventure-journey {
     min-height: calc(100vh - 120px);
+    background:
+      linear-gradient(180deg, rgb(17 12 13 / 56%) 0 34%, rgb(14 11 13 / 82%) 72%),
+      var(--scene-background) center / cover no-repeat,
+      var(--scene-deep);
   }
 
   .journey-heading {
@@ -643,6 +643,9 @@ button:disabled {
   .journey-stage {
     grid-template-columns: 1fr;
     min-height: auto;
+    background:
+      linear-gradient(180deg, rgb(12 10 12 / 28%) 0 30%, rgb(12 10 12 / 84%) 72%),
+      var(--scene-background) center / cover no-repeat;
   }
 
   .journey-copy {

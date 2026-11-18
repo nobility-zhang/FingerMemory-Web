@@ -121,4 +121,42 @@ describe('AdventureJourney', () => {
     buttonByText(ending, '完成第一章').click();
     expect(complete).toHaveBeenCalledOnce();
   });
+
+  it('uses dedicated chapter scene art outside the inn', async () => {
+    const forest = mountJourney(run({
+      currentNode: {
+        nodeId: 'forest.signpost',
+        chapterId: 'chapter-1',
+        type: 'choice',
+        title: '失语之森',
+        speaker: '',
+        text: '两道路痕都通向溪桥。',
+        choices: [{ choiceId: 'cross', label: '沿旧路前进' }],
+      },
+    }));
+    await nextTick();
+    expect(
+      forest.querySelector<HTMLElement>('.adventure-journey')?.style
+        .getPropertyValue('--scene-background'),
+    ).toContain('forest-path');
+
+    mountedApp?.unmount();
+    document.body.innerHTML = '';
+    const camp = mountJourney(run({
+      currentNode: {
+        nodeId: 'camp.fire',
+        chapterId: 'chapter-1',
+        type: 'camp',
+        title: '营火',
+        speaker: '旅伴',
+        text: '营火把路标照亮。',
+        choices: [],
+      },
+    }));
+    await nextTick();
+    expect(
+      camp.querySelector<HTMLElement>('.adventure-journey')?.style
+        .getPropertyValue('--scene-background'),
+    ).toContain('camp-fire');
+  });
 });

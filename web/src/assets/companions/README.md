@@ -3,7 +3,8 @@
 These original assets were generated for FingerMemory with the built-in ImageGen
 tool. They are project-produced illustrations and do not use remote hotlinks or
 third-party character artwork. Lia's H1-01 and Serin's H1-02 redesigns were
-produced on 2026-11-17; the scene assets are from the earlier visual baseline.
+produced on 2026-11-17. The inn is from the earlier visual baseline; the first
+chapter forest, bridge, and camp scenes were produced on 2026-11-18.
 
 ## Lia
 
@@ -59,6 +60,32 @@ modern equipment, or neon.
 
 The full source PNG files are intentionally retained for later edits. The six
 runtime portraits plus the runtime background total approximately 2.4 MiB.
+
+## First Chapter Scenes
+
+Three original 16:9 environment backgrounds use the built-in ImageGen tool and
+the same painterly medieval-fantasy direction as the inn. They contain no people,
+text, UI, logos, watermarks, modern equipment, or sexualized imagery. Runtime
+files are `1440x810` JPEG quality 86 derivatives from the `1672x941` source PNGs.
+
+- Forest path prompt intent: late golden dusk, mossy broadleaf forest, handmade
+  signpost, path leading toward a distant bridge, open dialogue space.
+  Source `scenes/forest/source/forest-path.png` SHA256
+  `8d4b37adf93490912a0ec017f99c67228847feaf4d8a8c7a5ed60a242b139dfd`;
+  runtime `scenes/forest/runtime/forest-path.jpg` SHA256
+  `afd9f0551fb5ce83ba3dec94c9dd8e024622c7d19068ca917b4f48cbcf1ef470`.
+- Bridge prompt intent: old timber-and-stone footbridge over a shallow forest
+  stream, blue-white mist, two warm lanterns, no visible monster.
+  Source `scenes/bridge/source/bridge-guardian.png` SHA256
+  `92b5d7fde10c3930c777dbd938b87a2dc070ce3684b2188947b01a5c52d04520`;
+  runtime `scenes/bridge/runtime/bridge-guardian.jpg` SHA256
+  `bac767067825cd5ab447eac75ecc184ace41ebb3ca956b724d92a65ec123d631`.
+- Camp prompt intent: safe woodland clearing at night, small fire, hanging warm
+  lantern, folded traveler blanket, starry sky, no people.
+  Source `scenes/camp/source/camp-fire.png` SHA256
+  `c3d1611e796bdbcaff3214a7e268550bd8e8f18ed73a7f9c13c484dbcb0dd730`;
+  runtime `scenes/camp/runtime/camp-fire.jpg` SHA256
+  `c5118c5f5ceae28c6c55d6daea182af4249316ad53554aad28b0d0a30b9f258e`.
 
 ## Serin
 
