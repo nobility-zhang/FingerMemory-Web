@@ -80,6 +80,10 @@ async function start(): Promise<void> {
       return;
     }
     unsubscribeBridge = nextController.bridge.on(handleBridgeEvent);
+    const startupError = nextController.getLastSoundError();
+    if (startupError !== null) {
+      handleBridgeEvent(startupError);
+    }
     nextController.setMuted(props.muted);
     nextController.setVolume(props.volume);
     nextController.setPaused(props.paused);

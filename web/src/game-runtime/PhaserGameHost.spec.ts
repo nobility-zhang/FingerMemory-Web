@@ -47,6 +47,7 @@ describe('PhaserGameHost', () => {
     const controller: PhaserAudioGameController = {
       bridge,
       isReady: () => false,
+      getLastSoundError: () => null,
       playFlip,
       playSound,
       setMuted,
@@ -165,6 +166,7 @@ describe('PhaserGameHost', () => {
     const controller: PhaserAudioGameController = {
       bridge,
       isReady: () => false,
+      getLastSoundError: () => null,
       playFlip: vi.fn(),
       playSound: vi.fn(),
       setMuted: vi.fn(),
@@ -208,5 +210,56 @@ describe('PhaserGameHost', () => {
       'Audio resource failed to load: battle-heal.wav',
     );
     expect(events.at(-1)).toEqual({ type: 'game-ready' });
+  });
+
+  it('recovers an audio resource error emitted before bridge subscription', async () => {
+    const startupError = {
+      type: 'sound-error' as const,
+      eventId: 'load:battle-heal',
+      soundKey: 'battle-heal' as const,
+      message: 'Audio resource failed to load: battle-heal.wav',
+    };
+    const controller: PhaserAudioGameController = {
+      bridge: new GameEventBridge(),
+      isReady: () => true,
+      getLastSoundError: () => startupError,
+      playFlip: vi.fn(),
+      playSound: vi.fn(),
+      setMuted: vi.fn(),
+      setVolume: vi.fn(),
+      setPaused: vi.fn(),
+      destroy: vi.fn(),
+    };
+    const events: GameBridgeEvent[] = [];
+    const Host = defineComponent({
+      setup() {
+        return () => h(PhaserGameHost, {
+          createGame: vi.fn(async () => controller),
+          onEvent: (event: GameBridgeEvent) => events.push(event),
+        });
+      },
+    });
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(Host);
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      const runtime = root.querySelector<HTMLElement>(
+        '[data-phaser-runtime="audio"]',
+      );
+      expect(runtime?.dataset.audioStatus).toBe('error');
+    });
+    const runtime = root.querySelector<HTMLElement>(
+      '[data-phaser-runtime="audio"]',
+    );
+    expect(runtime?.dataset.audioError).toBe(
+      'Audio resource failed to load: battle-heal.wav',
+    );
+    expect(events).toEqual([
+      startupError,
+      { type: 'game-ready' },
+    ]);
   });
 });

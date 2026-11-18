@@ -1,6 +1,7 @@
 import {
   FLASHCARD_FLIP_SOUND_KEY,
   GameEventBridge,
+  type GameBridgeEvent,
 } from './eventBridge';
 import {
   GAME_SOUND_BASE_VOLUME,
@@ -39,6 +40,7 @@ const MAX_ACTIVE_SOUNDS = 8;
 export interface PhaserAudioGameController {
   bridge: GameEventBridge;
   isReady(): boolean;
+  getLastSoundError(): Extract<GameBridgeEvent, { type: 'sound-error' }> | null;
   playSound(soundKey: GameSoundKey, eventId: string, volume?: number): void;
   playFlip(eventId: string): void;
   setMuted(muted: boolean): void;
@@ -61,20 +63,6 @@ function clampVolume(volume: number): number {
   return Math.min(1, Math.max(0, volume));
 }
 
-function emitSoundError(
-  bridge: GameEventBridge,
-  eventId: string,
-  soundKey: GameSoundKey,
-  error: unknown,
-): void {
-  bridge.emit({
-    type: 'sound-error',
-    eventId,
-    soundKey,
-    message: error instanceof Error ? error.message : 'unknown audio error',
-  });
-}
-
 export async function createPhaserAudioGame(
   input: PhaserAudioGameInput,
 ): Promise<PhaserAudioGameController> {
@@ -87,7 +75,23 @@ export async function createPhaserAudioGame(
   let paused = false;
   let volume = 1;
   let mutedBeforeReady = false;
+  let lastSoundError:
+    Extract<GameBridgeEvent, { type: 'sound-error' }> | null = null;
   const rateLimiter = new GameSoundRateLimiter();
+
+  function reportSoundError(
+    eventId: string,
+    soundKey: GameSoundKey,
+    error: unknown,
+  ): void {
+    lastSoundError = {
+      type: 'sound-error',
+      eventId,
+      soundKey,
+      message: error instanceof Error ? error.message : 'unknown audio error',
+    };
+    bridge.emit(lastSoundError);
+  }
 
   const unsubscribeBridge = bridge.on((event) => {
     if (event.type !== 'game-ready') {
@@ -125,12 +129,11 @@ export async function createPhaserAudioGame(
       if (soundKey === undefined || !(soundKey in SOUND_URLS)) {
         return;
       }
-      bridge.emit({
-        type: 'sound-error',
-        eventId: `load:${soundKey}`,
-        soundKey: soundKey as GameSoundKey,
-        message: `Audio resource failed to load: ${file.src ?? soundKey}`,
-      });
+      reportSoundError(
+        `load:${soundKey}`,
+        soundKey as GameSoundKey,
+        new Error(`Audio resource failed to load: ${file.src ?? soundKey}`),
+      );
     };
 
     private flashRune = (): void => {
@@ -244,7 +247,7 @@ export async function createPhaserAudioGame(
             this.game.events.emit('fm:audio-pulse');
           }
         } catch (error) {
-          emitSoundError(bridge, event.eventId, event.soundKey, error);
+          reportSoundError(event.eventId, event.soundKey, error);
         }
       });
       this.events.once('shutdown', () => {
@@ -321,6 +324,9 @@ export async function createPhaserAudioGame(
     bridge,
     isReady(): boolean {
       return gameReady;
+    },
+    getLastSoundError() {
+      return lastSoundError;
     },
     playSound(soundKey: GameSoundKey, eventId: string, requestedVolume = 1): void {
       requestPlay(soundKey, eventId, requestedVolume);
