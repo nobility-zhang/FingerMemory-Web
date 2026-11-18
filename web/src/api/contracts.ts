@@ -416,6 +416,49 @@ export interface GmCommandReceipt {
   sandbox: GmSandbox;
 }
 
+export interface ContentPackagePreview {
+  fileName: string;
+  title: string;
+  namespace: string;
+  bookId: string;
+  contentVersion: string;
+  contentHash: string;
+  engineVersion: string;
+  entryNodeId: string;
+  wordCount: number;
+  chapterCount: number;
+  nodeCount: number;
+  characterCount: number;
+  cardCount: number;
+  encounterCount: number;
+  assetCount: number;
+  warnings: string[];
+}
+
+export interface ContentPackageInstallation {
+  id: string;
+  namespace: string;
+  bookId: string;
+  contentVersion: string;
+  contentHash: string;
+  title: string;
+  entryNodeId: string;
+  status: 'installed';
+  wordCount: number;
+  chapterCount: number;
+  nodeCount: number;
+  characterCount: number;
+  cardCount: number;
+  encounterCount: number;
+  assetCount: number;
+  installedAtMs: number;
+}
+
+export interface ContentPackageInstallResult {
+  outcome: 'installed' | 'duplicate';
+  installation: ContentPackageInstallation;
+}
+
 export interface AccountClient {
   loadCurrentUser(): Promise<UserView | null>;
   login(username: string, password: string): Promise<UserView>;
@@ -547,6 +590,12 @@ export interface AccountClient {
     nextSessionId?: string;
     nextStudyItemId?: string;
   }): Promise<BattleEnvelopeView>;
+  previewContentPackage(file: File): Promise<ContentPackagePreview>;
+  installContentPackage(
+    file: File,
+    idempotencyKey: string,
+  ): Promise<ContentPackageInstallResult>;
+  listContentPackages(limit?: number): Promise<ContentPackageInstallation[]>;
   previewLocalMigration(snapshot: unknown): Promise<MigrationPreview>;
   importLocalMigration(
     batchId: string,

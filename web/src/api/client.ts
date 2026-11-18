@@ -4,6 +4,9 @@ import type {
   BackupPreview,
   BackupRestoreResult,
   BattleEnvelopeView,
+  ContentPackageInstallResult,
+  ContentPackageInstallation,
+  ContentPackagePreview,
   GmAuditPage,
   GmContext,
   GmCommandReceipt,
@@ -420,6 +423,34 @@ export class AccountApi implements AccountClient {
         },
         body: JSON.stringify(body),
       },
+    );
+  }
+
+  async previewContentPackage(file: File): Promise<ContentPackagePreview> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.transport.request<ContentPackagePreview>('/content-packages/preview', {
+      method: 'POST',
+      body: form,
+    });
+  }
+
+  async installContentPackage(
+    file: File,
+    idempotencyKey: string,
+  ): Promise<ContentPackageInstallResult> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.transport.request<ContentPackageInstallResult>('/content-packages', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: form,
+    });
+  }
+
+  async listContentPackages(limit = 50): Promise<ContentPackageInstallation[]> {
+    return this.transport.request<ContentPackageInstallation[]>(
+      `/content-packages?limit=${encodeURIComponent(String(limit))}`,
     );
   }
 

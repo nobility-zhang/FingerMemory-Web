@@ -22,6 +22,7 @@ import {
 } from '../api/client';
 import FlashcardPanel from '../flashcards/FlashcardPanel.vue';
 import BridgeBattlePanel from '../battle/BridgeBattlePanel.vue';
+import ContentLibraryPanel from '../content/ContentLibraryPanel.vue';
 import PhaserGameHost from '../game-runtime/PhaserGameHost.vue';
 import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
 
@@ -870,6 +871,8 @@ onBeforeUnmount(() => {
           </li>
         </ul>
       </div>
+
+      <ContentLibraryPanel :api="props.api" />
 
       <section class="online-training" aria-labelledby="online-training-title">
         <div class="cloud-heading">

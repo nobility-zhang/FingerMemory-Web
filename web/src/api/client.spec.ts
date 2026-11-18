@@ -285,6 +285,72 @@ describe('AccountApi', () => {
     }
   });
 
+  it('uploads content packages as multipart with CSRF and idempotency', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const preview = {
+      fileName: 'warm-lantern.fmbook',
+      bookId: 'warm-lantern',
+      contentVersion: '1.0.0',
+      contentHash: 'a'.repeat(64),
+    };
+    const installation = {
+      id: 'installation-1',
+      bookId: 'warm-lantern',
+      contentVersion: '1.0.0',
+    };
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (String(url).endsWith('/auth/csrf')) {
+        return jsonResponse({
+          headerName: 'X-CSRF-TOKEN',
+          parameterName: '_csrf',
+          token: 'csrf-content',
+        });
+      }
+      if (String(url).endsWith('/content-packages/preview')) {
+        return jsonResponse(preview);
+      }
+      if (String(url).endsWith('/content-packages')) {
+        return jsonResponse({
+          outcome: 'installed',
+          installation,
+        }, 201);
+      }
+      return jsonResponse([installation]);
+    });
+    const api = new AccountApi(fetchMock as typeof fetch, '/api/v1');
+    const file = new File(['archive'], 'warm-lantern.fmbook', {
+      type: 'application/zip',
+    });
+
+    await api.previewContentPackage(file);
+    await api.installContentPackage(file, 'content-install-1');
+    await api.listContentPackages(20);
+
+    const previewCall = calls.find(
+      (call) => call.url.endsWith('/content-packages/preview'),
+    );
+    const previewHeaders = new Headers(previewCall?.init?.headers);
+    expect(previewCall?.init?.body).toBeInstanceOf(FormData);
+    expect(previewHeaders.get('X-CSRF-TOKEN')).toBe('csrf-content');
+    expect(previewHeaders.has('Content-Type')).toBe(false);
+
+    const installCall = calls.find(
+      (call) => call.url.endsWith('/content-packages')
+        && call.init?.method === 'POST',
+    );
+    const installHeaders = new Headers(installCall?.init?.headers);
+    expect(installCall?.init?.body).toBeInstanceOf(FormData);
+    expect(installHeaders.get('Idempotency-Key')).toBe('content-install-1');
+    expect(installHeaders.get('X-CSRF-TOKEN')).toBe('csrf-content');
+    expect(installHeaders.has('Content-Type')).toBe(false);
+
+    expect(calls.some(
+      (call) => call.url.endsWith('/content-packages?limit=20')
+        && call.init?.method === 'GET',
+    )).toBe(true);
+  });
+
   it('keeps CSRF and epoch commands on GM sandbox requests', async () => {
     const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
     const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
