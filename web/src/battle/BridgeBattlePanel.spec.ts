@@ -337,4 +337,47 @@ describe('BridgeBattlePanel', () => {
       expect(api.endBattleTurn).toHaveBeenCalled();
     });
   });
+
+  it('keeps long learning text and native controls on the reduced-motion DOM stage', async () => {
+    const longMeaning = [
+      '在雾中的溪桥旁，旅团需要先辨认提灯照出的路标，再确认守卫下一次行动。',
+      '这段释义刻意很长，用于验证窄屏不会裁掉问题、输入框、按钮或焦点轮廓。',
+      '即使二维游戏表现被关闭，正式学习、能量获取和卡牌命令仍必须保持可用。',
+    ].join('').repeat(4);
+    const session = sessionEnvelope();
+    session.items[0]!.wordEntry.meaning = longMeaning;
+    const initial = battleState();
+    const api: BridgeBattleApi = {
+      createBattle: vi.fn(async () => initial),
+      getSession: vi.fn(async () => session),
+      submitPracticeResponse: vi.fn(),
+      previewReview: vi.fn(),
+      submitReview: vi.fn(),
+      claimBattleLearning: vi.fn(),
+      playBattleCard: vi.fn(),
+      useBattleCompanionSkill: vi.fn(),
+      endBattleTurn: vi.fn(),
+    };
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(BridgeBattlePanel, {
+      api,
+      session,
+      enableAudio: false,
+      reduceMotion: true,
+    });
+    mountedApp.mount(root);
+
+    await vi.waitFor(() => {
+      const battle = root.querySelector<HTMLElement>('[data-testid="bridge-battle"]');
+      expect(battle?.dataset.battleRenderer).toBe('dom');
+      expect(battle?.dataset.presentationMode).toBe('reduced');
+      expect(battle?.classList.contains('presentation-reduced')).toBe(true);
+      expect(root.textContent).toContain(longMeaning);
+      expect(root.querySelector('.battle-answer-row input')).not.toBeNull();
+      expect(
+        root.querySelector('.companion-portrait')?.classList.contains('reduce-motion'),
+      ).toBe(true);
+    });
+  });
 });

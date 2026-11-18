@@ -293,7 +293,9 @@ async function startOnlineSession(
       timeZone: currentTimeZone(),
       newLimit: onlinePlan.value?.settings.newLimit,
       reviewLimit: onlinePlan.value?.settings.reviewLimit,
-      reduceMotion: false,
+      reduceMotion: window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)',
+      ).matches ?? false,
     });
     onlineAnswer.value = '';
     pendingAnswer.value = undefined;
@@ -947,6 +949,7 @@ onBeforeUnmount(() => {
             :session="battleSession"
             companion-key="lia"
             :enable-audio="enableAudio"
+            :reduce-motion="battleSession.session.reduceMotion"
             @session-changed="handleBattleSessionChanged"
             @finished="finishBridgeBattle"
           />

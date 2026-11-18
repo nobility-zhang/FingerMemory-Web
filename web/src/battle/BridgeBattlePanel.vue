@@ -27,6 +27,7 @@ import {
 } from '../companions/catalog';
 import BattleShortcutHelp from './BattleShortcutHelp.vue';
 import { CARD_DEFINITIONS } from './cards';
+import { resolveBattlePresentationMode } from './presentation';
 import { battleSoundCues } from './soundEvents';
 import {
   endTurnShortcutAriaLabel,
@@ -63,11 +64,13 @@ const props = withDefaults(
     session: SessionEnvelope;
     companionKey?: CompanionId;
     enableAudio?: boolean;
+    reduceMotion?: boolean;
   }>(),
   {
     api: () => accountApi,
     companionKey: 'lia',
     enableAudio: false,
+    reduceMotion: false,
   },
 );
 
@@ -92,6 +95,8 @@ const battlePaused = ref(false);
 const shortcutHelpOpen = ref(false);
 const shortcutPreferences = ref(loadBattleShortcutPreferences());
 const resumeButton = ref<HTMLButtonElement>();
+const systemReducedMotion = ref(false);
+let motionPreference: MediaQueryList | undefined;
 let focusBeforePause: HTMLElement | null = null;
 let generation = 0;
 let disposed = false;
@@ -193,6 +198,10 @@ const shortcutContext = computed<BattleShortcutContext>(() => {
   }
   return 'blocked';
 });
+const presentationMode = computed(() => resolveBattlePresentationMode({
+  reduceMotion: props.reduceMotion || systemReducedMotion.value,
+  runtimeUnavailable: props.enableAudio && audioStatus.value === 'error',
+}));
 
 function newId(): string {
   if (typeof crypto.randomUUID === 'function') {
@@ -712,7 +721,14 @@ function handleBattleKeydown(event: KeyboardEvent): void {
   performBattleShortcut(action);
 }
 
+function handleMotionPreference(event: MediaQueryListEvent): void {
+  systemReducedMotion.value = event.matches;
+}
+
 onMounted(() => {
+  motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  systemReducedMotion.value = motionPreference?.matches ?? false;
+  motionPreference?.addEventListener('change', handleMotionPreference);
   window.addEventListener('keydown', handleBattleKeydown);
   void startBattle();
 });
@@ -720,6 +736,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disposed = true;
   generation += 1;
+  motionPreference?.removeEventListener('change', handleMotionPreference);
   window.removeEventListener('keydown', handleBattleKeydown);
 });
 </script>
@@ -728,7 +745,10 @@ onBeforeUnmount(() => {
   <section
     ref="battleRoot"
     class="bridge-battle"
+    :class="`presentation-${presentationMode}`"
     data-testid="bridge-battle"
+    data-battle-renderer="dom"
+    :data-presentation-mode="presentationMode"
     :data-shortcut-context="shortcutContext"
     :data-battle-paused="battlePaused"
     :data-end-turn-shortcut="shortcutPreferences.endTurn"
@@ -844,12 +864,16 @@ onBeforeUnmount(() => {
             <CompanionPortrait
               :companion="companion"
               :expression="companionExpression"
+              :reduce-motion="presentationMode !== 'animated'"
             />
             <div class="companion-caption">
               <strong>{{ companion.name }}</strong>
               <span>{{ companion.epithet }}</span>
             </div>
           </div>
+          <p v-if="presentationMode === 'static'" class="static-stage-note">
+            DOM 静态舞台 · 战斗规则与手牌保持可用
+          </p>
         </div>
 
         <div class="battle-hud">
@@ -1017,12 +1041,22 @@ onBeforeUnmount(() => {
 .bridge-battle {
   position: relative;
   display: grid;
+  min-width: 0;
   gap: 14px;
   padding: 18px;
   border: 1px solid #bba979;
   border-radius: 8px;
   background: #142d2e;
   color: #edf3e9;
+}
+
+.bridge-battle > *,
+.battle-heading > div,
+.battle-hud > div,
+.learning-panel,
+.action-panel,
+.battle-result {
+  min-width: 0;
 }
 
 .battle-heading,
@@ -1066,11 +1100,13 @@ onBeforeUnmount(() => {
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(1.4rem, 3vw, 2.2rem);
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .battle-status {
   flex-wrap: wrap;
   justify-content: flex-end;
+  min-width: 0;
   color: #b9cec0;
 }
 
@@ -1108,6 +1144,21 @@ onBeforeUnmount(() => {
   background:
     linear-gradient(180deg, rgb(32 64 67 / 75%), rgb(14 35 38 / 96%)),
     radial-gradient(circle at 50% 20%, #729890, transparent 62%);
+}
+
+.static-stage-note {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  max-width: min(280px, calc(100% - 24px));
+  margin: 0;
+  padding: 5px 8px;
+  border: 1px solid rgb(214 189 120 / 30%);
+  border-radius: 4px;
+  background: rgb(13 35 37 / 88%);
+  color: #d8c99c;
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
 }
 
 .bridge-line {
@@ -1253,6 +1304,7 @@ onBeforeUnmount(() => {
 .battle-hud strong {
   color: #f1d797;
   font-size: 0.95rem;
+  overflow-wrap: anywhere;
 }
 
 .learning-panel,
@@ -1284,8 +1336,14 @@ onBeforeUnmount(() => {
 }
 
 .learning-meaning {
+  display: block;
+  max-height: min(32vh, 16rem);
+  overflow: auto;
   color: #fff1cd;
   font-size: clamp(1.5rem, 4vw, 2.4rem);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .battle-answer-row {
@@ -1392,11 +1450,13 @@ onBeforeUnmount(() => {
 
 .card-button strong {
   font-size: 0.86rem;
+  overflow-wrap: anywhere;
 }
 
 .card-button small {
   color: #b7cbbb;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .target-row {
@@ -1404,6 +1464,15 @@ onBeforeUnmount(() => {
   padding: 9px 11px;
   background: rgb(209 171 92 / 15%);
   color: #f1d797;
+}
+
+.target-row span,
+.target-row button,
+.battle-message,
+.battle-pause-panel p,
+.battle-result p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .turn-row {
@@ -1476,6 +1545,26 @@ input:focus-visible {
   }
 }
 
+.presentation-reduced .mist--two,
+.presentation-static .mist--two {
+  animation: none;
+}
+
+.presentation-static .battle-stage {
+  min-height: 210px;
+  background: #183638;
+}
+
+.presentation-static .mist,
+.presentation-static .bridge-line {
+  display: none;
+}
+
+.presentation-static .enemy-figure,
+.presentation-static .enemy-eye {
+  box-shadow: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mist--two {
     animation: none;
@@ -1491,7 +1580,9 @@ input:focus-visible {
   }
 
   .battle-status {
+    width: 100%;
     justify-content: flex-start;
+    gap: 8px;
   }
 
   .battle-stage {
@@ -1520,6 +1611,10 @@ input:focus-visible {
   .hand-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .turn-row {
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1529,6 +1624,40 @@ input:focus-visible {
 
   .battle-rating-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .battle-stage {
+    min-height: 190px;
+  }
+
+  .enemy-figure {
+    top: 28px;
+    width: 96px;
+    height: 118px;
+  }
+
+  .battle-hud > div {
+    padding: 8px;
+  }
+
+  .learning-meaning {
+    max-height: 12rem;
+    font-size: 1.45rem;
+  }
+
+  .hand-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .audio-volume-control input {
+    width: 60px;
+  }
+
+  .battle-answer-row button,
+  .action-toolbar button,
+  .turn-row button,
+  .battle-primary {
+    width: 100%;
   }
 
   .companion-figure {
