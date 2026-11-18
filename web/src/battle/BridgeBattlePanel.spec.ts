@@ -442,4 +442,58 @@ describe('BridgeBattlePanel', () => {
     buttonByText(root, '继续剧情').click();
     expect(finished).toHaveBeenCalledOnce();
   });
+
+  it('renders tide encounter identity and beach costume in the coast theme', async () => {
+    const session = sessionEnvelope();
+    const tide = battleState({
+      encounterId: 'tide-guardian',
+      enemies: [{
+        id: 'tide-guardian',
+        hp: 36,
+        maxHp: 36,
+        block: 0,
+        burn: null,
+      }],
+      currentIntent: {
+        enemyId: 'tide-guardian',
+        type: 'attack',
+        value: 6,
+      },
+    });
+    const api: BridgeBattleApi = {
+      createBattle: vi.fn(async () => tide),
+      getBattle: vi.fn(async () => tide),
+      getSession: vi.fn(async () => session),
+      submitPracticeResponse: vi.fn(),
+      previewReview: vi.fn(),
+      submitReview: vi.fn(),
+      claimBattleLearning: vi.fn(),
+      playBattleCard: vi.fn(),
+      useBattleCompanionSkill: vi.fn(),
+      endBattleTurn: vi.fn(),
+    };
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(BridgeBattlePanel, {
+      api,
+      session,
+      initialBattleId: 'battle-tide',
+      encounterTitle: '潮汐石阶',
+      encounterKicker: '潮汐浅滩 · 遭遇',
+      enemyName: '潮汐守卫',
+      battleTheme: 'coast',
+      companionCostumeId: 'beach-swimwear',
+      enableAudio: false,
+    });
+    mountedApp.mount(root);
+
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('潮汐浅滩 · 遭遇');
+      expect(root.textContent).toContain('潮汐守卫');
+      expect(root.querySelector('.bridge-battle')
+        ?.classList.contains('battle-theme-coast')).toBe(true);
+      expect(root.querySelector('.companion-portrait')
+        ?.getAttribute('data-costume-id')).toBe('beach-swimwear');
+    });
+  });
 });
