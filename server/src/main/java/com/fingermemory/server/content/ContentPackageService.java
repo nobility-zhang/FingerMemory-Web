@@ -217,6 +217,24 @@ public class ContentPackageService {
         return toView(row);
     }
 
+    public InstalledPackage installedPackage(String ownerId, String installationId) {
+        ContentInstallationRow row = mapper.findById(ownerId, installationId);
+        if (row == null) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "CONTENT_INSTALLATION_NOT_FOUND",
+                    "内容安装不存在");
+        }
+        Path root = packageRoot.resolve(row.storageRelativePath()).normalize();
+        if (!root.startsWith(packageRoot) || !Files.isDirectory(root)) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CONTENT_RESOURCE_UNAVAILABLE",
+                    "内容包资源不可用");
+        }
+        return new InstalledPackage(row, root);
+    }
+
     public AssetResource asset(
             String ownerId,
             String installationId,
@@ -439,5 +457,8 @@ public class ContentPackageService {
     }
 
     public record AssetResource(Resource resource, String mime) {
+    }
+
+    public record InstalledPackage(ContentInstallationRow installation, Path root) {
     }
 }

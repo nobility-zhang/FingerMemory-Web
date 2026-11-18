@@ -82,6 +82,10 @@ docker compose up --build -d
 - `GET/POST /api/v1/content-packages`
 - `GET /api/v1/content-packages/{id}`
 - `GET /api/v1/content-packages/{id}/assets/{assetPath}`
+- `GET/POST /api/v1/adventures`
+- `GET /api/v1/adventures/{runId}`
+- `POST /api/v1/adventures/{runId}/encounters`
+- `POST /api/v1/adventures/{runId}/actions`
 
 正式复习以 `Idempotency-Key` 作为 submissionId；先查回执，再校验用户数据、会话和复习状态版本。请求只提交评分和证据，afterCard、reviewedAt 和奖励事件由服务端确定。
 
@@ -89,6 +93,11 @@ docker compose up --build -d
 manifest/TSV/章节/角色/卡牌/遭遇/资源校验器；相同 owner 与 contentHash 重复安装
 返回同一安装，相同包版本不同 hash 冲突。资源元数据与文件按 owner/内容哈希隔离，
 生产 Compose 使用 `content-data` 卷。
+
+冒险 run 固定 `installationId + contentVersion + contentHash`，启动时把该版本的
+词条导入账号学习快照并创建在线会话。剧情动作、遭遇创建和战斗结算都使用
+owner 范围、`Idempotency-Key`、请求指纹、`runVersion` 与不可变事件；遭遇绑定唯一
+`card-battle-v1`，只有服务端战斗进入 victory/defeat 后才能推进到对应剧情节点。
 
 ## 运维账号命令
 

@@ -9,6 +9,7 @@ info:
     H0-04 已实现默认管理员一次性初始化、首次改密门禁和 GM 账号/审计基础。
     H3-03 已实现账号模式 card-battle-v1 创建、唯一学习授能、出牌、伙伴技能和结束回合命令。
     H3-04 已实现本人隔离 GM sandbox、固定夹具命令、epoch/version 幂等和审计。
+    H5-02 已实现已安装 .fmbook 的固定版本冒险、剧情动作、遭遇绑定和保存恢复。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
   - url: /api/v1
@@ -45,6 +46,12 @@ components:
         type: string
     BattleId:
       name: battleId
+      in: path
+      required: true
+      schema:
+        type: string
+    AdventureRunId:
+      name: runId
       in: path
       required: true
       schema:
@@ -819,6 +826,164 @@ components:
         nextStudyItemId:
           type: string
           maxLength: 128
+    AdventureChoice:
+      type: object
+      additionalProperties: false
+      required: [choiceId, label]
+      properties:
+        choiceId:
+          type: string
+        label:
+          type: string
+    AdventureNode:
+      type: object
+      additionalProperties: false
+      required: [nodeId, chapterId, type, title, speaker, text, choices]
+      properties:
+        nodeId:
+          type: string
+        chapterId:
+          type: string
+        type:
+          type: string
+          enum: [dialogue, choice, explore, encounter, camp, chapter-end]
+        title:
+          type: string
+        speaker:
+          type: string
+        text:
+          type: string
+        encounterId:
+          type: string
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdventureChoice'
+    AdventureRun:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - installationId
+        - namespace
+        - bookId
+        - contentVersion
+        - contentHash
+        - title
+        - companionKey
+        - status
+        - runVersion
+        - sessionId
+        - currentNode
+        - flags
+        - createdAtMs
+        - updatedAtMs
+      properties:
+        id:
+          type: string
+        installationId:
+          type: string
+        namespace:
+          type: string
+        bookId:
+          type: string
+        contentVersion:
+          type: string
+        contentHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        title:
+          type: string
+        companionKey:
+          type: string
+          enum: [lia, serin, fina]
+        status:
+          type: string
+          enum: [active, completed]
+        runVersion:
+          type: integer
+          minimum: 0
+        sessionId:
+          type: string
+        battleId:
+          type: string
+        currentNode:
+          $ref: '#/components/schemas/AdventureNode'
+        flags:
+          type: object
+          additionalProperties:
+            type: boolean
+        createdAtMs:
+          type: integer
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          minimum: 0
+    AdventureStart:
+      type: object
+      additionalProperties: false
+      required: [installationId, companionKey, reduceMotion]
+      properties:
+        installationId:
+          type: string
+          maxLength: 36
+        companionKey:
+          type: string
+          enum: [lia, serin, fina]
+        reduceMotion:
+          type: boolean
+    AdventureStartResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, run]
+      properties:
+        outcome:
+          type: string
+          enum: [created, existing]
+        run:
+          $ref: '#/components/schemas/AdventureRun'
+    AdventureAction:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, action]
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+        action:
+          type: string
+          enum: [advance, choose, resolve-encounter, complete]
+        choiceId:
+          type: string
+          maxLength: 128
+        battleId:
+          type: string
+          maxLength: 36
+    AdventureActionResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, run]
+      properties:
+        outcome:
+          type: string
+          enum: [applied]
+        run:
+          $ref: '#/components/schemas/AdventureRun'
+    AdventureEncounter:
+      type: object
+      additionalProperties: false
+      required: [outcome, battleId, runId, runVersion]
+      properties:
+        outcome:
+          type: string
+          enum: [started, existing]
+        battleId:
+          type: string
+        runId:
+          type: string
+        runVersion:
+          type: integer
+          minimum: 0
     ContentPackagePreview:
       type: object
       additionalProperties: false
@@ -2396,6 +2561,131 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BattleEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /adventures:
+    get:
+      summary: 列出当前用户仍在进行的固定版本冒险
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: 当前账号进行中的冒险
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdventureRun'
+    post:
+      summary: 从固定内容安装启动或返回进行中的冒险
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdventureStart'
+      responses:
+        '201':
+          description: 新冒险已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdventureStartResult'
+        '200':
+          description: 当前安装已有进行中的冒险
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdventureStartResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /adventures/{runId}:
+    get:
+      summary: 从已提交检查点读取冒险并固定原安装版本
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdventureRunId'
+      responses:
+        '200':
+          description: 当前账号的冒险检查点
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdventureRun'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /adventures/{runId}/encounters:
+    post:
+      summary: 为当前遭遇节点创建唯一 card-battle-v1 并绑定学习会话
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdventureRunId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: 新战斗与冒险节点绑定
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdventureEncounter'
+        '200':
+          description: 当前节点已经绑定同一战斗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdventureEncounter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /adventures/{runId}/actions:
+    post:
+      summary: 提交剧情选择、推进或战斗结算检查点
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdventureRunId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdventureAction'
+      responses:
+        '200':
+          description: 已提交的冒险检查点
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdventureActionResult'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':

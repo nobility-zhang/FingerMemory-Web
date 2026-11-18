@@ -1,0 +1,22 @@
+package com.fingermemory.server.adventure;
+
+public record AdventureRunRow(
+        String ownerId,
+        String id,
+        String installationId,
+        String namespaceId,
+        String bookId,
+        String contentVersion,
+        String contentHash,
+        String entryNodeId,
+        String currentNodeId,
+        String sessionId,
+        String companionKey,
+        String status,
+        String activeSlot,
+        long runVersion,
+        String flagsJson,
+        String battleId,
+        long createdAtMs,
+        long updatedAtMs) {
+}
