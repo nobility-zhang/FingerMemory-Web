@@ -1,6 +1,11 @@
 import { createApp, nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { QueuePlanView, UserView } from '../api/client';
+import type {
+  AdventureRunView,
+  ContentPackageInstallation,
+  QueuePlanView,
+  UserView,
+} from '../api/client';
 import {
   companionExpressions,
   companions,
@@ -36,6 +41,51 @@ const plan: QueuePlanView = {
   dataVersion: 0,
 };
 
+const contentPackage: ContentPackageInstallation = {
+  id: 'installation-inn',
+  namespace: 'fm.demo',
+  bookId: 'warm-lantern',
+  contentVersion: '1.0.0',
+  contentHash: 'a'.repeat(64),
+  title: '暖灯与失语之森',
+  entryNodeId: 'inn.arrival',
+  status: 'installed',
+  wordCount: 4,
+  chapterCount: 1,
+  nodeCount: 9,
+  characterCount: 0,
+  cardCount: 0,
+  encounterCount: 1,
+  assetCount: 0,
+  installedAtMs: 1,
+};
+
+const adventure: AdventureRunView = {
+  id: 'run-inn',
+  installationId: contentPackage.id,
+  namespace: contentPackage.namespace,
+  bookId: contentPackage.bookId,
+  contentVersion: contentPackage.contentVersion,
+  contentHash: contentPackage.contentHash,
+  title: contentPackage.title,
+  companionKey: 'lia',
+  status: 'active',
+  runVersion: 2,
+  sessionId: 'session-inn',
+  currentNode: {
+    nodeId: 'forest.signpost',
+    chapterId: 'chapter-1',
+    type: 'choice',
+    title: '失语之森',
+    speaker: '',
+    text: '两道路痕都通向溪桥。',
+    choices: [{ choiceId: 'cross', label: '沿旧路前进' }],
+  },
+  flags: {},
+  createdAtMs: 1,
+  updatedAtMs: 2,
+};
+
 let mountedApp: ReturnType<typeof createApp> | null = null;
 
 afterEach(() => {
@@ -56,6 +106,8 @@ describe('InnLobby', () => {
       plan: { ...plan, selected: [] },
       lexiconsCount: 4,
       sessionCount: 0,
+      contentPackages: [],
+      adventures: [],
       loading: false,
       error: null,
     });
@@ -68,7 +120,7 @@ describe('InnLobby', () => {
     expect(root.textContent).toContain('2');
     expect(root.textContent).toContain('私人词库');
     expect(root.textContent).toContain('4');
-    expect(root.textContent).toContain('第一章内容包接入后开启');
+    expect(root.textContent).toContain('打开账号书架');
     expect(root.querySelector('[data-companion="lia"]')).not.toBeNull();
     expect(root.querySelector('[data-expression="relief"]')).not.toBeNull();
   });
@@ -109,6 +161,8 @@ describe('InnLobby', () => {
       },
       lexiconsCount: 1,
       sessionCount: 0,
+      contentPackages: [],
+      adventures: [],
       loading: false,
       error: null,
       onStart: start,
@@ -153,6 +207,8 @@ describe('InnLobby', () => {
       plan,
       lexiconsCount: 1,
       sessionCount: 0,
+      contentPackages: [],
+      adventures: [],
       loading: false,
       error: null,
       onSelectCompanion: selectCompanion,
@@ -182,6 +238,8 @@ describe('InnLobby', () => {
       plan,
       lexiconsCount: 1,
       sessionCount: 0,
+      contentPackages: [],
+      adventures: [],
       loading: false,
       error: null,
       onSelectDensity: selectDensity,
@@ -204,5 +262,63 @@ describe('InnLobby', () => {
     expect(root.textContent).toContain('等待回想');
     expect(root.querySelector('.companion-portrait')?.classList.contains('reduce-motion'))
       .toBe(true);
+  });
+
+  it('starts a new adventure or resumes the fixed installed run', async () => {
+    const startAdventure = vi.fn();
+    const resumeAdventure = vi.fn();
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(InnLobby, {
+      companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      contentPackages: [contentPackage],
+      adventures: [adventure],
+      loading: false,
+      error: null,
+      onStartAdventure: startAdventure,
+      onResumeAdventure: resumeAdventure,
+    });
+    mountedApp.mount(root);
+    await nextTick();
+
+    expect(root.textContent).toContain('已固定 v1.0.0');
+    const resume = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('继续冒险'),
+    );
+    resume?.click();
+    expect(resumeAdventure).toHaveBeenCalledWith('run-inn');
+
+    mountedApp.unmount();
+    document.body.innerHTML = '';
+    const newRoot = document.createElement('div');
+    document.body.append(newRoot);
+    mountedApp = createApp(InnLobby, {
+      companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      contentPackages: [contentPackage],
+      adventures: [],
+      loading: false,
+      error: null,
+      onStartAdventure: startAdventure,
+    });
+    mountedApp.mount(newRoot);
+    await nextTick();
+
+    const start = [...newRoot.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('开始第一章'),
+    );
+    start?.click();
+    expect(startAdventure).toHaveBeenCalledWith('installation-inn');
   });
 });

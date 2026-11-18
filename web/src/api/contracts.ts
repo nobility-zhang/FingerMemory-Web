@@ -253,6 +253,58 @@ export interface BattleEnvelopeView {
   stateVersion: number;
 }
 
+export interface AdventureChoiceView {
+  choiceId: string;
+  label: string;
+}
+
+export interface AdventureNodeView {
+  nodeId: string;
+  chapterId: string;
+  type: 'dialogue' | 'choice' | 'explore' | 'encounter' | 'camp' | 'chapter-end';
+  title: string;
+  speaker: string;
+  text: string;
+  encounterId?: string;
+  choices: AdventureChoiceView[];
+}
+
+export interface AdventureRunView {
+  id: string;
+  installationId: string;
+  namespace: string;
+  bookId: string;
+  contentVersion: string;
+  contentHash: string;
+  title: string;
+  companionKey: 'lia' | 'serin' | 'fina';
+  status: 'active' | 'completed';
+  runVersion: number;
+  sessionId: string;
+  battleId?: string;
+  currentNode: AdventureNodeView;
+  flags: Record<string, boolean>;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+
+export interface AdventureStartResult {
+  outcome: 'created' | 'existing';
+  run: AdventureRunView;
+}
+
+export interface AdventureActionResult {
+  outcome: 'applied';
+  run: AdventureRunView;
+}
+
+export interface AdventureEncounterView {
+  outcome: 'started' | 'existing';
+  battleId: string;
+  runId: string;
+  runVersion: number;
+}
+
 export interface MigrationPreview {
   snapshotFingerprint: string;
   targetDataVersion: number;
@@ -590,6 +642,28 @@ export interface AccountClient {
     nextSessionId?: string;
     nextStudyItemId?: string;
   }): Promise<BattleEnvelopeView>;
+  listAdventures(limit?: number): Promise<AdventureRunView[]>;
+  startAdventure(input: {
+    installationId: string;
+    companionKey: 'lia' | 'serin' | 'fina';
+    reduceMotion: boolean;
+    actionId: string;
+  }): Promise<AdventureStartResult>;
+  getAdventure(runId: string): Promise<AdventureRunView>;
+  startAdventureEncounter(
+    runId: string,
+    actionId: string,
+  ): Promise<AdventureEncounterView>;
+  actAdventure(
+    runId: string,
+    idempotencyKey: string,
+    input: {
+      expectedVersion: number;
+      action: 'advance' | 'choose' | 'resolve-encounter' | 'complete';
+      choiceId?: string;
+      battleId?: string;
+    },
+  ): Promise<AdventureActionResult>;
   previewContentPackage(file: File): Promise<ContentPackagePreview>;
   installContentPackage(
     file: File,

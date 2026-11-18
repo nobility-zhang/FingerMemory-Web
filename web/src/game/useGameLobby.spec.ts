@@ -57,9 +57,56 @@ function createApi() {
       sessions: [session],
       dataVersion: 2,
     })),
+    listContentPackages: vi.fn(async () => [{
+      id: 'installation-lobby',
+      namespace: 'fm.demo',
+      bookId: 'warm-lantern',
+      contentVersion: '1.0.0',
+      contentHash: 'a'.repeat(64),
+      title: '暖灯与失语之森',
+      entryNodeId: 'inn.arrival',
+      status: 'installed' as const,
+      wordCount: 1,
+      chapterCount: 1,
+      nodeCount: 9,
+      characterCount: 0,
+      cardCount: 0,
+      encounterCount: 1,
+      assetCount: 0,
+      installedAtMs: 1,
+    }]),
+    listAdventures: vi.fn(async () => [{
+      id: 'run-lobby',
+      installationId: 'installation-lobby',
+      namespace: 'fm.demo',
+      bookId: 'warm-lantern',
+      contentVersion: '1.0.0',
+      contentHash: 'a'.repeat(64),
+      title: '暖灯与失语之森',
+      companionKey: 'lia' as const,
+      status: 'active' as const,
+      runVersion: 2,
+      sessionId: 'session-adventure',
+      currentNode: {
+        nodeId: 'inn.arrival',
+        chapterId: 'chapter-1',
+        type: 'choice' as const,
+        title: '暖灯旅店',
+        speaker: '',
+        text: '莉娅把暖灯递给你。',
+        choices: [{ choiceId: 'prepare', label: '准备出发' }],
+      },
+      flags: {},
+      createdAtMs: 1,
+      updatedAtMs: 2,
+    }]),
   } satisfies Pick<
     AccountClient,
-    'loadQueuePlan' | 'listLexicons' | 'listActiveSessions'
+    | 'loadQueuePlan'
+    | 'listLexicons'
+    | 'listActiveSessions'
+    | 'listContentPackages'
+    | 'listAdventures'
   >;
 }
 
@@ -78,6 +125,8 @@ describe('useGameLobby', () => {
     expect(lobby.plan.value?.newAvailableCount).toBe(1);
     expect(lobby.lexicons.value).toHaveLength(1);
     expect(lobby.activeSession.value?.session.id).toBe('session-lobby');
+    expect(lobby.contentPackages.value).toHaveLength(1);
+    expect(lobby.adventures.value[0]?.id).toBe('run-lobby');
     expect(lobby.loading.value).toBe(false);
     expect(lobby.error.value).toBeNull();
   });

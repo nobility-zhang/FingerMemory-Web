@@ -241,6 +241,7 @@ onBeforeUnmount(() => {
           <GameWorkspace
             @focus-mode="gameFocusMode = $event"
             @classic-study="activeView = 'practice'"
+            @account-settings="activeView = 'account'"
           />
           <template #fallback>
             <section class="empty-panel" aria-label="正在加载训练大厅">

@@ -5,6 +5,7 @@ export type GamePhase =
   | 'answer-ready'
   | 'rating'
   | 'paused'
+  | 'adventure'
   | 'result';
 
 export type GameShortcutAction =

@@ -285,6 +285,82 @@ describe('AccountApi', () => {
     }
   });
 
+  it('keeps CSRF and idempotency on adventure checkpoints', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (String(url).endsWith('/auth/csrf')) {
+        return jsonResponse({
+          headerName: 'X-CSRF-TOKEN',
+          parameterName: '_csrf',
+          token: 'csrf-adventure',
+        });
+      }
+      if (String(url).includes('/adventures?')) {
+        return jsonResponse([]);
+      }
+      return jsonResponse({
+        outcome: 'created',
+        run: { id: 'run-1', runVersion: 0 },
+      }, 201);
+    });
+    const api = new AccountApi(fetchMock as typeof fetch, '/api/v1');
+
+    await api.listAdventures();
+    await api.startAdventure({
+      installationId: 'installation-1',
+      companionKey: 'serin',
+      reduceMotion: true,
+      actionId: 'adventure-start-1',
+    });
+    await api.getAdventure('run/one');
+    await api.startAdventureEncounter('run-1', 'adventure-encounter-1');
+    await api.actAdventure('run-1', 'adventure-choice-1', {
+      expectedVersion: 2,
+      action: 'choose',
+      choiceId: 'cross',
+    });
+
+    expect(calls.some(
+      (call) => call.url.endsWith('/adventures?limit=20')
+        && call.init?.method === 'GET',
+    )).toBe(true);
+    const startCall = calls.find(
+      (call) => call.url.endsWith('/adventures') && call.init?.method === 'POST',
+    );
+    expect(new Headers(startCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('adventure-start-1');
+    expect(new Headers(startCall?.init?.headers).get('X-CSRF-TOKEN'))
+      .toBe('csrf-adventure');
+    expect(JSON.parse(String(startCall?.init?.body))).toEqual({
+      installationId: 'installation-1',
+      companionKey: 'serin',
+      reduceMotion: true,
+    });
+
+    expect(calls.some(
+      (call) => call.url.endsWith('/adventures/run%2Fone')
+        && call.init?.method === 'GET',
+    )).toBe(true);
+    const encounterCall = calls.find(
+      (call) => call.url.endsWith('/adventures/run-1/encounters'),
+    );
+    expect(new Headers(encounterCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('adventure-encounter-1');
+    const actionCall = calls.find(
+      (call) => call.url.endsWith('/adventures/run-1/actions'),
+    );
+    expect(new Headers(actionCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('adventure-choice-1');
+    expect(new Headers(actionCall?.init?.headers).get('X-CSRF-TOKEN'))
+      .toBe('csrf-adventure');
+    expect(JSON.parse(String(actionCall?.init?.body))).toEqual({
+      expectedVersion: 2,
+      action: 'choose',
+      choiceId: 'cross',
+    });
+  });
+
   it('uploads content packages as multipart with CSRF and idempotency', async () => {
     const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
     const preview = {

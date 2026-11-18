@@ -1,6 +1,10 @@
 import type {
   AccountBackup,
   AccountClient,
+  AdventureActionResult,
+  AdventureEncounterView,
+  AdventureRunView,
+  AdventureStartResult,
   BackupPreview,
   BackupRestoreResult,
   BattleEnvelopeView,
@@ -405,6 +409,74 @@ export class AccountApi implements AccountClient {
       nextSessionId: input.nextSessionId,
       nextStudyItemId: input.nextStudyItemId,
     });
+  }
+
+  async listAdventures(limit = 20): Promise<AdventureRunView[]> {
+    return this.transport.request<AdventureRunView[]>(
+      `/adventures?limit=${encodeURIComponent(String(limit))}`,
+    );
+  }
+
+  async startAdventure(input: {
+    installationId: string;
+    companionKey: 'lia' | 'serin' | 'fina';
+    reduceMotion: boolean;
+    actionId: string;
+  }): Promise<AdventureStartResult> {
+    return this.transport.request<AdventureStartResult>('/adventures', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': input.actionId,
+      },
+      body: JSON.stringify({
+        installationId: input.installationId,
+        companionKey: input.companionKey,
+        reduceMotion: input.reduceMotion,
+      }),
+    });
+  }
+
+  async getAdventure(runId: string): Promise<AdventureRunView> {
+    return this.transport.request<AdventureRunView>(
+      `/adventures/${encodeURIComponent(runId)}`,
+    );
+  }
+
+  async startAdventureEncounter(
+    runId: string,
+    actionId: string,
+  ): Promise<AdventureEncounterView> {
+    return this.transport.request<AdventureEncounterView>(
+      `/adventures/${encodeURIComponent(runId)}/encounters`,
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': actionId },
+      },
+    );
+  }
+
+  async actAdventure(
+    runId: string,
+    idempotencyKey: string,
+    input: {
+      expectedVersion: number;
+      action: 'advance' | 'choose' | 'resolve-encounter' | 'complete';
+      choiceId?: string;
+      battleId?: string;
+    },
+  ): Promise<AdventureActionResult> {
+    return this.transport.request<AdventureActionResult>(
+      `/adventures/${encodeURIComponent(runId)}/actions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(input),
+      },
+    );
   }
 
   private async battleCommand(

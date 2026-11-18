@@ -48,6 +48,7 @@ import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
 type BattleApi = Pick<
   AccountClient,
   | 'createBattle'
+  | 'getBattle'
   | 'getSession'
   | 'submitPracticeResponse'
   | 'previewReview'
@@ -63,12 +64,16 @@ const props = withDefaults(
     api?: BattleApi;
     session: SessionEnvelope;
     companionKey?: CompanionId;
+    initialBattleId?: string;
+    finishLabel?: string;
     enableAudio?: boolean;
     reduceMotion?: boolean;
   }>(),
   {
     api: () => accountApi,
     companionKey: 'lia',
+    initialBattleId: undefined,
+    finishLabel: '返回在线学习',
     enableAudio: false,
     reduceMotion: false,
   },
@@ -287,20 +292,41 @@ function playBattleEvents(
 }
 
 async function startBattle(): Promise<void> {
-  const initial = props.session.session;
-  if (
-    initial.status !== 'active'
-    || initial.currentStudyItemId === null
-    || initial.pendingAnswer !== null
-  ) {
-    error.value = '当前在线会话没有可开始战斗的学习目标。';
-    loading.value = false;
-    return;
-  }
   const lifecycle = ++generation;
   loading.value = true;
   error.value = null;
   try {
+    if (props.initialBattleId !== undefined) {
+      const restored = await props.api.getBattle(props.initialBattleId);
+      if (disposed || lifecycle !== generation) {
+        return;
+      }
+      battle.value = restored;
+      const sessionId = restored.battle.learningTask?.sessionId
+        ?? props.session.session.id;
+      await loadLearningSession(sessionId);
+      playBattleEvents(
+        restored.events,
+        `battle-restore:${restored.battle.battleId}`,
+      );
+      notice.value = restored.battle.phase === 'victory'
+        || restored.battle.phase === 'defeat'
+        ? '战斗结算已恢复，可以继续剧情。'
+        : '已从服务端检查点恢复手牌、能量和学习任务。';
+      focusCurrentContext();
+      return;
+    }
+
+    const initial = props.session.session;
+    if (
+      initial.status !== 'active'
+      || initial.currentStudyItemId === null
+      || initial.pendingAnswer !== null
+    ) {
+      error.value = '当前在线会话没有可开始战斗的学习目标。';
+      loading.value = false;
+      return;
+    }
     const created = await props.api.createBattle({
       battleId: newId(),
       encounterId: 'bridge-guardian',
@@ -1065,7 +1091,9 @@ onBeforeUnmount(() => {
               ? '学习记录、战斗状态和结算已经由服务端提交。'
               : '本次已提交的学习记录不会因为战斗失败而重算。' }}
           </p>
-          <button type="button" class="battle-primary" @click="finish">返回在线学习</button>
+          <button type="button" class="battle-primary" @click="finish">
+            {{ finishLabel }}
+          </button>
         </section>
       </template>
     </template>

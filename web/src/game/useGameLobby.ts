@@ -6,6 +6,8 @@ import {
 } from 'vue';
 import type {
   AccountClient,
+  AdventureRunView,
+  ContentPackageInstallation,
   LexiconView,
   QueuePlanView,
   SessionEnvelope,
@@ -13,7 +15,11 @@ import type {
 
 type GameLobbyApi = Pick<
   AccountClient,
-  'loadQueuePlan' | 'listLexicons' | 'listActiveSessions'
+  | 'loadQueuePlan'
+  | 'listLexicons'
+  | 'listActiveSessions'
+  | 'listContentPackages'
+  | 'listAdventures'
 >;
 
 interface UseGameLobbyOptions {
@@ -30,6 +36,8 @@ export function useGameLobby({
   plan: Ref<QueuePlanView | undefined>;
   lexicons: Ref<LexiconView[]>;
   sessions: Ref<SessionEnvelope[]>;
+  contentPackages: Ref<ContentPackageInstallation[]>;
+  adventures: Ref<AdventureRunView[]>;
   loading: Ref<boolean>;
   error: Ref<string | null>;
   activeSession: ComputedRef<SessionEnvelope | undefined>;
@@ -40,6 +48,8 @@ export function useGameLobby({
   const plan = ref<QueuePlanView>();
   const lexicons = ref<LexiconView[]>([]);
   const sessions = ref<SessionEnvelope[]>([]);
+  const contentPackages = ref<ContentPackageInstallation[]>([]);
+  const adventures = ref<AdventureRunView[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   let generation = 0;
@@ -51,10 +61,18 @@ export function useGameLobby({
     error.value = null;
     loading.value = true;
     try {
-      const [nextPlan, nextLexicons, nextSessions] = await Promise.all([
+      const [
+        nextPlan,
+        nextLexicons,
+        nextSessions,
+        nextContentPackages,
+        nextAdventures,
+      ] = await Promise.all([
         api().loadQueuePlan({ timeZone: timeZone() }),
         api().listLexicons(),
         api().listActiveSessions(),
+        api().listContentPackages(),
+        api().listAdventures(),
       ]);
       if (request !== generation) {
         return;
@@ -62,6 +80,8 @@ export function useGameLobby({
       plan.value = nextPlan;
       lexicons.value = nextLexicons;
       sessions.value = nextSessions.sessions;
+      contentPackages.value = nextContentPackages;
+      adventures.value = nextAdventures;
     } catch (cause) {
       if (request === generation) {
         error.value = describeError(cause);
@@ -87,6 +107,8 @@ export function useGameLobby({
     plan,
     lexicons,
     sessions,
+    contentPackages,
+    adventures,
     loading,
     error,
     activeSession,

@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import {
+  computed,
+  ref,
+  watch,
+} from 'vue';
 import {
   ArrowRight,
   BookOpen,
@@ -7,12 +11,17 @@ import {
   CircleHelp,
   Clock3,
   Feather,
+  Map,
   NotebookTabs,
+  Play,
+  RotateCcw,
   ScrollText,
   Target,
   TriangleAlert,
 } from '@lucide/vue';
 import type {
+  AdventureRunView,
+  ContentPackageInstallation,
   QueuePlanView,
   SessionEnvelope,
   UserView,
@@ -34,6 +43,8 @@ const props = defineProps<{
   lexiconsCount: number;
   activeSession?: SessionEnvelope;
   sessionCount: number;
+  contentPackages: ContentPackageInstallation[];
+  adventures: AdventureRunView[];
   loading: boolean;
   error: string | null;
 }>();
@@ -45,10 +56,24 @@ const emit = defineEmits<{
   'select-companion': [companionId: CompanionId];
   'select-density': [density: 'quiet' | 'standard' | 'rich'];
   'classic-study': [];
+  'start-adventure': [installationId: string];
+  'resume-adventure': [runId: string];
+  'content-settings': [];
 }>();
 
 const densities = ['quiet', 'standard', 'rich'] as const;
+const selectedInstallationId = ref('');
 const selectedCount = computed(() => props.plan?.selected.length ?? 0);
+const selectedPackage = computed(() =>
+  props.contentPackages.find(
+    (contentPackage) => contentPackage.id === selectedInstallationId.value,
+  ),
+);
+const activeAdventure = computed(() =>
+  props.adventures.find(
+    (run) => run.installationId === selectedInstallationId.value,
+  ),
+);
 const completedInSession = computed(
   () => props.activeSession?.session.queue.filter(
     (item) => item.status === 'completed' || item.status === 'skipped',
@@ -85,6 +110,32 @@ const actionLabel = computed(() => {
   }
   return selectedCount.value > 0 ? '开始营地复习' : '等待新的旅途笔记';
 });
+
+watch(
+  () => props.contentPackages,
+  (contentPackages) => {
+    if (
+      contentPackages.length > 0
+      && !contentPackages.some(
+        (contentPackage) => contentPackage.id === selectedInstallationId.value,
+      )
+    ) {
+      selectedInstallationId.value = contentPackages[0]!.id;
+    }
+  },
+  { immediate: true },
+);
+
+function startOrResumeAdventure(): void {
+  const active = activeAdventure.value;
+  if (active !== undefined) {
+    emit('resume-adventure', active.id);
+    return;
+  }
+  if (selectedPackage.value !== undefined) {
+    emit('start-adventure', selectedPackage.value.id);
+  }
+}
 </script>
 
 <template>
@@ -191,6 +242,61 @@ const actionLabel = computed(() => {
         </div>
       </div>
 
+      <section class="adventure-entry" aria-labelledby="adventure-entry-title">
+        <div class="adventure-entry-heading">
+          <span aria-hidden="true">
+            <Map :size="18" />
+          </span>
+          <div>
+            <p class="section-label">第一章 · 暖灯与失语之森</p>
+            <h2 id="adventure-entry-title">
+              {{ selectedPackage?.title ?? '等待一本可冒险的词库' }}
+            </h2>
+          </div>
+        </div>
+
+        <div v-if="contentPackages.length > 0" class="adventure-entry-body">
+          <label>
+            <span>冒险书</span>
+            <select v-model="selectedInstallationId" :disabled="loading">
+              <option
+                v-for="contentPackage in contentPackages"
+                :key="contentPackage.id"
+                :value="contentPackage.id"
+              >
+                {{ contentPackage.title }} · v{{ contentPackage.contentVersion }}
+              </option>
+            </select>
+          </label>
+          <p v-if="activeAdventure" class="adventure-version">
+            <RotateCcw :size="15" aria-hidden="true" />
+            已固定 v{{ activeAdventure.contentVersion }} ·
+            {{ activeAdventure.contentHash.slice(0, 8) }}
+          </p>
+          <p v-else class="adventure-version">
+            开局后将固定当前书版本，升级不会改写这段旅途。
+          </p>
+          <button
+            type="button"
+            class="adventure-cta"
+            :disabled="loading"
+            @click="startOrResumeAdventure"
+          >
+            <RotateCcw v-if="activeAdventure" :size="18" aria-hidden="true" />
+            <Play v-else :size="18" aria-hidden="true" />
+            <span>{{ activeAdventure ? '继续冒险' : '开始第一章' }}</span>
+            <ArrowRight :size="18" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div v-else class="adventure-entry-body adventure-entry-body--empty">
+          <p>旅店收到了新的暖灯，但书架里还没有可出发的词库冒险。</p>
+          <button type="button" @click="emit('content-settings')">
+            打开账号书架
+          </button>
+        </div>
+      </section>
+
       <div class="inn-actions">
         <button
           v-if="activeSession"
@@ -260,11 +366,18 @@ const actionLabel = computed(() => {
       </div>
     </div>
 
-    <div class="chapter-footer" aria-label="第一章尚未开放">
+    <div class="chapter-footer" aria-label="第一章冒险状态">
       <span class="seal" aria-hidden="true">I</span>
       <div>
         <strong>暖灯与失语之森</strong>
-        <span>探索与溪桥遭遇将在第一章内容包接入后开启</span>
+        <span v-if="activeAdventure">
+          固定内容 v{{ activeAdventure.contentVersion }} ·
+          {{ activeAdventure.currentNode.title }}
+        </span>
+        <span v-else-if="selectedPackage">
+          已装内容 v{{ selectedPackage.contentVersion }}，可在旅店整备后出发
+        </span>
+        <span v-else>在账号书架安装 .fmbook 后，从这张桌子出发</span>
       </div>
     </div>
   </section>
@@ -492,6 +605,131 @@ h1 span {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.32rem;
   font-weight: 500;
+}
+
+.adventure-entry {
+  display: grid;
+  max-width: 610px;
+  gap: 14px;
+  margin-top: 18px;
+  border: 1px solid rgb(217 183 121 / 24%);
+  border-left: 3px solid #d1a55f;
+  padding: 16px;
+  background: rgb(29 20 20 / 52%);
+  backdrop-filter: blur(10px);
+}
+
+.adventure-entry-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.adventure-entry-heading > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(217 183 121 / 34%);
+  border-radius: 50%;
+  color: #e2bd78;
+}
+
+.adventure-entry-heading > div {
+  min-width: 0;
+}
+
+.adventure-entry .section-label {
+  margin: 0 0 3px;
+  color: #c9a66d;
+  font-size: 0.68rem;
+}
+
+.adventure-entry h2 {
+  margin: 0;
+  color: #f5e3c8;
+  font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 1.23rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.adventure-entry-body {
+  display: grid;
+  gap: 10px;
+}
+
+.adventure-entry-body label {
+  display: grid;
+  gap: 5px;
+  color: #bfa98d;
+  font-size: 0.72rem;
+}
+
+.adventure-entry-body select {
+  min-height: 38px;
+  border: 1px solid rgb(217 183 121 / 36%);
+  border-radius: 5px;
+  padding: 6px 10px;
+  background: #251a19;
+  color: #f2e0c4;
+}
+
+.adventure-version {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #aebdae;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.adventure-cta {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 43px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e0bf7a;
+  border-radius: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(180deg, #f0d49d, #cfa869);
+  color: #302017;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.adventure-entry-body--empty {
+  color: #cfbea6;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.adventure-entry-body--empty p {
+  margin: 0;
+}
+
+.adventure-entry-body--empty button {
+  width: fit-content;
+  border: 0;
+  border-bottom: 1px solid #d6b474;
+  padding: 2px 0;
+  background: transparent;
+  color: #e6c582;
+  font: inherit;
+  cursor: pointer;
+}
+
+.adventure-entry button:focus-visible,
+.adventure-entry select:focus-visible {
+  outline: 3px solid rgb(246 214 158 / 44%);
+  outline-offset: 2px;
 }
 
 .inn-actions {
@@ -809,6 +1047,15 @@ h1 span {
   .travel-state strong {
     grid-column: 1 / -1;
     font-size: 1.15rem;
+  }
+
+  .adventure-entry {
+    padding: 13px;
+  }
+
+  .adventure-cta {
+    width: 100%;
+    justify-content: center;
   }
 
   .inn-actions {

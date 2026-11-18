@@ -12,6 +12,7 @@ import BridgeBattlePanel from './BridgeBattlePanel.vue';
 type BridgeBattleApi = Pick<
   AccountClient,
   | 'createBattle'
+  | 'getBattle'
   | 'getSession'
   | 'submitPracticeResponse'
   | 'previewReview'
@@ -216,6 +217,7 @@ describe('BridgeBattlePanel', () => {
 
     const api: BridgeBattleApi = {
       createBattle: vi.fn(async () => initial),
+      getBattle: vi.fn(),
       getSession: vi.fn(async () => session),
       submitPracticeResponse: vi.fn(async () => ({
         attempt: {},
@@ -365,6 +367,7 @@ describe('BridgeBattlePanel', () => {
     const initial = battleState();
     const api: BridgeBattleApi = {
       createBattle: vi.fn(async () => initial),
+      getBattle: vi.fn(),
       getSession: vi.fn(async () => session),
       submitPracticeResponse: vi.fn(),
       previewReview: vi.fn(),
@@ -395,5 +398,48 @@ describe('BridgeBattlePanel', () => {
         root.querySelector('.companion-portrait')?.classList.contains('reduce-motion'),
       ).toBe(true);
     });
+  });
+
+  it('restores the adventure battle instead of creating a second battle', async () => {
+    const session = sessionEnvelope();
+    const restored = battleState({
+      phase: 'victory',
+      terminal: 'victory',
+      stateVersion: 8,
+    });
+    const finished = vi.fn();
+    const getBattle = vi.fn(async () => restored);
+    const createBattle = vi.fn(async () => restored);
+    const api: BridgeBattleApi = {
+      createBattle,
+      getBattle,
+      getSession: vi.fn(async () => session),
+      submitPracticeResponse: vi.fn(),
+      previewReview: vi.fn(),
+      submitReview: vi.fn(),
+      claimBattleLearning: vi.fn(),
+      playBattleCard: vi.fn(),
+      useBattleCompanionSkill: vi.fn(),
+      endBattleTurn: vi.fn(),
+    };
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(BridgeBattlePanel, {
+      api,
+      session,
+      initialBattleId: 'battle-adventure',
+      finishLabel: '继续剧情',
+      enableAudio: false,
+      onFinished: finished,
+    });
+    mountedApp.mount(root);
+
+    await vi.waitFor(() => {
+      expect(getBattle).toHaveBeenCalledWith('battle-adventure');
+      expect(root.textContent).toContain('溪桥的路标重新亮了起来');
+    });
+    expect(createBattle).not.toHaveBeenCalled();
+    buttonByText(root, '继续剧情').click();
+    expect(finished).toHaveBeenCalledOnce();
   });
 });

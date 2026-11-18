@@ -17,6 +17,8 @@ import {
   type AccountClient,
 } from '../api/client';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
+import AdventureJourney from '../adventure/AdventureJourney.vue';
+import { useAdventureJourney } from '../adventure/useAdventureJourney';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 import InnLobby from '../inn/InnLobby.vue';
 import GameResult from './GameResult.vue';
@@ -45,6 +47,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   'focus-mode': [enabled: boolean];
   'classic-study': [];
+  'account-settings': [];
 }>();
 
 const {
@@ -78,6 +81,8 @@ const {
   plan,
   lexicons,
   sessions,
+  contentPackages,
+  adventures,
   loading: lobbyLoading,
   error: lobbyError,
   activeSession,
@@ -88,6 +93,27 @@ const {
   api: () => props.api,
   describeError: gameErrorMessage,
   timeZone: currentTimeZone,
+});
+const {
+  run: adventureRun,
+  session: adventureSession,
+  loading: adventureLoading,
+  busy: adventureBusy,
+  error: adventureError,
+  notice: adventureNotice,
+  start: startAdventureRecord,
+  resume: resumeAdventureRecord,
+  setSession: setAdventureSession,
+  choose: chooseAdventure,
+  advance: advanceAdventure,
+  startEncounter: startAdventureEncounter,
+  resolveEncounter: resolveAdventureEncounter,
+  completeChapter: completeAdventureChapter,
+  reset: resetAdventure,
+  dispose: disposeAdventure,
+} = useAdventureJourney({
+  api: () => props.api,
+  describeError: gameErrorMessage,
 });
 const {
   session,
@@ -186,6 +212,44 @@ async function startTraining(): Promise<void> {
   await startSession(plan.value);
 }
 
+async function startAdventure(installationId: string): Promise<void> {
+  if (adventureBusy.value) {
+    return;
+  }
+  const started = await startAdventureRecord({
+    installationId,
+    companionKey: selectedCompanion.value.id,
+    reduceMotion: reduceMotion.value,
+  });
+  if (started) {
+    helpOpen.value = false;
+    phase.value = 'adventure';
+    scrollPageToTop();
+  }
+}
+
+async function resumeAdventure(runId: string): Promise<void> {
+  if (adventureBusy.value) {
+    return;
+  }
+  const resumed = await resumeAdventureRecord(runId);
+  if (resumed) {
+    helpOpen.value = false;
+    phase.value = 'adventure';
+    scrollPageToTop();
+  }
+}
+
+async function leaveAdventureToLobby(): Promise<void> {
+  if (adventureBusy.value) {
+    return;
+  }
+  scrollPageToTop();
+  resetAdventure();
+  phase.value = 'lobby';
+  await loadLobby();
+}
+
 async function reloadSession(): Promise<void> {
   const result = await reloadPracticeSession(fetchActiveSessions);
   if (result === 'missing') {
@@ -276,6 +340,9 @@ function performShortcut(action: GameShortcutAction): void {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
+  if (phase.value === 'adventure') {
+    return;
+  }
   const target = event.target;
   const isEditable = target instanceof HTMLElement
     && (
@@ -309,6 +376,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   void pauseForUnmount();
   disposeLobby();
+  disposeAdventure();
   disposePracticeSession();
   disposeAuthentication();
   window.removeEventListener('keydown', handleGlobalKeydown);
@@ -427,6 +495,8 @@ onBeforeUnmount(() => {
       :lexicons-count="lexicons.length"
       :active-session="activeSession"
       :session-count="sessions.length"
+      :content-packages="contentPackages"
+      :adventures="adventures"
       :companion-density="companionDensity"
       :reduce-motion="reduceMotion"
       :loading="busy || lobbyLoading"
@@ -437,6 +507,30 @@ onBeforeUnmount(() => {
       @select-companion="selectCompanion"
       @select-density="selectCompanionDensity"
       @classic-study="emit('classic-study')"
+      @start-adventure="startAdventure"
+      @resume-adventure="resumeAdventure"
+      @content-settings="emit('account-settings')"
+    />
+
+    <AdventureJourney
+      v-else-if="phase === 'adventure' && adventureRun"
+      :api="api"
+      :run="adventureRun"
+      :session="adventureSession"
+      :companion="selectedCompanion"
+      :loading="adventureLoading"
+      :busy="adventureBusy"
+      :error="adventureError"
+      :notice="adventureNotice"
+      :enable-audio="true"
+      :reduce-motion="reduceMotion"
+      @choose="chooseAdventure"
+      @advance="advanceAdventure"
+      @start-encounter="startAdventureEncounter"
+      @resolve-encounter="resolveAdventureEncounter"
+      @complete="completeAdventureChapter"
+      @exit="leaveAdventureToLobby"
+      @session-changed="setAdventureSession"
     />
 
     <GameTrainingStage

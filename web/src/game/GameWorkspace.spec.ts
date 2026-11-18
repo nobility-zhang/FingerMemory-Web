@@ -2,6 +2,8 @@ import { createApp, nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   AccountClient,
+  AdventureRunView,
+  ContentPackageInstallation,
   PracticeSessionView,
   SessionEnvelope,
   SessionItemView,
@@ -189,6 +191,11 @@ function baseApi(): AccountClient {
     playBattleCard: vi.fn(),
     useBattleCompanionSkill: vi.fn(),
     endBattleTurn: vi.fn(),
+    listAdventures: vi.fn(async () => []),
+    startAdventure: vi.fn(),
+    getAdventure: vi.fn(),
+    startAdventureEncounter: vi.fn(),
+    actAdventure: vi.fn(),
     previewContentPackage: vi.fn(),
     installContentPackage: vi.fn(),
     listContentPackages: vi.fn(async () => []),
@@ -327,6 +334,82 @@ describe('GameWorkspace', () => {
       expect(api.createSession).toHaveBeenCalled();
       expect(root.textContent).toContain('会话创建暂时失败');
       expect(root.textContent).toContain('今晚的火已经升起来了');
+    });
+  });
+
+  it('starts the installed first chapter from the inn', async () => {
+    const api = baseApi();
+    const installation: ContentPackageInstallation = {
+      id: 'installation-game',
+      namespace: 'fm.demo',
+      bookId: 'warm-lantern',
+      contentVersion: '1.0.0',
+      contentHash: 'a'.repeat(64),
+      title: '暖灯与失语之森',
+      entryNodeId: 'inn.arrival',
+      status: 'installed',
+      wordCount: 1,
+      chapterCount: 1,
+      nodeCount: 9,
+      characterCount: 0,
+      cardCount: 0,
+      encounterCount: 1,
+      assetCount: 0,
+      installedAtMs: 1,
+    };
+    const adventure: AdventureRunView = {
+      id: 'run-game',
+      installationId: installation.id,
+      namespace: installation.namespace,
+      bookId: installation.bookId,
+      contentVersion: installation.contentVersion,
+      contentHash: installation.contentHash,
+      title: installation.title,
+      companionKey: 'lia',
+      status: 'active',
+      runVersion: 0,
+      sessionId: 'session-adventure',
+      currentNode: {
+        nodeId: 'inn.arrival',
+        chapterId: 'chapter-1',
+        type: 'choice',
+        title: '暖灯旅店',
+        speaker: '',
+        text: '信纸边缘又淡了一角。',
+        choices: [{ choiceId: 'prepare', label: '拿起暖灯，准备出发' }],
+      },
+      flags: {},
+      createdAtMs: 1,
+      updatedAtMs: 1,
+    };
+    api.listContentPackages = vi.fn(async () => [installation]);
+    api.startAdventure = vi.fn(async () => ({
+      outcome: 'created' as const,
+      run: adventure,
+    }));
+    api.getSession = vi.fn(async () => sessionEnvelope());
+    const root = await mountGame(api);
+
+    const liaChoice = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('莉娅'),
+    );
+    liaChoice?.click();
+    await nextTick();
+    const start = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('开始第一章'),
+    );
+    start?.click();
+
+    await vi.waitFor(() => {
+      expect(root.querySelector('[data-node-id="inn.arrival"]')).not.toBeNull();
+      expect(root.textContent).toContain('信纸边缘又淡了一角');
+      expect(api.startAdventure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          installationId: 'installation-game',
+          companionKey: 'lia',
+          reduceMotion: false,
+        }),
+      );
     });
   });
 });
