@@ -144,6 +144,15 @@ function buttonByText(root: ParentNode, text: string): HTMLButtonElement {
   )!;
 }
 
+function pressKey(key: string, overrides: KeyboardEventInit = {}): void {
+  window.dispatchEvent(new KeyboardEvent('keydown', {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...overrides,
+  }));
+}
+
 let mountedApp: ReturnType<typeof createApp> | null = null;
 
 afterEach(() => {
@@ -258,20 +267,43 @@ describe('BridgeBattlePanel', () => {
     answer!.value = 'lantern';
     answer!.dispatchEvent(new Event('input', { bubbles: true }));
     await nextTick();
-    buttonByText(root, '提交并评分').click();
+    pressKey('Enter');
     await vi.waitFor(() => {
       expect(buttonByText(root, 'GOOD')).toBeDefined();
+      expect(root.querySelector('[data-shortcut-context="rating"]')).not.toBeNull();
     });
-    buttonByText(root, 'GOOD').click();
+    pressKey('3');
     await vi.waitFor(() => {
       expect(root.querySelector('[data-field="energy"]')?.textContent).toContain('3/3');
+      expect(root.querySelector('[data-shortcut-context="card-select"]')).not.toBeNull();
     });
 
-    buttonByText(root, '旅人突刺').click();
+    pressKey('?', { shiftKey: true });
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('结束回合组合键');
+    });
+    pressKey('Escape');
+    await vi.waitFor(() => {
+      expect(root.textContent).not.toContain('结束回合组合键');
+    });
+
+    pressKey('1');
     await vi.waitFor(() => {
       expect(buttonByText(root, 'bridge-guardian')).toBeDefined();
+      expect(root.querySelector('[data-shortcut-context="target-select"]')).not.toBeNull();
     });
-    buttonByText(root, 'bridge-guardian').click();
+    pressKey('Escape');
+    await vi.waitFor(() => {
+      expect(root.querySelector('[data-shortcut-context="card-select"]')).not.toBeNull();
+    });
+    expect(api.playBattleCard).not.toHaveBeenCalled();
+
+    pressKey('1');
+    await vi.waitFor(() => {
+      expect(root.querySelector('[data-shortcut-context="target-select"]')).not.toBeNull();
+    });
+    pressKey('ArrowRight');
+    pressKey('Enter');
     await vi.waitFor(() => {
       expect(api.playBattleCard).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -281,14 +313,26 @@ describe('BridgeBattlePanel', () => {
         }),
       );
       expect(buttonByText(root, '协助').disabled).toBe(false);
+      expect(root.querySelector('[data-shortcut-context="card-select"]')).not.toBeNull();
     });
+
+    pressKey('Escape');
+    await vi.waitFor(() => {
+      expect(root.querySelector('[data-battle-paused="true"]')).not.toBeNull();
+      expect(document.activeElement?.textContent).toContain('继续战斗');
+    });
+    pressKey('Enter');
+    await vi.waitFor(() => {
+      expect(root.querySelector('[data-battle-paused="false"]')).not.toBeNull();
+    });
+
     await nextTick();
     buttonByText(root, '协助').click();
     await vi.waitFor(() => {
       expect(api.useBattleCompanionSkill).toHaveBeenCalled();
     });
     await nextTick();
-    buttonByText(root, '结束回合').click();
+    pressKey('Enter', { ctrlKey: true });
     await vi.waitFor(() => {
       expect(api.endBattleTurn).toHaveBeenCalled();
     });

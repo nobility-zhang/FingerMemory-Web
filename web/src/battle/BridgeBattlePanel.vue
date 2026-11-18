@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
   toRef,
 } from 'vue';
+import { CircleHelp } from '@lucide/vue';
 import {
   accountApi,
   ApiClientError,
@@ -23,8 +25,21 @@ import {
   type CompanionExpression,
   type CompanionId,
 } from '../companions/catalog';
+import BattleShortcutHelp from './BattleShortcutHelp.vue';
 import { CARD_DEFINITIONS } from './cards';
 import { battleSoundCues } from './soundEvents';
+import {
+  endTurnShortcutAriaLabel,
+  endTurnShortcutLabel,
+  loadBattleShortcutPreferences,
+  saveBattleShortcutPreferences,
+} from './shortcutPreferences';
+import {
+  resolveBattleShortcut,
+  type BattleShortcutAction,
+  type BattleShortcutContext,
+  type EndTurnShortcut,
+} from './shortcutStateMachine';
 import type { CardDefinition } from './types';
 import PhaserGameHost from '../game-runtime/PhaserGameHost.vue';
 import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
@@ -71,6 +86,13 @@ const answer = ref('');
 const pendingAnswer = ref<PendingAnswerView>();
 const reviewPreviews = ref<ReviewPreviewView>();
 const selectedCard = ref<BattleEnvelopeView['battle']['hand'][number]>();
+const battleRoot = ref<HTMLElement>();
+const selectedTargetIndex = ref(0);
+const battlePaused = ref(false);
+const shortcutHelpOpen = ref(false);
+const shortcutPreferences = ref(loadBattleShortcutPreferences());
+const resumeButton = ref<HTMLButtonElement>();
+let focusBeforePause: HTMLElement | null = null;
 let generation = 0;
 let disposed = false;
 let claimActionId = '';
@@ -113,6 +135,16 @@ const handCards = computed(() =>
       } => entry.definition !== undefined,
     ),
 );
+const legalTargets = computed(() =>
+  (battle.value?.battle.enemies ?? []).filter((enemy) => enemy.hp > 0),
+);
+const selectedTarget = computed(() => {
+  const targets = legalTargets.value;
+  if (targets.length === 0) {
+    return undefined;
+  }
+  return targets[selectedTargetIndex.value % targets.length];
+});
 const companion = computed(() => companionById[props.companionKey]);
 const companionExpression = computed<CompanionExpression>(() => {
   if (battle.value?.battle.phase === 'victory') {
@@ -139,6 +171,27 @@ const phaseLabel = computed(() => {
     default:
       return '准备中';
   }
+});
+const shortcutContext = computed<BattleShortcutContext>(() => {
+  if (battlePaused.value) {
+    return 'paused';
+  }
+  if (loading.value || battle.value === undefined) {
+    return 'blocked';
+  }
+  if (battle.value.battle.phase === 'learning') {
+    return pendingAnswer.value === undefined ? 'learning-input' : 'rating';
+  }
+  if (battle.value.battle.phase === 'player-action') {
+    return selectedCard.value === undefined ? 'card-select' : 'target-select';
+  }
+  if (
+    battle.value.battle.phase === 'victory'
+    || battle.value.battle.phase === 'defeat'
+  ) {
+    return 'result';
+  }
+  return 'blocked';
 });
 
 function newId(): string {
@@ -386,10 +439,32 @@ function chooseCard(card: BattleEnvelopeView['battle']['hand'][number]): void {
   }
   if (definition.target === 'enemy') {
     selectedCard.value = card;
+    selectedTargetIndex.value = 0;
     notice.value = '选择目标后确认出牌。';
     return;
   }
   void playCard(card, undefined);
+}
+
+function cancelTargetSelection(): void {
+  selectedCard.value = undefined;
+  selectedTargetIndex.value = 0;
+  notice.value = '已取消目标选择。';
+}
+
+function cycleTarget(direction: 'previous' | 'next'): void {
+  const targets = legalTargets.value;
+  if (targets.length === 0) {
+    return;
+  }
+  const delta = direction === 'next' ? 1 : -1;
+  selectedTargetIndex.value = (
+    selectedTargetIndex.value + delta + targets.length
+  ) % targets.length;
+  const target = selectedTarget.value;
+  if (target !== undefined) {
+    notice.value = `目标：${target.id} · 生命 ${target.hp}`;
+  }
 }
 
 async function playCard(
@@ -414,6 +489,7 @@ async function playCard(
     });
     battle.value = updated;
     selectedCard.value = undefined;
+    selectedTargetIndex.value = 0;
     playBattleEvents(updated.events, `card:${actionId}`);
     notice.value = '战术牌已结算。';
   } catch (cause) {
@@ -425,11 +501,11 @@ async function playCard(
 
 async function playSelectedCard(): Promise<void> {
   const card = selectedCard.value;
-  const enemy = currentEnemy.value;
-  if (card === undefined || enemy === undefined) {
+  const target = selectedTarget.value;
+  if (card === undefined || target === undefined) {
     return;
   }
-  await playCard(card, enemy.id);
+  await playCard(card, target.id);
 }
 
 async function useCompanionSkill(): Promise<void> {
@@ -463,6 +539,7 @@ async function endTurn(): Promise<void> {
     busy.value
     || current === undefined
     || current.battle.phase !== 'player-action'
+    || selectedCard.value !== undefined
     || session === undefined
     || session.session.currentStudyItemId === null
   ) {
@@ -485,6 +562,7 @@ async function endTurn(): Promise<void> {
     });
     battle.value = updated;
     selectedCard.value = undefined;
+    selectedTargetIndex.value = 0;
     playBattleEvents(updated.events, `turn:${actionId}`);
     if (
       updated.battle.phase === 'learning'
@@ -504,18 +582,157 @@ function finish(): void {
   emit('finished');
 }
 
+function updateEndTurnShortcut(shortcut: EndTurnShortcut): void {
+  shortcutPreferences.value = saveBattleShortcutPreferences({
+    endTurn: shortcut,
+  });
+}
+
+function pauseBattle(): void {
+  if (
+    battlePaused.value
+    || loading.value
+    || busy.value
+    || battle.value === undefined
+    || shortcutContext.value === 'result'
+  ) {
+    return;
+  }
+  shortcutHelpOpen.value = false;
+  focusBeforePause = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
+  battlePaused.value = true;
+  void nextTick(() => resumeButton.value?.focus());
+}
+
+function resumeBattle(): void {
+  if (!battlePaused.value) {
+    return;
+  }
+  battlePaused.value = false;
+  void nextTick(() => {
+    if (
+      focusBeforePause?.isConnected
+      && battleRoot.value?.contains(focusBeforePause)
+    ) {
+      focusBeforePause.focus();
+    } else {
+      const fallback = battleRoot.value?.querySelector<HTMLElement>(
+        [
+          '.battle-answer-row input:not(:disabled)',
+          '.battle-rating-grid button:not(:disabled)',
+          '.card-button:not(:disabled)',
+          '.battle-result button:not(:disabled)',
+        ].join(', '),
+      );
+      fallback?.focus();
+    }
+    focusBeforePause = null;
+  });
+}
+
+function performBattleShortcut(action: BattleShortcutAction): void {
+  switch (action.type) {
+    case 'submit-answer':
+      void submitAnswer();
+      return;
+    case 'rate':
+      void submitRating(action.rating);
+      return;
+    case 'select-card': {
+      const entry = handCards.value[action.index - 1];
+      if (entry !== undefined) {
+        chooseCard(entry.card);
+      }
+      return;
+    }
+    case 'cycle-target':
+      cycleTarget(action.direction);
+      return;
+    case 'confirm-target':
+      void playSelectedCard();
+      return;
+    case 'cancel-target':
+      cancelTargetSelection();
+      return;
+    case 'pause':
+      pauseBattle();
+      return;
+    case 'resume':
+      resumeBattle();
+      return;
+    case 'end-turn':
+      void endTurn();
+      return;
+    case 'finish':
+      finish();
+      return;
+    case 'toggle-help':
+      shortcutHelpOpen.value = true;
+      return;
+    case 'close-help':
+      shortcutHelpOpen.value = false;
+  }
+}
+
+function handleBattleKeydown(event: KeyboardEvent): void {
+  if (event.defaultPrevented) {
+    return;
+  }
+  const target = event.target;
+  const isEditable = target instanceof HTMLElement
+    && (
+      target.matches('input, textarea, select')
+      || target.isContentEditable
+    );
+  const isInteractiveTarget = target instanceof HTMLElement
+    && (
+      isEditable
+      || target.matches('button, a, summary, [role="button"]')
+    );
+  const action = resolveBattleShortcut({
+    key: event.key,
+    context: shortcutContext.value,
+    endTurnShortcut: shortcutPreferences.value.endTurn,
+    isComposing: event.isComposing,
+    repeat: event.repeat,
+    isEditable,
+    isInteractiveTarget,
+    helpOpen: shortcutHelpOpen.value,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    altKey: event.altKey,
+    shiftKey: event.shiftKey,
+  });
+  if (action === null) {
+    return;
+  }
+  event.preventDefault();
+  performBattleShortcut(action);
+}
+
 onMounted(() => {
+  window.addEventListener('keydown', handleBattleKeydown);
   void startBattle();
 });
 
 onBeforeUnmount(() => {
   disposed = true;
   generation += 1;
+  window.removeEventListener('keydown', handleBattleKeydown);
 });
 </script>
 
 <template>
-  <section class="bridge-battle" data-testid="bridge-battle">
+  <section
+    ref="battleRoot"
+    class="bridge-battle"
+    data-testid="bridge-battle"
+    :data-shortcut-context="shortcutContext"
+    :data-battle-paused="battlePaused"
+    :data-end-turn-shortcut="shortcutPreferences.endTurn"
+  >
     <header class="battle-heading">
       <div>
         <p class="battle-kicker">溪桥 · 教学遭遇</p>
@@ -524,6 +741,7 @@ onBeforeUnmount(() => {
       <div class="battle-status">
         <span data-field="battle-phase">{{ phaseLabel }}</span>
         <span data-field="battle-version">v{{ battle?.stateVersion ?? 0 }}</span>
+        <span data-field="shortcut-context">{{ shortcutContext }}</span>
         <span v-if="enableAudio" data-field="audio-status">{{ audioStatus }}</span>
         <span
           v-if="enableAudio && audioRateLimitedCount > 0"
@@ -563,171 +781,225 @@ onBeforeUnmount(() => {
         >
           {{ audioPaused ? '继续音效' : '暂停音效' }}
         </button>
+        <button
+          v-if="battle"
+          type="button"
+          class="audio-command"
+          :aria-label="shortcutHelpOpen ? '关闭快捷键帮助' : '打开快捷键帮助'"
+          :title="shortcutHelpOpen ? '关闭快捷键帮助' : '打开快捷键帮助'"
+          @click="shortcutHelpOpen = !shortcutHelpOpen"
+        >
+          <CircleHelp :size="16" aria-hidden="true" />
+          快捷键
+        </button>
+        <button
+          v-if="battle && shortcutContext !== 'result'"
+          type="button"
+          class="audio-command"
+          @click="battlePaused ? resumeBattle() : pauseBattle()"
+        >
+          {{ battlePaused ? '继续战斗' : '暂停战斗' }}
+        </button>
       </div>
     </header>
 
-    <p v-if="error" class="battle-message battle-message--error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="battle-message" role="status">{{ notice }}</p>
-
-    <section v-if="loading" class="battle-loading" role="status">
-      正在进入溪桥...
+    <section v-if="battlePaused" class="battle-pause-panel" aria-labelledby="battle-pause-title">
+      <p class="section-label">战斗已暂停</p>
+      <h4 id="battle-pause-title">溪桥与手牌仍保持当前状态。</h4>
+      <p>服务端没有收到撤退或结束命令。按 Enter 或 Escape 继续。</p>
+      <button ref="resumeButton" type="button" class="battle-primary" @click="resumeBattle">
+        继续战斗
+      </button>
     </section>
 
-    <template v-else-if="battle">
-      <div class="battle-stage">
-        <div class="mist mist--one"></div>
-        <div class="mist mist--two"></div>
-        <div class="bridge-line">
-          <span></span><span></span><span></span><span></span>
-        </div>
-        <div class="enemy-figure" aria-label="溪桥迷雾守卫">
-          <span class="enemy-eye"></span>
-          <strong>桥雾守卫</strong>
-          <small>{{ battle.battle.encounterId }}</small>
-        </div>
-        <div class="companion-figure">
-          <CompanionPortrait
-            :companion="companion"
-            :expression="companionExpression"
-          />
-          <div class="companion-caption">
-            <strong>{{ companion.name }}</strong>
-            <span>{{ companion.epithet }}</span>
+    <template v-else>
+      <BattleShortcutHelp
+        v-if="shortcutHelpOpen"
+        :context="shortcutContext"
+        :preferences="shortcutPreferences"
+        @close="shortcutHelpOpen = false"
+        @update-end-turn="updateEndTurnShortcut"
+      />
+
+      <p v-if="error" class="battle-message battle-message--error" role="alert">{{ error }}</p>
+      <p v-if="notice" class="battle-message" role="status">{{ notice }}</p>
+
+      <section v-if="loading" class="battle-loading" role="status">
+        正在进入溪桥...
+      </section>
+
+      <template v-else-if="battle">
+        <div class="battle-stage">
+          <div class="mist mist--one"></div>
+          <div class="mist mist--two"></div>
+          <div class="bridge-line">
+            <span></span><span></span><span></span><span></span>
           </div>
-        </div>
-      </div>
-
-      <div class="battle-hud">
-        <div>
-          <span>队伍生命</span>
-          <strong data-field="party-hp">
-            {{ battle.battle.party.hp }}/{{ battle.battle.party.maxHp }}
-          </strong>
-        </div>
-        <div>
-          <span>格挡</span>
-          <strong data-field="party-block">{{ battle.battle.party.block }}</strong>
-        </div>
-        <div>
-          <span>能量</span>
-          <strong data-field="energy">{{ battle.battle.energy }}/3</strong>
-        </div>
-        <div>
-          <span>敌方意图</span>
-          <strong data-field="intent">{{ intentText(battle.battle) }}</strong>
-        </div>
-        <div>
-          <span>守卫生命</span>
-          <strong data-field="enemy-hp">
-            {{ currentEnemy?.hp ?? 0 }}/{{ currentEnemy?.maxHp ?? 0 }}
-          </strong>
-        </div>
-      </div>
-
-      <section v-if="battle.battle.phase === 'learning'" class="learning-panel">
-        <p class="section-label">本回合唯一学习任务</p>
-        <strong v-if="currentItem" class="learning-meaning">
-          {{ currentItem.wordEntry.meaning }}
-        </strong>
-        <p v-else class="battle-message battle-message--error">
-          当前学习目标不可用，不能伪造战斗能量。
-        </p>
-        <div v-if="pendingAnswer === undefined" class="battle-answer-row">
-          <label>
-            <span>英文拼写</span>
-            <input
-              v-model="answer"
-              type="text"
-              autocomplete="off"
-              :disabled="busy || currentItem === undefined"
-              @keydown.enter.prevent="submitAnswer"
+          <div class="enemy-figure" aria-label="溪桥迷雾守卫">
+            <span class="enemy-eye"></span>
+            <strong>桥雾守卫</strong>
+            <small>{{ battle.battle.encounterId }}</small>
+          </div>
+          <div class="companion-figure">
+            <CompanionPortrait
+              :companion="companion"
+              :expression="companionExpression"
             />
-          </label>
-          <button
-            type="button"
-            class="battle-primary"
-            :disabled="busy || answer.trim().length === 0"
-            @click="submitAnswer"
-          >
-            提交并评分
-          </button>
-        </div>
-        <div v-else class="battle-rating-grid" aria-label="战术学习评分">
-          <button
-            v-for="rating in (['again', 'hard', 'good', 'easy'] as const)"
-            :key="rating"
-            type="button"
-            :disabled="busy || reviewPreviews === undefined"
-            @click="submitRating(rating)"
-          >
-            <strong>{{ rating.toUpperCase() }}</strong>
-            <span v-if="reviewPreviews">
-              {{ formatDue(reviewPreviews.previews[rating].dueAt) }}
-            </span>
-          </button>
-        </div>
-      </section>
-
-      <section v-else-if="battle.battle.phase === 'player-action'" class="action-panel">
-        <div class="action-toolbar">
-          <div>
-            <p class="section-label">战术行动</p>
-            <strong>{{ companion.name }}与你并肩</strong>
+            <div class="companion-caption">
+              <strong>{{ companion.name }}</strong>
+              <span>{{ companion.epithet }}</span>
+            </div>
           </div>
-          <button
-            type="button"
-            :disabled="busy || battle.battle.companion?.skillUsed === true"
-            @click="useCompanionSkill"
-          >
-            {{ battle.battle.companion?.skillUsed ? '协助已使用' : `${companion.name}协助` }}
-          </button>
         </div>
-        <div class="hand-grid" aria-label="手牌">
-          <button
-            v-for="entry in handCards"
-            :key="entry.card.instanceId"
-            type="button"
-            class="card-button"
-            :class="{ selected: selectedCard?.instanceId === entry.card.instanceId }"
-            :disabled="busy || entry.definition.cost > battle.battle.energy"
-            @click="chooseCard(entry.card)"
-          >
-            <span class="card-cost">{{ entry.definition.cost }}</span>
-            <strong>{{ entry.definition.name }}</strong>
-            <small>{{ cardEffectText(entry.definition) }}</small>
-          </button>
-        </div>
-        <div v-if="selectedCard && currentEnemy" class="target-row">
-          <span>选择目标</span>
-          <button type="button" :disabled="busy" @click="playSelectedCard">
-            {{ currentEnemy.id }} · 生命 {{ currentEnemy.hp }}
-          </button>
-          <button type="button" :disabled="busy" @click="selectedCard = undefined">
-            取消
-          </button>
-        </div>
-        <div class="turn-row">
-          <span>抽牌 {{ battle.battle.drawCursor }}/{{ battle.battle.drawPile.length }}</span>
-          <span>弃牌 {{ battle.battle.discardPile.length }}</span>
-          <span>耗竭 {{ battle.battle.exhaustPile.length }}</span>
-          <button type="button" class="battle-primary" :disabled="busy" @click="endTurn">
-            结束回合
-          </button>
-        </div>
-      </section>
 
-      <section v-else class="battle-result">
-        <p class="section-label">{{ battle.battle.phase === 'victory' ? '桥面重见天日' : '救援信号' }}</p>
-        <h4>
-          {{ battle.battle.phase === 'victory' ? '溪桥的路标重新亮了起来' : '伙伴会把你带回营地' }}
-        </h4>
-        <p>
-          {{ battle.battle.phase === 'victory'
-            ? '学习记录、战斗状态和结算已经由服务端提交。'
-            : '本次已提交的学习记录不会因为战斗失败而重算。' }}
-        </p>
-        <button type="button" class="battle-primary" @click="finish">返回在线学习</button>
-      </section>
+        <div class="battle-hud">
+          <div>
+            <span>队伍生命</span>
+            <strong data-field="party-hp">
+              {{ battle.battle.party.hp }}/{{ battle.battle.party.maxHp }}
+            </strong>
+          </div>
+          <div>
+            <span>格挡</span>
+            <strong data-field="party-block">{{ battle.battle.party.block }}</strong>
+          </div>
+          <div>
+            <span>能量</span>
+            <strong data-field="energy">{{ battle.battle.energy }}/3</strong>
+          </div>
+          <div>
+            <span>敌方意图</span>
+            <strong data-field="intent">{{ intentText(battle.battle) }}</strong>
+          </div>
+          <div>
+            <span>守卫生命</span>
+            <strong data-field="enemy-hp">
+              {{ currentEnemy?.hp ?? 0 }}/{{ currentEnemy?.maxHp ?? 0 }}
+            </strong>
+          </div>
+        </div>
+
+        <section v-if="battle.battle.phase === 'learning'" class="learning-panel">
+          <p class="section-label">本回合唯一学习任务</p>
+          <strong v-if="currentItem" class="learning-meaning">
+            {{ currentItem.wordEntry.meaning }}
+          </strong>
+          <p v-else class="battle-message battle-message--error">
+            当前学习目标不可用，不能伪造战斗能量。
+          </p>
+          <div v-if="pendingAnswer === undefined" class="battle-answer-row">
+            <label>
+              <span>英文拼写</span>
+              <input
+                v-model="answer"
+                type="text"
+                autocomplete="off"
+                :disabled="busy || currentItem === undefined"
+                aria-keyshortcuts="Enter"
+              />
+            </label>
+            <button
+              type="button"
+              class="battle-primary"
+              :disabled="busy || answer.trim().length === 0"
+              @click="submitAnswer"
+            >
+              提交并评分
+            </button>
+          </div>
+          <div v-else class="battle-rating-grid" aria-label="战术学习评分">
+            <button
+              v-for="rating in (['again', 'hard', 'good', 'easy'] as const)"
+              :key="rating"
+              type="button"
+              :disabled="busy || reviewPreviews === undefined"
+              :aria-keyshortcuts="String(['again', 'hard', 'good', 'easy'].indexOf(rating) + 1)"
+              @click="submitRating(rating)"
+            >
+              <strong>{{ rating.toUpperCase() }}</strong>
+              <span v-if="reviewPreviews">
+                {{ formatDue(reviewPreviews.previews[rating].dueAt) }}
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section v-else-if="battle.battle.phase === 'player-action'" class="action-panel">
+          <div class="action-toolbar">
+            <div>
+              <p class="section-label">战术行动</p>
+              <strong>{{ companion.name }}与你并肩</strong>
+            </div>
+            <button
+              type="button"
+              :disabled="busy || battle.battle.companion?.skillUsed === true"
+              @click="useCompanionSkill"
+            >
+              {{ battle.battle.companion?.skillUsed ? '协助已使用' : `${companion.name}协助` }}
+            </button>
+          </div>
+          <div class="hand-grid" aria-label="手牌">
+            <button
+              v-for="(entry, index) in handCards"
+              :key="entry.card.instanceId"
+              type="button"
+              class="card-button"
+              :class="{ selected: selectedCard?.instanceId === entry.card.instanceId }"
+              :disabled="busy || entry.definition.cost > battle.battle.energy"
+              :aria-keyshortcuts="String(index + 1)"
+              @click="chooseCard(entry.card)"
+            >
+              <span class="card-cost">{{ entry.definition.cost }}</span>
+              <strong>{{ entry.definition.name }}</strong>
+              <small>{{ cardEffectText(entry.definition) }}</small>
+            </button>
+          </div>
+          <div v-if="selectedCard && legalTargets.length > 0" class="target-row">
+            <span>选择目标</span>
+            <button
+              v-for="target in legalTargets"
+              :key="target.id"
+              type="button"
+              :class="{ selected: selectedTarget?.id === target.id }"
+              :disabled="busy"
+              @click="playCard(selectedCard, target.id)"
+            >
+              {{ target.id }} · 生命 {{ target.hp }}
+            </button>
+            <button type="button" :disabled="busy" @click="cancelTargetSelection">
+              取消
+            </button>
+          </div>
+          <div class="turn-row">
+            <span>抽牌 {{ battle.battle.drawCursor }}/{{ battle.battle.drawPile.length }}</span>
+            <span>弃牌 {{ battle.battle.discardPile.length }}</span>
+            <span>耗竭 {{ battle.battle.exhaustPile.length }}</span>
+            <button
+              type="button"
+              class="battle-primary"
+              :disabled="busy || selectedCard !== undefined"
+              :aria-keyshortcuts="endTurnShortcutAriaLabel(shortcutPreferences.endTurn)"
+              @click="endTurn"
+            >
+              结束回合
+            </button>
+            <kbd>{{ endTurnShortcutLabel(shortcutPreferences.endTurn) }}</kbd>
+          </div>
+        </section>
+
+        <section v-else class="battle-result">
+          <p class="section-label">{{ battle.battle.phase === 'victory' ? '桥面重见天日' : '救援信号' }}</p>
+          <h4>
+            {{ battle.battle.phase === 'victory' ? '溪桥的路标重新亮了起来' : '伙伴会把你带回营地' }}
+          </h4>
+          <p>
+            {{ battle.battle.phase === 'victory'
+              ? '学习记录、战斗状态和结算已经由服务端提交。'
+              : '本次已提交的学习记录不会因为战斗失败而重算。' }}
+          </p>
+          <button type="button" class="battle-primary" @click="finish">返回在线学习</button>
+        </section>
+      </template>
     </template>
 
     <PhaserGameHost
@@ -803,6 +1075,9 @@ onBeforeUnmount(() => {
 }
 
 .audio-command {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-height: 28px;
   padding: 3px 8px;
   border: 1px solid rgb(214 189 120 / 45%);
@@ -982,12 +1257,30 @@ onBeforeUnmount(() => {
 
 .learning-panel,
 .action-panel,
+.battle-pause-panel,
 .battle-result {
   display: grid;
   gap: 12px;
   padding: 16px;
   border: 1px solid rgb(158 205 189 / 22%);
   background: #102729;
+}
+
+.battle-pause-panel {
+  justify-items: start;
+}
+
+.battle-pause-panel h4 {
+  margin: 0;
+  color: #f0dfb3;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+.battle-pause-panel p:not(.section-label) {
+  margin: 0;
+  color: #b9cec0;
 }
 
 .learning-meaning {
@@ -1068,11 +1361,21 @@ onBeforeUnmount(() => {
 }
 
 .card-button.selected,
+.target-row button.selected,
 .battle-primary,
 .battle-answer-row button {
   border-color: #e1c477;
   background: #d1ab5c;
   color: #1c2e2d;
+}
+
+.turn-row kbd {
+  padding: 3px 6px;
+  border: 1px solid rgb(214 189 120 / 32%);
+  border-radius: 4px;
+  background: #142d2e;
+  color: #f0dfb3;
+  font: 600 0.68rem/1.2 "SFMono-Regular", Consolas, monospace;
 }
 
 .card-cost {
