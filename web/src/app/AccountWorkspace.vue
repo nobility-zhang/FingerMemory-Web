@@ -60,8 +60,10 @@ const onlineFlashcardNotRemembered = ref(false);
 const {
   setHost: setAudioHost,
   muted: audioMuted,
+  volume: audioVolume,
   status: audioStatus,
   toggleMuted: toggleAudioMuted,
+  setVolume: setAudioVolume,
   playFlip: playFlipAudio,
   handleRuntimeEvent: handleAudioRuntimeEvent,
 } = usePhaserAudio(toRef(props, 'enableAudio'));
@@ -963,6 +965,7 @@ onBeforeUnmount(() => {
               :reduce-motion="onlineSession.session.reduceMotion"
               :audio-control="enableAudio"
               :audio-muted="audioMuted"
+              :audio-volume="audioVolume"
               :audio-status="audioStatus"
               :rating-previews="onlineRatingLabels"
               :rating-preview-loading="
@@ -974,6 +977,7 @@ onBeforeUnmount(() => {
               @rate="submitOnlineRating"
               @skip="skipOnlineFlashcard"
               @toggle-audio="toggleAudioMuted"
+              @update-audio-volume="setAudioVolume"
             >
               <template #audio-visual>
                 <PhaserGameHost

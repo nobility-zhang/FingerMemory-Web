@@ -90,8 +90,10 @@ const flashcardNotRemembered = ref(false);
 const {
   setHost: setAudioHost,
   muted: audioMuted,
+  volume: audioVolume,
   status: audioStatus,
   toggleMuted: toggleAudioMuted,
+  setVolume: setAudioVolume,
   playFlip: playFlipAudio,
   handleRuntimeEvent: handleAudioRuntimeEvent,
 } = usePhaserAudio(toRef(props, 'enableAudio'));
@@ -822,6 +824,7 @@ watch(
         :shortcuts-enabled="!confirmAbandon"
         :audio-control="enableAudio"
         :audio-muted="audioMuted"
+        :audio-volume="audioVolume"
         :audio-status="audioStatus"
         :rating-previews="ratingPreviewLabels"
         :rating-preview-loading="ratingPreviewLoading"
@@ -831,6 +834,7 @@ watch(
         @rate="chooseFlashcardRating"
         @skip="skipCurrent"
         @toggle-audio="toggleAudioMuted"
+        @update-audio-volume="setAudioVolume"
       >
         <template #audio-visual>
           <PhaserGameHost

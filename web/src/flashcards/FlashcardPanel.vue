@@ -38,6 +38,7 @@ const props = withDefaults(
     shortcutsEnabled?: boolean;
     audioControl?: boolean;
     audioMuted?: boolean;
+    audioVolume?: number;
     audioStatus?: 'idle' | 'starting' | 'ready' | 'error';
     ratingPreviews?: Partial<Record<ReviewRating, string>>;
     ratingPreviewLoading?: boolean;
@@ -48,6 +49,7 @@ const props = withDefaults(
     shortcutsEnabled: true,
     audioControl: false,
     audioMuted: false,
+    audioVolume: 1,
     audioStatus: 'idle',
     ratingPreviews: () => ({}),
     ratingPreviewLoading: false,
@@ -61,6 +63,7 @@ const emit = defineEmits<{
   rate: [rating: ReviewRating];
   skip: [];
   toggleAudio: [];
+  updateAudioVolume: [volume: number];
 }>();
 
 const card = ref<HTMLElement>();
@@ -295,6 +298,18 @@ onBeforeUnmount(() => {
           <VolumeX v-if="audioMuted" :size="16" aria-hidden="true" />
           <Volume2 v-else :size="16" aria-hidden="true" />
         </button>
+        <label v-if="audioControl" class="audio-volume">
+          <span>音量</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            :value="audioVolume"
+            aria-label="音效音量"
+            @input="emit('updateAudioVolume', Number(($event.target as HTMLInputElement).value))"
+          />
+        </label>
         <span v-if="audioStatus === 'error'" class="audio-unavailable">
           音效不可用
         </span>
@@ -438,6 +453,21 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.audio-volume {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #718078;
+  font-size: 0.68rem;
+}
+
+.audio-volume input {
+  width: 68px;
+  min-height: 24px;
+  padding: 0;
+  accent-color: #3c8061;
 }
 
 .primary-action {

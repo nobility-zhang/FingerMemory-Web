@@ -36,6 +36,7 @@ function mountPanel() {
   const paused = ref(true);
   const notRemembered = ref(false);
   const rated = vi.fn();
+  const updateAudioVolume = vi.fn();
   let changePaused: ((value: boolean) => void) | undefined;
   const Host = defineComponent({
     setup() {
@@ -59,6 +60,9 @@ function mountPanel() {
         },
         onRate: rated,
         onSkip: vi.fn(),
+        audioControl: true,
+        audioVolume: 0.35,
+        onUpdateAudioVolume: updateAudioVolume,
       });
     },
   });
@@ -70,6 +74,7 @@ function mountPanel() {
   return {
     root,
     rated,
+    updateAudioVolume,
     setPaused: (value: boolean) => changePaused?.(value),
   };
 }
@@ -120,5 +125,20 @@ describe('FlashcardPanel', () => {
     }));
     await nextTick();
     expect(panel.rated).not.toHaveBeenCalled();
+  });
+
+  it('requests volume changes without owning the preference', async () => {
+    const panel = mountPanel();
+    const volume = panel.root.querySelector<HTMLInputElement>(
+      'input[aria-label="音效音量"]',
+    );
+    expect(volume?.value).toBe('0.35');
+
+    volume!.value = '0.6';
+    volume!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+
+    expect(panel.updateAudioVolume).toHaveBeenCalledWith(0.6);
+    expect(volume!.value).toBe('0.6');
   });
 });
