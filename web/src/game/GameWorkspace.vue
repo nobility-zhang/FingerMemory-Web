@@ -3,6 +3,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  watch,
 } from 'vue';
 import {
   CircleHelp,
@@ -83,6 +84,8 @@ const {
   sessions,
   contentPackages,
   adventures,
+  unlockedCompanions,
+  recollections,
   loading: lobbyLoading,
   error: lobbyError,
   activeSession,
@@ -108,6 +111,8 @@ const {
   advance: advanceAdventure,
   startEncounter: startAdventureEncounter,
   resolveEncounter: resolveAdventureEncounter,
+  claimReward: claimAdventureReward,
+  selectCompanion: selectAdventureCompanion,
   completeChapter: completeAdventureChapter,
   reset: resetAdventure,
   dispose: disposeAdventure,
@@ -115,6 +120,16 @@ const {
   api: () => props.api,
   describeError: gameErrorMessage,
 });
+
+watch(
+  unlockedCompanions,
+  (available) => {
+    if (!available.includes(selectedCompanion.value.id)) {
+      selectCompanion('lia');
+    }
+  },
+  { immediate: true },
+);
 const {
   session,
   currentItem,
@@ -497,6 +512,8 @@ onBeforeUnmount(() => {
       :session-count="sessions.length"
       :content-packages="contentPackages"
       :adventures="adventures"
+      :unlocked-companion-ids="unlockedCompanions"
+      :recollections="recollections"
       :companion-density="companionDensity"
       :reduce-motion="reduceMotion"
       :loading="busy || lobbyLoading"
@@ -528,6 +545,8 @@ onBeforeUnmount(() => {
       @advance="advanceAdventure"
       @start-encounter="startAdventureEncounter"
       @resolve-encounter="resolveAdventureEncounter"
+      @claim-reward="claimAdventureReward"
+      @select-companion="selectAdventureCompanion"
       @complete="completeAdventureChapter"
       @exit="leaveAdventureToLobby"
       @session-changed="setAdventureSession"

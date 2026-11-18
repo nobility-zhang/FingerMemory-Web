@@ -50,6 +50,8 @@ export interface AdventureJourney {
   advance(): Promise<void>;
   startEncounter(): Promise<void>;
   resolveEncounter(): Promise<void>;
+  claimReward(choiceId: string): Promise<void>;
+  selectCompanion(companionKey: 'lia' | 'serin' | 'fina'): Promise<void>;
   completeChapter(): Promise<void>;
   reset(): void;
   dispose(): void;
@@ -195,9 +197,16 @@ export function useAdventureJourney({
 
   async function submitAction(
     signature: string,
-    action: 'advance' | 'choose' | 'resolve-encounter' | 'complete',
+    action:
+      | 'advance'
+      | 'choose'
+      | 'resolve-encounter'
+      | 'claim-reward'
+      | 'select-companion'
+      | 'complete',
     choiceId?: string,
     battleId?: string,
+    companionKey?: 'lia' | 'serin' | 'fina',
   ): Promise<void> {
     const current = run.value;
     if (current === undefined || busy.value) {
@@ -216,6 +225,7 @@ export function useAdventureJourney({
         action,
         choiceId ?? '',
         battleId ?? '',
+        companionKey ?? '',
       ].join(':'),
     );
     try {
@@ -227,6 +237,7 @@ export function useAdventureJourney({
           action,
           choiceId,
           battleId,
+          companionKey,
         },
       );
       if (requestGeneration !== generation) {
@@ -234,7 +245,11 @@ export function useAdventureJourney({
       }
       run.value = result.run;
       pendingAction = undefined;
-      notice.value = actionNotice(result.run.currentNode.type);
+      notice.value = actionNotice(
+        action,
+        result.run.currentNode.type,
+        result.run.rewardOffer !== undefined,
+      );
     } catch (cause) {
       if (requestGeneration === generation) {
         error.value = describeError(cause);
@@ -311,6 +326,26 @@ export function useAdventureJourney({
     await submitAction('complete', 'complete');
   }
 
+  async function claimReward(choiceId: string): Promise<void> {
+    await submitAction(
+      `claim-reward:${choiceId}`,
+      'claim-reward',
+      choiceId,
+    );
+  }
+
+  async function selectCompanion(
+    companionKey: 'lia' | 'serin' | 'fina',
+  ): Promise<void> {
+    await submitAction(
+      `select-companion:${companionKey}`,
+      'select-companion',
+      undefined,
+      undefined,
+      companionKey,
+    );
+  }
+
   function reset(): void {
     generation += 1;
     run.value = undefined;
@@ -344,13 +379,30 @@ export function useAdventureJourney({
     advance,
     startEncounter,
     resolveEncounter,
+    claimReward,
+    selectCompanion,
     completeChapter,
     reset,
     dispose,
   };
 }
 
-function actionNotice(nodeType: AdventureRunView['currentNode']['type']): string {
+function actionNotice(
+  action: string,
+  nodeType: AdventureRunView['currentNode']['type'],
+  rewardPending: boolean,
+): string {
+  if (action === 'resolve-encounter') {
+    return rewardPending
+      ? '战斗胜利，选择一项牌组奖励后继续。'
+      : '战斗结算已经写入冒险存档。';
+  }
+  if (action === 'claim-reward') {
+    return '奖励已加入本次冒险牌组。';
+  }
+  if (action === 'select-companion') {
+    return '带队伙伴已经更新，并在当前营地保存。';
+  }
   switch (nodeType) {
     case 'chapter-end':
       return '第一章的检查点已经写入存档。';

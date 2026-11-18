@@ -52,6 +52,21 @@ function run(overrides: Partial<AdventureRunView> = {}): AdventureRunView {
       text: '莉娅把暖灯递给你。',
       choices: [{ choiceId: 'prepare', label: '准备出发' }],
     },
+    deck: [
+      'companion-guard',
+      'traveler-strike',
+      'ember-rune',
+      'observe-signpost',
+      'traveler-strike',
+      'companion-guard',
+      'herb-pouch',
+      'traveler-strike',
+      'ember-rune',
+      'party-strike',
+      'companion-guard',
+      'party-strike',
+    ],
+    unlockedCharacters: ['lia', 'serin'],
     flags: {},
     createdAtMs: 1,
     updatedAtMs: 1,
@@ -150,6 +165,7 @@ describe('useAdventureJourney', () => {
         action: 'choose',
         choiceId: 'prepare',
         battleId: undefined,
+        companionKey: undefined,
       },
     );
     expect(client.actAdventure).toHaveBeenNthCalledWith(
@@ -161,6 +177,7 @@ describe('useAdventureJourney', () => {
         action: 'choose',
         choiceId: 'prepare',
         battleId: undefined,
+        companionKey: undefined,
       },
     );
     expect(created.journey.run.value?.currentNode.nodeId).toBe('inn.preparation');
@@ -230,10 +247,95 @@ describe('useAdventureJourney', () => {
         action: 'resolve-encounter',
         choiceId: undefined,
         battleId: 'battle-adventure',
+        companionKey: undefined,
       },
     );
     expect(journey.run.value?.currentNode.nodeId).toBe('bridge.crossed');
     expect(journey.run.value?.battleId).toBeUndefined();
+  });
+
+  it('claims a fixed reward and changes companion only at a camp', async () => {
+    const client = api();
+    const journey = useAdventureJourney({
+      api: () => client,
+      describeError: () => '请求失败',
+      createActionId: () => 'action-fixed',
+    });
+    journey.run.value = run({
+      runVersion: 4,
+      currentNode: {
+        nodeId: 'camp.reward',
+        chapterId: 'chapter-1',
+        type: 'camp',
+        title: '营地',
+        speaker: '旅伴',
+        text: '选择下一步。',
+        choices: [],
+      },
+      rewardOffer: {
+        offerId: 'offer-1',
+        nodeId: 'camp.reward',
+        choices: [{
+          choiceId: 'party-strike',
+          cardDefinitionId: 'party-strike',
+          name: '旅团合击',
+          description: '造成 10 点伤害。',
+        }],
+      },
+    });
+
+    vi.mocked(client.actAdventure)
+      .mockResolvedValueOnce({
+        outcome: 'applied',
+        run: run({
+          runVersion: 5,
+          deck: [...run().deck, 'party-strike'],
+          currentNode: {
+            nodeId: 'camp.reward',
+            chapterId: 'chapter-1',
+            type: 'camp',
+            title: '营地',
+            speaker: '旅伴',
+            text: '选择下一步。',
+            choices: [],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        outcome: 'applied',
+        run: run({
+          runVersion: 6,
+          companionKey: 'fina',
+          unlockedCharacters: ['lia', 'serin', 'fina'],
+          currentNode: {
+            nodeId: 'camp.reward',
+            chapterId: 'chapter-1',
+            type: 'camp',
+            title: '营地',
+            speaker: '旅伴',
+            text: '选择下一步。',
+            choices: [],
+          },
+        }),
+      });
+
+    await journey.claimReward('party-strike');
+    expect(journey.run.value?.deck).toContain('party-strike');
+    expect(journey.run.value?.rewardOffer).toBeUndefined();
+
+    await journey.selectCompanion('fina');
+    expect(journey.run.value?.companionKey).toBe('fina');
+    expect(client.actAdventure).toHaveBeenLastCalledWith(
+      'run-adventure',
+      'action-fixed',
+      {
+        expectedVersion: 5,
+        action: 'select-companion',
+        choiceId: undefined,
+        battleId: undefined,
+        companionKey: 'fina',
+      },
+    );
   });
 });
 

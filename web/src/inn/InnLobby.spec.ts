@@ -82,6 +82,21 @@ const adventure: AdventureRunView = {
     text: '两道路痕都通向溪桥。',
     choices: [{ choiceId: 'cross', label: '沿旧路前进' }],
   },
+  deck: [
+    'companion-guard',
+    'traveler-strike',
+    'ember-rune',
+    'observe-signpost',
+    'traveler-strike',
+    'companion-guard',
+    'herb-pouch',
+    'traveler-strike',
+    'ember-rune',
+    'party-strike',
+    'companion-guard',
+    'party-strike',
+  ],
+  unlockedCharacters: ['lia', 'serin'],
   flags: {},
   createdAtMs: 1,
   updatedAtMs: 2,
@@ -258,6 +273,40 @@ describe('InnLobby', () => {
     );
     serinChoice?.click();
     expect(selectCompanion).toHaveBeenCalledWith('serin');
+  });
+
+  it('shows deduplicated account recollections in the inn', async () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(InnLobby, {
+      companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      contentPackages: [],
+      adventures: [],
+      recollections: [{
+        key: 'fm.demo:warm-lantern:first-camp',
+        namespace: 'fm.demo',
+        bookId: 'warm-lantern',
+        chapterId: 'chapter-1',
+        title: '第一章的营火',
+        speaker: '莉娅',
+        text: '暖灯与营火一起照亮路标。',
+        unlockedAtMs: 1,
+      }],
+      loading: false,
+      error: null,
+    });
+    mountedApp.mount(root);
+    await nextTick();
+
+    expect(root.textContent).toContain('旅途回忆');
+    expect(root.textContent).toContain('第一章的营火');
+    expect(root.textContent).toContain('暖灯与营火一起照亮路标');
   });
 
   it('exposes density and classic-card entries without hiding the queue', async () => {

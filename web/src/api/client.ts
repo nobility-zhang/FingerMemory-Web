@@ -3,6 +3,7 @@ import type {
   AccountClient,
   AdventureActionResult,
   AdventureEncounterView,
+  AdventureRecollectionView,
   AdventureRunView,
   AdventureStartResult,
   BackupPreview,
@@ -443,6 +444,20 @@ export class AccountApi implements AccountClient {
     );
   }
 
+  async listUnlockedCompanions(): Promise<Array<'lia' | 'serin' | 'fina'>> {
+    return this.transport.request<Array<'lia' | 'serin' | 'fina'>>(
+      '/adventures/companions',
+    );
+  }
+
+  async listAdventureRecollections(
+    limit = 50,
+  ): Promise<AdventureRecollectionView[]> {
+    return this.transport.request<AdventureRecollectionView[]>(
+      `/adventures/recollections?limit=${encodeURIComponent(String(limit))}`,
+    );
+  }
+
   async startAdventureEncounter(
     runId: string,
     actionId: string,
@@ -461,9 +476,16 @@ export class AccountApi implements AccountClient {
     idempotencyKey: string,
     input: {
       expectedVersion: number;
-      action: 'advance' | 'choose' | 'resolve-encounter' | 'complete';
+      action:
+        | 'advance'
+        | 'choose'
+        | 'resolve-encounter'
+        | 'claim-reward'
+        | 'select-companion'
+        | 'complete';
       choiceId?: string;
       battleId?: string;
+      companionKey?: 'lia' | 'serin' | 'fina';
     },
   ): Promise<AdventureActionResult> {
     return this.transport.request<AdventureActionResult>(

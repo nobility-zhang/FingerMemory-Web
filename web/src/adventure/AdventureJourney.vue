@@ -27,6 +27,10 @@ import type {
   CompanionId,
   CompanionProfile,
 } from '../companions/catalog';
+import {
+  companionById,
+  companions,
+} from '../companions/catalog';
 
 const props = withDefaults(
   defineProps<{
@@ -55,12 +59,25 @@ const emit = defineEmits<{
   'start-encounter': [];
   'resolve-encounter': [];
   complete: [];
+  'claim-reward': [choiceId: string];
+  'select-companion': [companionKey: CompanionId];
   exit: [];
   'session-changed': [session: SessionEnvelope];
 }>();
 
 const node = computed(() => props.run.currentNode);
 const fixedHash = computed(() => props.run.contentHash.slice(0, 8));
+const sceneCompanion = computed(() => {
+  const portraitCharacterId = node.value.portraitCharacterId;
+  return portraitCharacterId === undefined
+    ? companionById[props.run.companionKey]
+    : companionById[portraitCharacterId];
+});
+const availableCompanions = computed(() =>
+  companions.filter((candidate) =>
+    props.run.unlockedCharacters.includes(candidate.id),
+  ),
+);
 const sceneBackground = computed(() => {
   if (node.value.nodeId.startsWith('inn.')) {
     return innBackground;
@@ -76,7 +93,7 @@ const sceneBackground = computed(() => {
 const speaker = computed(() => {
   const value = node.value.speaker.trim();
   if (value.length === 0 || value === '旅伴' || value === 'companion') {
-    return props.companion.name;
+    return sceneCompanion.value.name;
   }
   return value;
 });
@@ -118,8 +135,8 @@ const canAdvance = computed(
 const battleReady = computed(
   () => props.run.battleId !== undefined && props.session !== undefined,
 );
-const battleCompanionKey = computed<CompanionId | undefined>(
-  () => props.run.companionKey === 'fina' ? undefined : props.run.companionKey,
+const battleCompanionKey = computed<CompanionId>(
+  () => props.run.companionKey,
 );
 const primaryLabel = computed(() => {
   if (node.value.type === 'camp') {
@@ -165,8 +182,8 @@ function finishBattle(): void {
     <div v-if="run.status === 'completed'" class="journey-complete" role="status">
       <Sparkles :size="22" aria-hidden="true" />
       <div>
-        <strong>第一章已经写入冒险存档。</strong>
-        <p>暖灯、营火和这次学习记录都会保留在同一个固定版本中。</p>
+        <strong>这本冒险已经写入存档。</strong>
+        <p>章节、伙伴、牌组和这次学习记录都会保留在同一个固定版本中。</p>
       </div>
       <button type="button" class="journey-primary" @click="emit('exit')">
         回到旅店
@@ -186,6 +203,28 @@ function finishBattle(): void {
         正在读取冒险检查点...
       </div>
 
+      <section
+        v-else-if="run.rewardOffer"
+        class="reward-offer"
+        aria-labelledby="reward-offer-title"
+      >
+        <p class="section-label">本场战利品</p>
+        <h3 id="reward-offer-title">选择一张加入本次冒险牌组</h3>
+        <div class="reward-grid">
+          <button
+            v-for="choice in run.rewardOffer.choices"
+            :key="choice.choiceId"
+            type="button"
+            :disabled="busy"
+            @click="emit('claim-reward', choice.choiceId)"
+          >
+            <strong>{{ choice.name }}</strong>
+            <span>{{ choice.description }}</span>
+          </button>
+        </div>
+        <p>奖励只在本次冒险中领取一次，刷新不会重新抽取。</p>
+      </section>
+
       <BridgeBattlePanel
         v-else-if="node.type === 'encounter' && battleReady && battleCompanionKey"
         :api="api"
@@ -198,14 +237,6 @@ function finishBattle(): void {
         @session-changed="emit('session-changed', $event)"
         @finished="finishBattle"
       />
-
-      <div
-        v-else-if="node.type === 'encounter' && run.companionKey === 'fina'"
-        class="journey-loading"
-        role="alert"
-      >
-        菲妮的战斗素材尚未接入，当前固定版本无法继续该遭遇。
-      </div>
 
       <div
         v-else-if="node.type === 'encounter' && run.battleId"
@@ -265,13 +296,34 @@ function finishBattle(): void {
               :disabled="busy"
               @click="emit('complete')"
             >
-              完成第一章
+              完成当前章节
               <Sparkles :size="18" aria-hidden="true" />
             </button>
           </div>
 
+          <div
+            v-if="node.type === 'camp' && availableCompanions.length > 1"
+            class="camp-companion-switch"
+            aria-label="切换带队伙伴"
+          >
+            <span>带队伙伴</span>
+            <div>
+              <button
+                v-for="candidate in availableCompanions"
+                :key="candidate.id"
+                type="button"
+                :class="{ selected: candidate.id === run.companionKey }"
+                :disabled="busy"
+                :aria-pressed="candidate.id === run.companionKey"
+                @click="emit('select-companion', candidate.id)"
+              >
+                {{ candidate.name }}
+              </button>
+            </div>
+          </div>
+
           <button
-            v-else-if="canAdvance"
+            v-if="canAdvance"
             type="button"
             class="journey-primary"
             :disabled="busy"
@@ -285,13 +337,13 @@ function finishBattle(): void {
         <div class="journey-companion">
           <span class="lamp-glow" aria-hidden="true"></span>
           <CompanionPortrait
-            :companion="companion"
+            :companion="sceneCompanion"
             :expression="expression"
             :reduce-motion="reduceMotion"
           />
           <div class="companion-line">
-            <span>{{ companion.name }} · {{ companion.epithet }}</span>
-            <p>{{ companion.dialogue.training }}</p>
+            <span>{{ sceneCompanion.name }} · {{ sceneCompanion.epithet }}</span>
+            <p>{{ sceneCompanion.dialogue.training }}</p>
           </div>
         </div>
       </div>
@@ -510,7 +562,8 @@ function finishBattle(): void {
 }
 
 .choice-list,
-.encounter-actions {
+.encounter-actions,
+.camp-companion-switch {
   display: grid;
   max-width: 38rem;
   gap: 9px;
@@ -535,6 +588,102 @@ function finishBattle(): void {
 
 .encounter-actions code {
   color: #f0d89e;
+}
+
+.camp-companion-switch {
+  padding-top: 12px;
+  border-top: 1px solid rgb(217 183 121 / 24%);
+}
+
+.camp-companion-switch > span {
+  color: #c6b28f;
+  font-size: 0.72rem;
+}
+
+.camp-companion-switch > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.camp-companion-switch button {
+  min-height: 34px;
+  border: 1px solid rgb(234 205 145 / 38%);
+  border-radius: 4px;
+  padding: 5px 11px;
+  background: rgb(24 18 18 / 46%);
+  color: #e8d5b2;
+  cursor: pointer;
+}
+
+.camp-companion-switch button.selected {
+  border-color: #e1c477;
+  background: #d1ab5c;
+  color: #201d19;
+}
+
+.reward-offer {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgb(234 205 145 / 32%);
+  padding: clamp(20px, 4vw, 38px);
+  background:
+    linear-gradient(135deg, rgb(27 20 20 / 92%), rgb(53 39 31 / 86%)),
+    var(--scene-background) center / cover no-repeat;
+}
+
+.reward-offer h3 {
+  margin: 0;
+  color: #fff0d7;
+  font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+  font-size: clamp(1.45rem, 3vw, 2.3rem);
+  font-weight: 600;
+}
+
+.reward-offer > p:last-child {
+  margin: 0;
+  color: #b7ad9c;
+  font-size: 0.74rem;
+}
+
+.reward-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reward-grid button {
+  display: grid;
+  min-height: 150px;
+  align-content: start;
+  gap: 10px;
+  border: 1px solid rgb(226 195 128 / 42%);
+  border-radius: 6px;
+  padding: 16px;
+  background:
+    linear-gradient(160deg, rgb(43 35 31 / 92%), rgb(23 22 21 / 96%));
+  color: #f1e1c6;
+  text-align: left;
+  cursor: pointer;
+}
+
+.reward-grid button:hover,
+.reward-grid button:focus-visible {
+  border-color: #f0cc7e;
+  transform: translateY(-2px);
+}
+
+.reward-grid strong {
+  color: #ffe9b9;
+  font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+  font-size: 1.12rem;
+}
+
+.reward-grid span {
+  color: #c9c1ae;
+  line-height: 1.55;
 }
 
 .journey-primary {
@@ -667,6 +816,10 @@ button:disabled {
 
   .journey-complete .journey-primary {
     grid-column: 1 / -1;
+  }
+
+  .reward-grid {
+    grid-template-columns: 1fr;
   }
 }
 

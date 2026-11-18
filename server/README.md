@@ -86,6 +86,8 @@ docker compose up --build -d
 - `GET /api/v1/adventures/{runId}`
 - `POST /api/v1/adventures/{runId}/encounters`
 - `POST /api/v1/adventures/{runId}/actions`
+- `GET /api/v1/adventures/companions`
+- `GET /api/v1/adventures/recollections`
 
 正式复习以 `Idempotency-Key` 作为 submissionId；先查回执，再校验用户数据、会话和复习状态版本。请求只提交评分和证据，afterCard、reviewedAt 和奖励事件由服务端确定。
 
@@ -99,6 +101,10 @@ manifest/TSV/章节/角色/卡牌/遭遇/资源校验器；相同 owner 与 cont
 owner 范围、`Idempotency-Key`、请求指纹、`runVersion` 与不可变事件；遭遇绑定唯一
 `card-battle-v1`，只有服务端战斗进入 victory/defeat 后才能推进到对应剧情节点。
 仓库内的第一章可编辑源与 LFS 成品包见 `content/warm-lantern/`。
+
+遭遇胜利会固定三选一牌组奖励，奖励先保存再推进剧情；run 牌组限制 12–18 张且
+同定义最多三张。角色解锁与剧情回忆按 owner 去重，菲妮在第二章节点加入后可在
+后续营地切换，不依赖前端自行声明 `unlocked=true`。
 
 ## 运维账号命令
 

@@ -266,7 +266,27 @@ export interface AdventureNodeView {
   speaker: string;
   text: string;
   encounterId?: string;
+  portraitCharacterId?: 'lia' | 'serin' | 'fina';
   choices: AdventureChoiceView[];
+}
+
+export interface AdventureRewardChoiceView {
+  choiceId: string;
+  cardDefinitionId:
+    | 'traveler-strike'
+    | 'companion-guard'
+    | 'ember-rune'
+    | 'herb-pouch'
+    | 'observe-signpost'
+    | 'party-strike';
+  name: string;
+  description: string;
+}
+
+export interface AdventureRewardOfferView {
+  offerId: string;
+  nodeId: string;
+  choices: AdventureRewardChoiceView[];
 }
 
 export interface AdventureRunView {
@@ -283,6 +303,9 @@ export interface AdventureRunView {
   sessionId: string;
   battleId?: string;
   currentNode: AdventureNodeView;
+  deck: Array<AdventureRewardChoiceView['cardDefinitionId']>;
+  unlockedCharacters: Array<'lia' | 'serin' | 'fina'>;
+  rewardOffer?: AdventureRewardOfferView;
   flags: Record<string, boolean>;
   createdAtMs: number;
   updatedAtMs: number;
@@ -303,6 +326,17 @@ export interface AdventureEncounterView {
   battleId: string;
   runId: string;
   runVersion: number;
+}
+
+export interface AdventureRecollectionView {
+  key: string;
+  namespace: string;
+  bookId: string;
+  chapterId: string;
+  title: string;
+  speaker: string;
+  text: string;
+  unlockedAtMs: number;
 }
 
 export interface MigrationPreview {
@@ -650,6 +684,10 @@ export interface AccountClient {
     actionId: string;
   }): Promise<AdventureStartResult>;
   getAdventure(runId: string): Promise<AdventureRunView>;
+  listUnlockedCompanions(): Promise<Array<'lia' | 'serin' | 'fina'>>;
+  listAdventureRecollections(
+    limit?: number,
+  ): Promise<AdventureRecollectionView[]>;
   startAdventureEncounter(
     runId: string,
     actionId: string,
@@ -659,9 +697,16 @@ export interface AccountClient {
     idempotencyKey: string,
     input: {
       expectedVersion: number;
-      action: 'advance' | 'choose' | 'resolve-encounter' | 'complete';
+      action:
+        | 'advance'
+        | 'choose'
+        | 'resolve-encounter'
+        | 'claim-reward'
+        | 'select-companion'
+        | 'complete';
       choiceId?: string;
       battleId?: string;
+      companionKey?: 'lia' | 'serin' | 'fina';
     },
   ): Promise<AdventureActionResult>;
   previewContentPackage(file: File): Promise<ContentPackagePreview>;

@@ -26,6 +26,21 @@ function run(overrides: Partial<AdventureRunView> = {}): AdventureRunView {
       text: '信纸边缘又淡了一角。',
       choices: [{ choiceId: 'prepare', label: '拿起暖灯，准备出发' }],
     },
+    deck: [
+      'companion-guard',
+      'traveler-strike',
+      'ember-rune',
+      'observe-signpost',
+      'traveler-strike',
+      'companion-guard',
+      'herb-pouch',
+      'traveler-strike',
+      'ember-rune',
+      'party-strike',
+      'companion-guard',
+      'party-strike',
+    ],
+    unlockedCharacters: ['lia', 'serin'],
     flags: {},
     createdAtMs: 1,
     updatedAtMs: 2,
@@ -118,7 +133,7 @@ describe('AdventureJourney', () => {
       },
     }), { onComplete: complete });
     await nextTick();
-    buttonByText(ending, '完成第一章').click();
+    buttonByText(ending, '完成当前章节').click();
     expect(complete).toHaveBeenCalledOnce();
   });
 
@@ -158,5 +173,92 @@ describe('AdventureJourney', () => {
       camp.querySelector<HTMLElement>('.adventure-journey')?.style
         .getPropertyValue('--scene-background'),
     ).toContain('camp-fire');
+  });
+
+  it('renders authored Fina portraits, camp switching and a three-choice reward', async () => {
+    const selectCompanion = vi.fn();
+    const claimReward = vi.fn();
+    const root = mountJourney(run({
+      companionKey: 'serin',
+      unlockedCharacters: ['lia', 'serin', 'fina'],
+      currentNode: {
+        nodeId: 'chapter2.arrival',
+        chapterId: 'chapter-2',
+        type: 'dialogue',
+        title: '塔下的新同伴',
+        speaker: '菲妮',
+        portraitCharacterId: 'fina',
+        text: '菲妮摊开地图。',
+        choices: [],
+      },
+    }), {
+      onSelectCompanion: selectCompanion,
+      onClaimReward: claimReward,
+    });
+    await nextTick();
+
+    expect(root.querySelector('[data-companion="fina"]')).not.toBeNull();
+    expect(root.textContent).toContain('菲妮');
+
+    mountedApp?.unmount();
+    document.body.innerHTML = '';
+    const reward = mountJourney(run({
+      rewardOffer: {
+        offerId: 'offer-1',
+        nodeId: 'chapter2.bridge',
+        choices: [
+          {
+            choiceId: 'herb-pouch',
+            cardDefinitionId: 'herb-pouch',
+            name: '采药包',
+            description: '回复 4 点生命。',
+          },
+          {
+            choiceId: 'observe-signpost',
+            cardDefinitionId: 'observe-signpost',
+            name: '观察路标',
+            description: '抽 1 张牌。',
+          },
+          {
+            choiceId: 'party-strike',
+            cardDefinitionId: 'party-strike',
+            name: '旅团合击',
+            description: '造成 10 点伤害。',
+          },
+        ],
+      },
+      currentNode: {
+        nodeId: 'chapter2.bridge',
+        chapterId: 'chapter-2',
+        type: 'encounter',
+        title: '钟摆守卫',
+        speaker: '',
+        text: '战斗结束。',
+        encounterId: 'clockwork-sentinel',
+        choices: [],
+      },
+    }), { onClaimReward: claimReward });
+    await nextTick();
+    buttonByText(reward, '旅团合击').click();
+    expect(claimReward).toHaveBeenCalledWith('party-strike');
+
+    mountedApp?.unmount();
+    document.body.innerHTML = '';
+    const camp = mountJourney(run({
+      companionKey: 'serin',
+      unlockedCharacters: ['lia', 'serin', 'fina'],
+      currentNode: {
+        nodeId: 'chapter2.camp',
+        chapterId: 'chapter-2',
+        type: 'camp',
+        title: '塔外营地',
+        speaker: '旅伴',
+        text: '选择带队伙伴。',
+        choices: [],
+      },
+    }), { onSelectCompanion: selectCompanion });
+    await nextTick();
+    buttonByText(camp, '菲妮').click();
+    expect(selectCompanion).toHaveBeenCalledWith('fina');
   });
 });

@@ -20,6 +20,7 @@ import {
   TriangleAlert,
 } from '@lucide/vue';
 import type {
+  AdventureRecollectionView,
   AdventureRunView,
   ContentPackageInstallation,
   QueuePlanView,
@@ -46,6 +47,7 @@ const props = withDefaults(
     sessionCount: number;
     contentPackages: ContentPackageInstallation[];
     adventures: AdventureRunView[];
+    recollections?: AdventureRecollectionView[];
     unlockedCompanionIds?: CompanionId[];
     loading: boolean;
     error: string | null;
@@ -53,6 +55,7 @@ const props = withDefaults(
   {
     plan: undefined,
     activeSession: undefined,
+    recollections: () => [],
     unlockedCompanionIds: () => ['lia', 'serin'],
   },
 );
@@ -320,6 +323,24 @@ function companionRole(companionId: CompanionId): string {
           </button>
         </div>
       </section>
+
+      <details v-if="recollections.length > 0" class="recollection-book">
+        <summary>
+          <ScrollText :size="17" aria-hidden="true" />
+          <span>旅途回忆</span>
+          <small>{{ recollections.length }}</small>
+          <ChevronDown :size="16" aria-hidden="true" />
+        </summary>
+        <ul>
+          <li
+            v-for="recollection in recollections.slice(-6).reverse()"
+            :key="recollection.key"
+          >
+            <strong>{{ recollection.title }}</strong>
+            <span>{{ recollection.speaker }} · {{ recollection.text }}</span>
+          </li>
+        </ul>
+      </details>
 
       <div class="inn-actions">
         <button
@@ -754,6 +775,70 @@ h1 span {
 .adventure-entry select:focus-visible {
   outline: 3px solid rgb(246 214 158 / 44%);
   outline-offset: 2px;
+}
+
+.recollection-book {
+  max-width: 610px;
+  margin-top: 12px;
+  border: 1px solid rgb(159 190 171 / 24%);
+  background: rgb(24 24 23 / 48%);
+}
+
+.recollection-book summary {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: #d7c698;
+  cursor: pointer;
+  list-style: none;
+}
+
+.recollection-book summary::-webkit-details-marker {
+  display: none;
+}
+
+.recollection-book summary span {
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.recollection-book summary small {
+  color: #9fb6a7;
+}
+
+.recollection-book[open] summary > svg:last-child {
+  transform: rotate(180deg);
+}
+
+.recollection-book ul {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  background: rgb(159 190 171 / 14%);
+  list-style: none;
+}
+
+.recollection-book li {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  background: rgb(25 23 23 / 82%);
+}
+
+.recollection-book strong {
+  color: #efdfbd;
+  font-size: 0.76rem;
+}
+
+.recollection-book li span {
+  color: #aebeb1;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .inn-actions {

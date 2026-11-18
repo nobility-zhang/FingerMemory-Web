@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   AccountClient,
+  AdventureRunView,
   QueuePlanView,
   SessionEnvelope,
 } from '../api/client';
@@ -96,10 +97,28 @@ function createApi() {
         text: '莉娅把暖灯递给你。',
         choices: [{ choiceId: 'prepare', label: '准备出发' }],
       },
+      deck: [
+        'companion-guard',
+        'traveler-strike',
+        'ember-rune',
+        'observe-signpost',
+        'traveler-strike',
+        'companion-guard',
+        'herb-pouch',
+        'traveler-strike',
+        'ember-rune',
+        'party-strike',
+        'companion-guard',
+        'party-strike',
+      ] as AdventureRunView['deck'],
+      unlockedCharacters: ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>,
       flags: {},
       createdAtMs: 1,
       updatedAtMs: 2,
     }]),
+    listUnlockedCompanions: vi.fn(async () =>
+      ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
+    listAdventureRecollections: vi.fn(async () => []),
   } satisfies Pick<
     AccountClient,
     | 'loadQueuePlan'
@@ -107,6 +126,8 @@ function createApi() {
     | 'listActiveSessions'
     | 'listContentPackages'
     | 'listAdventures'
+    | 'listUnlockedCompanions'
+    | 'listAdventureRecollections'
   >;
 }
 
@@ -127,6 +148,8 @@ describe('useGameLobby', () => {
     expect(lobby.activeSession.value?.session.id).toBe('session-lobby');
     expect(lobby.contentPackages.value).toHaveLength(1);
     expect(lobby.adventures.value[0]?.id).toBe('run-lobby');
+    expect(lobby.unlockedCompanions.value).toEqual(['lia', 'serin']);
+    expect(lobby.recollections.value).toEqual([]);
     expect(lobby.loading.value).toBe(false);
     expect(lobby.error.value).toBeNull();
   });

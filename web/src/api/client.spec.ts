@@ -299,6 +299,12 @@ describe('AccountApi', () => {
       if (String(url).includes('/adventures?')) {
         return jsonResponse([]);
       }
+      if (String(url).endsWith('/adventures/companions')) {
+        return jsonResponse(['lia', 'serin', 'fina']);
+      }
+      if (String(url).includes('/adventures/recollections?')) {
+        return jsonResponse([]);
+      }
       return jsonResponse({
         outcome: 'created',
         run: { id: 'run-1', runVersion: 0 },
@@ -307,6 +313,8 @@ describe('AccountApi', () => {
     const api = new AccountApi(fetchMock as typeof fetch, '/api/v1');
 
     await api.listAdventures();
+    await api.listUnlockedCompanions();
+    await api.listAdventureRecollections();
     await api.startAdventure({
       installationId: 'installation-1',
       companionKey: 'serin',
@@ -320,9 +328,27 @@ describe('AccountApi', () => {
       action: 'choose',
       choiceId: 'cross',
     });
+    await api.actAdventure('run-1', 'adventure-claim-1', {
+      expectedVersion: 3,
+      action: 'claim-reward',
+      choiceId: 'party-strike',
+    });
+    await api.actAdventure('run-1', 'adventure-companion-1', {
+      expectedVersion: 4,
+      action: 'select-companion',
+      companionKey: 'fina',
+    });
 
     expect(calls.some(
       (call) => call.url.endsWith('/adventures?limit=20')
+        && call.init?.method === 'GET',
+    )).toBe(true);
+    expect(calls.some(
+      (call) => call.url.endsWith('/adventures/companions')
+        && call.init?.method === 'GET',
+    )).toBe(true);
+    expect(calls.some(
+      (call) => call.url.endsWith('/adventures/recollections?limit=50')
         && call.init?.method === 'GET',
     )).toBe(true);
     const startCall = calls.find(
@@ -358,6 +384,26 @@ describe('AccountApi', () => {
       expectedVersion: 2,
       action: 'choose',
       choiceId: 'cross',
+    });
+    const claimCall = calls.find(
+      (call) => call.url.endsWith('/adventures/run-1/actions')
+        && new Headers(call.init?.headers).get('Idempotency-Key')
+          === 'adventure-claim-1',
+    );
+    expect(JSON.parse(String(claimCall?.init?.body))).toEqual({
+      expectedVersion: 3,
+      action: 'claim-reward',
+      choiceId: 'party-strike',
+    });
+    const companionCall = calls.find(
+      (call) => call.url.endsWith('/adventures/run-1/actions')
+        && new Headers(call.init?.headers).get('Idempotency-Key')
+          === 'adventure-companion-1',
+    );
+    expect(JSON.parse(String(companionCall?.init?.body))).toEqual({
+      expectedVersion: 4,
+      action: 'select-companion',
+      companionKey: 'fina',
     });
   });
 

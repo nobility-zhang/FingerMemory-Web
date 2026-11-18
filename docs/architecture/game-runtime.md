@@ -3,8 +3,10 @@
 本文件定义 Phaser/Vue 边界、卡牌命令、音效、故事进度与文本降级。最小音频 Game
 生命周期、首个翻面音、纯 TypeScript `card-battle-v1` 规则、账号模式 Java 战斗命令
 、H4 的溪桥教学战和完整音效/快捷键矩阵，以及 H5-02 的固定版本第一章 run、剧情
-检查点与恢复已落地；续作依赖、章节迁移和更多角色仍按后续路线实施。游戏数值和玩法
-规则以 [产品设计](../product/overview.md) 为准，不在这里维护第二份伤害/费用表。
+检查点与恢复已落地；H5-03 又补齐三章连续推进、三选一牌组奖励、菲妮剧情解锁/营地
+切换和账号级回忆去重。续作依赖、章节迁移和动态新角色注册仍按后续路线实施。游戏
+数值和玩法规则以 [产品设计](../product/overview.md) 为准，不在这里维护第二份
+伤害/费用表。
 
 ## 责任划分与模块
 
@@ -83,7 +85,7 @@ Phaser 负责 Scene、资源载入、精灵/卡牌表现、Tween、粒子和 Sou
 
 当前纯规则边界位于 `web/src/battle/`。`BattleState` 固定保存 `battleRulesVersion='card-battle-v1'`、schema/state 版本、种子后的 RNG、抽牌游标、手牌/弃牌/耗竭区、敌我生命与护盾、敌人意图和终结状态。`playCard`/`endTurn` 都校验 expected state version，返回不可变新状态和类型化表现事件。
 
-账号模式已由 Java 的 `battle` 包接入同一规则版本：Flyway V6 保存战斗快照、每回合唯一学习任务、不可变表现事件和命令回执；创建、学习授能、出牌、伙伴技能和结束回合均使用 owner 范围、`Idempotency-Key` 与 expected state version。正式复习回执必须在同一事务中完成唯一授能，状态、事件、能量奖励和回执一起提交。H5-02 的 `AdventureService` 用 V9 保存固定安装 run、每个剧情节点的版本、唯一战斗绑定、命令回执和不可变事件；`BridgeBattlePanel` 从冒险已绑定的 `battleId` 恢复现有战斗，而不是创建第二场。只有服务端战斗进入 victory/defeat 后，剧情才能推进到对应胜利或救援节点。
+账号模式已由 Java 的 `battle` 包接入同一规则版本：Flyway V6 保存战斗快照、每回合唯一学习任务、不可变表现事件和命令回执；创建、学习授能、出牌、伙伴技能和结束回合均使用 owner 范围、`Idempotency-Key` 与 expected state version。正式复习回执必须在同一事务中完成唯一授能，状态、事件、能量奖励和回执一起提交。H5-02 的 `AdventureService` 用 V9 保存固定安装 run、每个剧情节点的版本、唯一战斗绑定、命令回执和不可变事件；`BridgeBattlePanel` 从冒险已绑定的 `battleId` 恢复现有战斗，而不是创建第二场。V10 增加 run 牌组、首次固定的奖励候选、角色解锁和回忆表；奖励选择后才推进胜利节点，牌组保持 12–18 张且同定义最多三张。
 
 `web/src/battle/fixtures/card-battle-v1.turn.json` 是共享确定性 fixture：从固定教学牌序执行守护、突刺、余烬、观察和结束回合，最终进入第二回合。规则测试还覆盖种子洗牌、版本冲突、目标/费用、护盾优先、灼烧刷新与致死、弃牌回收、耗竭不回洗、空堆少抽、胜负优先级和版本化 JSON 恢复。内部浏览器入口为 `/rules/card-battle-v1`，只运行真实规则，不提供玩家战斗假流程。
 
