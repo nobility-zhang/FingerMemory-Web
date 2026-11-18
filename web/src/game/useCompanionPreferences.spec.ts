@@ -42,6 +42,14 @@ describe('useCompanionPreferences', () => {
     expect(storage.values.get('fm.companionDensity')).toBe('quiet');
   });
 
+  it('restores Fina once her unlocked preference has been selected', () => {
+    const preferences = useCompanionPreferences(
+      memoryStorage({ 'fm.companion': 'fina' }),
+    );
+
+    expect(preferences.selectedCompanion.value.id).toBe('fina');
+  });
+
   it('keeps in-memory choices when storage is unavailable or throws', () => {
     const throwingStorage = {
       getItem: () => {

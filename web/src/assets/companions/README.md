@@ -3,8 +3,9 @@
 These original assets were generated for FingerMemory with the built-in ImageGen
 tool. They are project-produced illustrations and do not use remote hotlinks or
 third-party character artwork. Lia's H1-01 and Serin's H1-02 redesigns were
-produced on 2026-11-17. The inn is from the earlier visual baseline; the first
-chapter forest, bridge, and camp scenes were produced on 2026-11-18.
+produced on 2026-11-17. Fina's H5-03 portrait was produced on 2026-11-18. The
+inn is from the earlier visual baseline; the first chapter forest, bridge, and
+camp scenes were also produced on 2026-11-18.
 
 ## Lia
 
@@ -131,3 +132,45 @@ Runtime SHA256:
 
 The two characters keep separate source and runtime trees. Their first-screen
 runtime files total approximately 4.6 MiB including the inn JPEG.
+
+## Fina
+
+Fina is an original 16-year-old traveling cartographer. Her H5-03 standard uses
+natural same-age proportions, chestnut-red hair with a short side braid and
+cream hair ribbon, amber eyes, an ochre short-sleeve cotton-linen top, ordinary
+knee-length travel shorts, cloth waist pouch, practical shoes, a small brass
+compass and leather map tube. The stance and framing are non-sexualized, with no
+midriff exposure, high heels, heavy cloak, winter coat or science-fiction gear.
+
+- Generation and edit mode: built-in ImageGen, transparent background.
+- Reference role: the visible Lia and Serin portraits were used only for
+  linework, rendering, lighting and canvas consistency. Fina has an independent
+  face, silhouette, outfit, palette and props.
+- Identity method: one `1024x1536` neutral anchor; every expression was edited
+  from that exact anchor with identity, outfit, pose, hand placement, props,
+  lighting and canvas invariants.
+- Runtime method: macOS `sips -Z 720`, preserving RGBA alpha and a shared
+  `480x720` canvas.
+- Expressions: `neutral`, `welcome`, `cheer`, `concern`, `relief`, `surprise`.
+
+Source SHA256:
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `9532a693ceead80cb544886b30da0d865f50b4dfb7330665e8ec90e54193e3a6` |
+| welcome | `12c09121f96b61d9c3f76906bf01de2a8a87d5d665f4744f712ac18e993ee5b2` |
+| cheer | `38d8e91232f13f75a7a98520537566016bc5a976de227a09e0386c1850db70e5` |
+| concern | `107e57cc5c4a612fef99f150dd9a8c0fdda89cb985cd2f7ee2dfa0153ce68fc9` |
+| relief | `765df73dafef6f179ca3043a4356fee8b78fed27cbd872a03257a02f5a78c6ec` |
+| surprise | `b4c850a00a2a05bc323d50ded0e6d61e9d51dbf23100c8c14b35620b2934f38a` |
+
+Runtime SHA256:
+
+| Expression | SHA256 |
+| --- | --- |
+| neutral | `ed10c7d85476dc8bbec2c7c510ce83e2820942af68a68cff64d5b2be5f0f59b7` |
+| welcome | `dc047166176e8c8cc7d963f9775b13aeec3b5566c58540f31875b629952ede03` |
+| cheer | `11b8ddcac6b30f1e4dc6dc3a9d362641d6e870062439d9463940cc840ae0ced7` |
+| concern | `65626875b7522118296cabae606b538057266eb984a59883d52284fbc2920311` |
+| relief | `7e3fcd3a513a4ed014e5e641b3b657faf9bd1448825c2fea1c042b9830d90f9f` |
+| surprise | `e4a3372e4a664f872c98d8d453266492ea056c4fc43e858a77d9be4b0344f3a7` |

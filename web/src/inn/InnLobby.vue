@@ -34,20 +34,28 @@ import {
 } from '../companions/catalog';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 
-const props = defineProps<{
-  companion: CompanionProfile;
-  companionDensity: 'quiet' | 'standard' | 'rich';
-  reduceMotion: boolean;
-  user: UserView;
-  plan?: QueuePlanView;
-  lexiconsCount: number;
-  activeSession?: SessionEnvelope;
-  sessionCount: number;
-  contentPackages: ContentPackageInstallation[];
-  adventures: AdventureRunView[];
-  loading: boolean;
-  error: string | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    companion: CompanionProfile;
+    companionDensity: 'quiet' | 'standard' | 'rich';
+    reduceMotion: boolean;
+    user: UserView;
+    plan?: QueuePlanView;
+    lexiconsCount: number;
+    activeSession?: SessionEnvelope;
+    sessionCount: number;
+    contentPackages: ContentPackageInstallation[];
+    adventures: AdventureRunView[];
+    unlockedCompanionIds?: CompanionId[];
+    loading: boolean;
+    error: string | null;
+  }>(),
+  {
+    plan: undefined,
+    activeSession: undefined,
+    unlockedCompanionIds: () => ['lia', 'serin'],
+  },
+);
 
 const emit = defineEmits<{
   start: [];
@@ -63,6 +71,11 @@ const emit = defineEmits<{
 
 const densities = ['quiet', 'standard', 'rich'] as const;
 const selectedInstallationId = ref('');
+const availableCompanions = computed(() =>
+  companions.filter((candidate) =>
+    props.unlockedCompanionIds.includes(candidate.id),
+  ),
+);
 const selectedCount = computed(() => props.plan?.selected.length ?? 0);
 const selectedPackage = computed(() =>
   props.contentPackages.find(
@@ -136,6 +149,17 @@ function startOrResumeAdventure(): void {
     emit('start-adventure', selectedPackage.value.id);
   }
 }
+
+function companionRole(companionId: CompanionId): string {
+  switch (companionId) {
+    case 'lia':
+      return '暖灯照料';
+    case 'serin':
+      return '记事与指引';
+    case 'fina':
+      return '罗盘与远路';
+  }
+}
 </script>
 
 <template>
@@ -162,7 +186,7 @@ function startOrResumeAdventure(): void {
 
       <div class="companion-switcher" role="group" aria-label="选择带队伙伴">
         <button
-          v-for="candidate in companions"
+          v-for="candidate in availableCompanions"
           :key="candidate.id"
           type="button"
           class="companion-choice"
@@ -177,7 +201,7 @@ function startOrResumeAdventure(): void {
           />
           <span>
             <strong>{{ candidate.name }}</strong>
-            <small>{{ candidate.id === 'lia' ? '暖灯照料' : '记事与指引' }}</small>
+            <small>{{ companionRole(candidate.id) }}</small>
           </span>
         </button>
       </div>

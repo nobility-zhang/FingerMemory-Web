@@ -29,7 +29,8 @@ function loadCompanionId(
   storage: CompanionPreferenceStorage | null,
 ): CompanionId {
   try {
-    return storage?.getItem(COMPANION_KEY) === 'serin' ? 'serin' : 'lia';
+    const stored = storage?.getItem(COMPANION_KEY);
+    return stored === 'serin' || stored === 'fina' ? stored : 'lia';
   } catch {
     return 'lia';
   }

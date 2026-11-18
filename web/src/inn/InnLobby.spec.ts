@@ -9,6 +9,7 @@ import type {
 import {
   companionExpressions,
   companions,
+  fina,
   lia,
   serin,
 } from '../companions/catalog';
@@ -190,9 +191,12 @@ describe('InnLobby', () => {
     ]);
     expect(Object.keys(lia.portraits)).toEqual(companionExpressions);
     expect(Object.keys(serin.portraits)).toEqual(companionExpressions);
+    expect(Object.keys(fina.portraits)).toEqual(companionExpressions);
     expect(new Set(Object.values(lia.portraits)).size).toBe(6);
     expect(new Set(Object.values(serin.portraits)).size).toBe(6);
-    expect(companions.map((companion) => companion.id)).toEqual(['lia', 'serin']);
+    expect(new Set(Object.values(fina.portraits)).size).toBe(6);
+    expect(companions.map((companion) => companion.id))
+      .toEqual(['lia', 'serin', 'fina']);
   });
 
   it('switches the visible companion while keeping the same queue context', async () => {
@@ -223,6 +227,37 @@ describe('InnLobby', () => {
     );
     liaChoice?.click();
     expect(selectCompanion).toHaveBeenCalledWith('lia');
+  });
+
+  it('shows Fina only after the account unlocks her and switches to her portrait', async () => {
+    const selectCompanion = vi.fn();
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(InnLobby, {
+      companion: fina,
+      companionDensity: 'standard',
+      reduceMotion: false,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      contentPackages: [],
+      adventures: [],
+      unlockedCompanionIds: ['lia', 'serin', 'fina'],
+      loading: false,
+      error: null,
+      onSelectCompanion: selectCompanion,
+    });
+    mountedApp.mount(root);
+    await nextTick();
+
+    expect(root.textContent).toContain('菲妮 · 罗盘与远路的绘图师');
+    expect(root.querySelector('[data-companion="fina"]')).not.toBeNull();
+    const serinChoice = [...root.querySelectorAll('button')].find(
+      (button) => button.textContent?.includes('瑟琳'),
+    );
+    serinChoice?.click();
+    expect(selectCompanion).toHaveBeenCalledWith('serin');
   });
 
   it('exposes density and classic-card entries without hiding the queue', async () => {

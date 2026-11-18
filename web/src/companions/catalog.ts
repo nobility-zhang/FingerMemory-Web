@@ -10,6 +10,12 @@ import serinNeutral from '../assets/companions/serin/runtime/neutral.png';
 import serinRelief from '../assets/companions/serin/runtime/relief.png';
 import serinSurprise from '../assets/companions/serin/runtime/surprise.png';
 import serinWelcome from '../assets/companions/serin/runtime/welcome.png';
+import finaCheer from '../assets/companions/fina/runtime/cheer.png';
+import finaConcern from '../assets/companions/fina/runtime/concern.png';
+import finaNeutral from '../assets/companions/fina/runtime/neutral.png';
+import finaRelief from '../assets/companions/fina/runtime/relief.png';
+import finaSurprise from '../assets/companions/fina/runtime/surprise.png';
+import finaWelcome from '../assets/companions/fina/runtime/welcome.png';
 
 export const companionExpressions = [
   'neutral',
@@ -22,7 +28,7 @@ export const companionExpressions = [
 
 export type CompanionExpression = (typeof companionExpressions)[number];
 
-export const companionIds = ['lia', 'serin'] as const;
+export const companionIds = ['lia', 'serin', 'fina'] as const;
 
 export type CompanionId = (typeof companionIds)[number];
 
@@ -87,9 +93,32 @@ export const serin: CompanionProfile = {
   },
 };
 
-export const companions: readonly CompanionProfile[] = [lia, serin];
+export const fina: CompanionProfile = {
+  id: 'fina',
+  name: '菲妮',
+  epithet: '罗盘与远路的绘图师',
+  portraits: {
+    neutral: finaNeutral,
+    welcome: finaWelcome,
+    cheer: finaCheer,
+    concern: finaConcern,
+    relief: finaRelief,
+    surprise: finaSurprise,
+  },
+  dialogue: {
+    welcome: '地图给我看看。迷路也没关系，我会先找到最近的水源，再把你带回来。',
+    again: '这个路标刚才骗了我们。先记下来，下次换条更清楚的路。',
+    rest: '地图不会跑掉。先坐一会儿，我盯着篝火。',
+    training: '别急着猜。先把释义读成画面，再写下你记得的英文。',
+    practice: '看过答案就算熟悉路线，不算闭着眼走完。',
+    result: '路找对了。把这一页收好，下一段我来带路。',
+  },
+};
+
+export const companions: readonly CompanionProfile[] = [lia, serin, fina];
 
 export const companionById: Record<CompanionId, CompanionProfile> = {
   lia,
   serin,
+  fina,
 };
