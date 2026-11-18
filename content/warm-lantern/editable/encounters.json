@@ -3,7 +3,29 @@
     {
       "encounterId": "bridge-guardian",
       "battleRulesVersion": "card-battle-v1",
-      "rewardCardIds": []
+      "rewardCardIds": [
+        "herb-pouch",
+        "observe-signpost",
+        "party-strike"
+      ]
+    },
+    {
+      "encounterId": "clockwork-sentinel",
+      "battleRulesVersion": "card-battle-v1",
+      "rewardCardIds": [
+        "herb-pouch",
+        "observe-signpost",
+        "ember-rune"
+      ]
+    },
+    {
+      "encounterId": "heartwood-guardian",
+      "battleRulesVersion": "card-battle-v1",
+      "rewardCardIds": [
+        "ember-rune",
+        "herb-pouch",
+        "observe-signpost"
+      ]
     }
   ]
 }

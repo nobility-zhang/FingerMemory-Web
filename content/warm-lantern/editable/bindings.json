@@ -20,6 +20,38 @@
         "guardian",
         "campfire"
       ]
+    },
+    {
+      "nodeId": "chapter2.arrival",
+      "wordKeys": [
+        "compass",
+        "map"
+      ]
+    },
+    {
+      "nodeId": "chapter2.tower",
+      "wordKeys": [
+        "clock",
+        "tower"
+      ]
+    },
+    {
+      "nodeId": "chapter3.grove",
+      "wordKeys": [
+        "root",
+        "home"
+      ]
+    },
+    {
+      "nodeId": "chapter3.campfire",
+      "wordKeys": [
+        "letter",
+        "journal",
+        "path",
+        "light",
+        "friend",
+        "return"
+      ]
     }
   ]
 }

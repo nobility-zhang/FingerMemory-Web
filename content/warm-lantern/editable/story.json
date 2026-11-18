@@ -77,13 +77,190 @@
           "speaker": "旅伴",
           "title": "营火",
           "text": "暖灯挂在树梢，营火把第一章的路标照得清清楚楚。你们把今天的词一条条收进旅途笔记。",
+          "recollectionId": "first-camp",
+          "recollectionTitle": "第一章的营火",
+          "recollectionText": "暖灯与营火一起照亮第一章的路标。",
           "nextNodeId": "chapter1.end"
         },
         {
           "nodeId": "chapter1.end",
           "type": "chapter-end",
           "title": "第一章完成",
-          "text": "旅伴在营火旁合上笔记。第一段旅途已经写入存档，下一次仍会从这盏暖灯继续。"
+          "text": "旅伴在营火旁合上笔记。钟楼的方向传来很轻的回声，下一段路已经在地图上显出来。",
+          "nextNodeId": "chapter2.arrival"
+        }
+      ]
+    },
+    {
+      "chapterId": "chapter-2",
+      "title": "古钟塔与绘图师",
+      "nodes": [
+        {
+          "nodeId": "chapter2.arrival",
+          "type": "dialogue",
+          "speaker": "菲妮",
+          "portraitCharacterId": "fina",
+          "unlockCharacterId": "fina",
+          "recollectionId": "fina-meets",
+          "recollectionTitle": "罗盘与远路的绘图师",
+          "recollectionText": "菲妮在古钟塔外摊开地图，罗盘指向一条被苔藓遮住的旧路。",
+          "title": "塔下的新同伴",
+          "text": "一个抱着地图筒的女孩从塔影里探出头。她看了看罗盘，又看了看你们：“这条路我画过三次，只有这次看见灯。叫我菲妮吧。”",
+          "nextNodeId": "chapter2.camp"
+        },
+        {
+          "nodeId": "chapter2.camp",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "塔外营地",
+          "text": "菲妮把地图铺在石阶上，标出钟塔、旧井和一条穿过墙根的路。你们可以在这里决定带谁继续前进。",
+          "nextNodeId": "chapter2.choice"
+        },
+        {
+          "nodeId": "chapter2.choice",
+          "type": "choice",
+          "title": "古钟塔",
+          "text": "钟声每隔一会儿就响一次，却没有钟摆的声音。塔门旁留着两条不同的足迹。",
+          "choices": [
+            {
+              "choiceId": "climb",
+              "label": "沿石阶登上钟塔",
+              "targetNodeId": "chapter2.tower"
+            },
+            {
+              "choiceId": "listen",
+              "label": "先听墙内的回声",
+              "targetNodeId": "chapter2.tower"
+            }
+          ]
+        },
+        {
+          "nodeId": "chapter2.tower",
+          "type": "dialogue",
+          "speaker": "菲妮",
+          "portraitCharacterId": "fina",
+          "title": "停住的钟",
+          "text": "菲妮把 compass 放在钟盘下方，指针没有朝北，而是慢慢转向钟塔内部。“不是钟停了。是它一直在等我们回答。”",
+          "nextNodeId": "chapter2.sentinel"
+        },
+        {
+          "nodeId": "chapter2.sentinel",
+          "type": "encounter",
+          "title": "钟摆守卫",
+          "encounterId": "clockwork-sentinel",
+          "victoryNodeId": "chapter2.victory",
+          "rescueNodeId": "chapter2.rescue",
+          "text": "齿轮从墙内转起来，钟摆聚成一名守卫。每一次回答都会让停住的钟向前走一格。"
+        },
+        {
+          "nodeId": "chapter2.victory",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "重新走动的钟",
+          "text": "钟摆终于落下。菲妮在塔壁里找到一张旧地图，上面的塔画得比现在更高，还多了一条通往树心的线。",
+          "nextNodeId": "chapter2.campfire"
+        },
+        {
+          "nodeId": "chapter2.rescue",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "钟塔救援",
+          "text": "菲妮把你拉出齿轮的阴影，又把没回答好的词圈在地图边角：“路会记得我们走过，别急着重来。”",
+          "nextNodeId": "chapter2.campfire"
+        },
+        {
+          "nodeId": "chapter2.campfire",
+          "type": "camp",
+          "speaker": "菲妮",
+          "portraitCharacterId": "fina",
+          "title": "第二章营火",
+          "recollectionId": "clock-tower",
+          "recollectionTitle": "钟塔重新走动",
+          "recollectionText": "菲妮在营火边补完地图，把古钟塔和树心之路画在一起。",
+          "text": "菲妮把 tower 和 clock 写在地图两侧，又在中间添了一盏很小的灯。下一站是古树之心，那里也许藏着最后一封回信。",
+          "nextNodeId": "chapter2.end"
+        },
+        {
+          "nodeId": "chapter2.end",
+          "type": "chapter-end",
+          "title": "第二章完成",
+          "text": "钟塔重新走动。菲妮收起地图筒，已经站在旅团身边准备出发。",
+          "nextNodeId": "chapter3.arrival"
+        }
+      ]
+    },
+    {
+      "chapterId": "chapter-3",
+      "title": "古树之心与回信",
+      "nodes": [
+        {
+          "nodeId": "chapter3.arrival",
+          "type": "choice",
+          "title": "古树之心",
+          "text": "树根像道路一样铺开，树心里传来翻动信纸的声音。菲妮的罗盘第一次同时指向两个方向。",
+          "choices": [
+            {
+              "choiceId": "follow-compass",
+              "label": "跟随罗盘的指针",
+              "targetNodeId": "chapter3.grove"
+            },
+            {
+              "choiceId": "follow-roots",
+              "label": "沿树根间的微光前进",
+              "targetNodeId": "chapter3.grove"
+            }
+          ]
+        },
+        {
+          "nodeId": "chapter3.grove",
+          "type": "dialogue",
+          "speaker": "菲妮",
+          "portraitCharacterId": "fina",
+          "title": "树心的路",
+          "text": "“root 不只是树扎进土里的部分。”菲妮指了指地图上的家，“它也可以是一个人愿意回去的地方。”",
+          "nextNodeId": "chapter3.guardian"
+        },
+        {
+          "nodeId": "chapter3.guardian",
+          "type": "encounter",
+          "title": "古树守卫",
+          "encounterId": "heartwood-guardian",
+          "victoryNodeId": "chapter3.victory",
+          "rescueNodeId": "chapter3.rescue",
+          "text": "树心守卫从年轮中醒来。它守着最后一封信，也守着每一个想回家的人必须自己走完的路。"
+        },
+        {
+          "nodeId": "chapter3.victory",
+          "type": "dialogue",
+          "speaker": "旅伴",
+          "title": "树心的回信",
+          "text": "年轮缓缓打开，最后一封信落在你们手中。菲妮在地图背面写下 home 这个词，又把笔递给你。",
+          "nextNodeId": "chapter3.campfire"
+        },
+        {
+          "nodeId": "chapter3.rescue",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "树心救援",
+          "text": "你们退回树根围成的安全空地。菲妮把水壶递过来：“救援不是失败。地图上也会标出不能硬闯的路。”",
+          "nextNodeId": "chapter3.campfire"
+        },
+        {
+          "nodeId": "chapter3.campfire",
+          "type": "camp",
+          "speaker": "旅伴",
+          "title": "最后的营火",
+          "recollectionId": "three-lanterns",
+          "recollectionTitle": "三盏灯与回信",
+          "recollectionText": "莉娅、瑟琳和菲妮的旅途笔记在营火边叠在一起，最后一封回信指向回家的路。",
+          "text": "营火照亮三张并肩摊开的地图。回信没有写终点，只写着：“灯还亮着，就有人会回来。”",
+          "nextNodeId": "chapter3.end"
+        },
+        {
+          "nodeId": "chapter3.end",
+          "type": "chapter-end",
+          "title": "第三章完成",
+          "text": "三章的旅途在暖灯下合上。你知道这些词、这些路和这些同伴都会被好好保存。"
         }
       ]
     }
