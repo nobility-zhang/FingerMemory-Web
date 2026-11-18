@@ -13,7 +13,7 @@ public interface AdventureMapper {
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot, run_version,
-                   flags_json, battle_id, created_at_ms, updated_at_ms
+                   flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND active_slot = #{installationId}
             """)
@@ -25,7 +25,7 @@ public interface AdventureMapper {
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot, run_version,
-                   flags_json, battle_id, created_at_ms, updated_at_ms
+                   flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND id = #{runId}
             FOR UPDATE
@@ -38,7 +38,7 @@ public interface AdventureMapper {
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot, run_version,
-                   flags_json, battle_id, created_at_ms, updated_at_ms
+                   flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND id = #{runId}
             """)
@@ -50,7 +50,7 @@ public interface AdventureMapper {
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot, run_version,
-                   flags_json, battle_id, created_at_ms, updated_at_ms
+                   flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND active_slot IS NOT NULL
             ORDER BY updated_at_ms DESC, id ASC
@@ -65,12 +65,13 @@ public interface AdventureMapper {
               owner_id, id, installation_id, namespace_id, book_id,
               content_version, content_hash, entry_node_id, current_node_id,
               session_id, companion_key, status, active_slot, run_version,
-              flags_json, battle_id, created_at_ms, updated_at_ms
+              flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             ) VALUES (
               #{ownerId}, #{id}, #{installationId}, #{namespaceId}, #{bookId},
               #{contentVersion}, #{contentHash}, #{entryNodeId}, #{currentNodeId},
               #{sessionId}, #{companionKey}, #{status}, #{activeSlot},
-              #{runVersion}, CAST(#{flagsJson} AS JSON), #{battleId},
+              #{runVersion}, CAST(#{flagsJson} AS JSON),
+              CAST(#{deckJson} AS JSON), #{battleId},
               #{createdAtMs}, #{updatedAtMs}
             )
             """)
@@ -81,8 +82,10 @@ public interface AdventureMapper {
             SET current_node_id = #{row.currentNodeId},
                 status = #{row.status},
                 active_slot = #{row.activeSlot},
+                companion_key = #{row.companionKey},
                 run_version = #{row.runVersion},
                 flags_json = CAST(#{row.flagsJson} AS JSON),
+                deck_json = CAST(#{row.deckJson} AS JSON),
                 battle_id = #{row.battleId},
                 updated_at_ms = #{row.updatedAtMs}
             WHERE owner_id = #{ownerId}

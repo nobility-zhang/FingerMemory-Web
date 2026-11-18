@@ -1,6 +1,8 @@
 package com.fingermemory.server.adventure;
 
 import com.fingermemory.server.battle.BattleDtos;
+import com.fingermemory.server.battle.BattleDeckCatalog;
+import com.fingermemory.server.battle.BattleEngine;
 import com.fingermemory.server.battle.BattleService;
 import com.fingermemory.server.content.ContentInstallationRow;
 import com.fingermemory.server.content.ContentPackageService;
@@ -11,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -30,6 +33,7 @@ public class AdventureService {
     private static final long TUTORIAL_BATTLE_SEED = 42L;
 
     private final AdventureMapper adventureMapper;
+    private final AdventureProgressMapper progressMapper;
     private final AdventurePackageReader packageReader;
     private final AdventureSessionImporter sessionImporter;
     private final ContentPackageService contentPackageService;
@@ -41,6 +45,7 @@ public class AdventureService {
 
     public AdventureService(
             AdventureMapper adventureMapper,
+            AdventureProgressMapper progressMapper,
             AdventurePackageReader packageReader,
             AdventureSessionImporter sessionImporter,
             ContentPackageService contentPackageService,
@@ -50,6 +55,7 @@ public class AdventureService {
             ObjectMapper objectMapper,
             Clock clock) {
         this.adventureMapper = adventureMapper;
+        this.progressMapper = progressMapper;
         this.packageReader = packageReader;
         this.sessionImporter = sessionImporter;
         this.contentPackageService = contentPackageService;
@@ -73,6 +79,7 @@ public class AdventureService {
                         request.installationId());
         AdventurePackageReader.AdventurePackage content =
                 packageReader.read(installed.root());
+        requireCompanionAvailable(ownerId, request.companionKey());
         String fingerprint = fingerprint(
                 "start",
                 request.installationId(),
@@ -129,6 +136,7 @@ public class AdventureService {
                 request.installationId(),
                 0,
                 "{}",
+                objectMapper.writeValueAsString(BattleDeckCatalog.teachingDeck()),
                 null,
                 now,
                 now);
@@ -157,6 +165,7 @@ public class AdventureService {
                         "installationId", row.installationId(),
                         "contentVersion", row.contentVersion())),
                 now);
+        applyNodeProgress(ownerId, row, requireNode(content, row.currentNodeId()), now);
         AdventureDtos.StartResult result = startResult(
                 "created",
                 row,
@@ -271,7 +280,8 @@ public class AdventureService {
                         session.session().path("currentStudyItemId").asText(),
                         row.companionKey(),
                         TUTORIAL_BATTLE_SEED,
-                        false));
+                        false,
+                        readDeck(row.deckJson())));
         long now = clock.instant().toEpochMilli();
         if (adventureMapper.bindBattle(
                 ownerId,
@@ -330,7 +340,8 @@ public class AdventureService {
                 request.expectedVersion(),
                 request.action(),
                 request.choiceId(),
-                request.battleId());
+                request.battleId(),
+                request.companionKey());
         AdventureReceiptRow receipt =
                 adventureMapper.findReceipt(ownerId, runId, actionId);
         if (receipt != null) {
@@ -354,13 +365,78 @@ public class AdventureService {
                 packageReader.read(installed.root());
         AdventurePackageReader.AdventureNode node =
                 requireNode(content, row.currentNodeId());
+        AdventureRewardOfferRow pendingReward =
+                progressMapper.findPendingReward(ownerId, runId);
+        if (pendingReward != null && !"claim-reward".equals(request.action())) {
+            throw conflict(
+                    "ADVENTURE_REWARD_PENDING",
+                    "需要先选择本场遭遇的牌组奖励");
+        }
         Map<String, Boolean> flags = readFlags(row.flagsJson());
         String nextNodeId;
         String status = "active";
         String battleId = row.battleId();
+        String selectedCompanion = row.companionKey();
+        String deckJson = row.deckJson();
+        long now = clock.instant().toEpochMilli();
         switch (request.action()) {
             case "advance" -> nextNodeId = advanceTarget(node);
             case "choose" -> nextNodeId = choiceTarget(node, request.choiceId());
+            case "select-companion" -> {
+                if (!"camp".equals(node.type()) || request.companionKey() == null) {
+                    throw conflict(
+                            "ADVENTURE_COMPANION_SWITCH_UNAVAILABLE",
+                            "只能在营地切换带队伙伴");
+                }
+                requireCompanionAvailable(ownerId, request.companionKey());
+                nextNodeId = node.nodeId();
+                selectedCompanion = request.companionKey();
+                battleId = null;
+            }
+            case "claim-reward" -> {
+                if (pendingReward == null) {
+                    throw conflict(
+                            "ADVENTURE_REWARD_NOT_FOUND",
+                            "当前没有待选择的牌组奖励");
+                }
+                AdventureDtos.RewardChoice choice = readRewardChoices(
+                        pendingReward.candidatesJson()).stream()
+                        .filter(candidate ->
+                                candidate.choiceId().equals(request.choiceId()))
+                        .findFirst()
+                        .orElseThrow(() -> conflict(
+                                "ADVENTURE_REWARD_INVALID",
+                                "奖励选项不存在"));
+                if (!BattleDeckCatalog.supports(choice.cardDefinitionId())) {
+                    throw conflict(
+                            "ADVENTURE_REWARD_UNSUPPORTED",
+                            "奖励牌定义不受当前战斗规则支持");
+                }
+                List<String> deck = new ArrayList<>(readDeck(deckJson));
+                deck.add(choice.cardDefinitionId());
+                try {
+                    BattleDeckCatalog.validateAdventureDeck(deck);
+                } catch (BattleEngine.BattleRuleException exception) {
+                    throw conflict(
+                            "ADVENTURE_REWARD_DECK_INVALID",
+                            "选择奖励后牌组超过规则限制");
+                }
+                if (progressMapper.claimReward(
+                        ownerId,
+                        runId,
+                        pendingReward.offerId(),
+                        choice.choiceId(),
+                        choice.cardDefinitionId(),
+                        now) != 1) {
+                    throw conflict(
+                            "ADVENTURE_REWARD_ALREADY_CLAIMED",
+                            "牌组奖励已经被领取");
+                }
+                deckJson = objectMapper.writeValueAsString(deck);
+                nextNodeId = pendingReward.targetNodeId();
+                battleId = null;
+                flags.put("reward." + pendingReward.offerId(), true);
+            }
             case "resolve-encounter" -> {
                 AdventureBattleBindingRow binding =
                         requireEncounterResolution(
@@ -377,9 +453,16 @@ public class AdventureService {
                             "战斗尚未结束");
                 }
                 if ("victory".equals(phase)) {
-                    nextNodeId = node.victoryNodeId() != null
+                    String victoryNodeId = node.victoryNodeId() != null
                             ? node.victoryNodeId()
                             : node.nextNodeId();
+                    AdventureRewardOfferRow offer = createRewardOffer(
+                            ownerId,
+                            row,
+                            node,
+                            content,
+                            now);
+                    nextNodeId = offer == null ? victoryNodeId : node.nodeId();
                     flags.put(
                             "encounter." + binding.encounterId() + ".resolved",
                             true);
@@ -399,8 +482,12 @@ public class AdventureService {
                             "ADVENTURE_NOT_COMPLETE",
                             "当前节点不能完成章节");
                 }
-                nextNodeId = node.nodeId();
-                status = "completed";
+                if (node.nextNodeId() == null) {
+                    nextNodeId = node.nodeId();
+                    status = "completed";
+                } else {
+                    nextNodeId = node.nextNodeId();
+                }
             }
             default -> throw validation("不支持的冒险动作");
         }
@@ -409,7 +496,6 @@ public class AdventureService {
                     "ADVENTURE_TRANSITION_INVALID",
                     "当前节点没有可用的后续节点");
         }
-        long now = clock.instant().toEpochMilli();
         long nextVersion = row.runVersion() + 1;
         AdventureRunRow next = new AdventureRunRow(
                 row.ownerId(),
@@ -422,11 +508,12 @@ public class AdventureService {
                 row.entryNodeId(),
                 nextNodeId,
                 row.sessionId(),
-                row.companionKey(),
+                selectedCompanion,
                 status,
                 "completed".equals(status) ? null : row.activeSlot(),
                 nextVersion,
                 objectMapper.writeValueAsString(flags),
+                deckJson,
                 battleId,
                 row.createdAtMs(),
                 now);
@@ -437,6 +524,11 @@ public class AdventureService {
                 row.runVersion()) != 1) {
             throw versionConflict();
         }
+        applyNodeProgress(
+                ownerId,
+                next,
+                requireNode(content, nextNodeId),
+                now);
         AdventureDtos.ActionResult response = new AdventureDtos.ActionResult(
                 "applied",
                 toView(next, installed, content));
@@ -460,6 +552,170 @@ public class AdventureService {
                 nextVersion,
                 now));
         return response;
+    }
+
+    public List<String> listUnlockedCompanions(String ownerId) {
+        List<String> unlocked = new ArrayList<>(List.of("lia", "serin"));
+        for (String characterKey : progressMapper.listUnlockedCharacters(ownerId)) {
+            if (!unlocked.contains(characterKey)) {
+                unlocked.add(characterKey);
+            }
+        }
+        return List.copyOf(unlocked);
+    }
+
+    public List<AdventureDtos.Recollection> listRecollections(
+            String ownerId,
+            int limit) {
+        if (limit < 1 || limit > 100) {
+            throw validation("limit 必须在 1 到 100 之间");
+        }
+        return progressMapper.listRecollections(ownerId, limit).stream()
+                .map(row -> new AdventureDtos.Recollection(
+                        row.recollectionKey(),
+                        row.namespaceId(),
+                        row.bookId(),
+                        row.chapterId(),
+                        row.title(),
+                        row.speaker(),
+                        row.text(),
+                        row.unlockedAtMs()))
+                .toList();
+    }
+
+    private AdventureRewardOfferRow createRewardOffer(
+            String ownerId,
+            AdventureRunRow run,
+            AdventurePackageReader.AdventureNode node,
+            AdventurePackageReader.AdventurePackage content,
+            long now) {
+        if (run.deckJson() == null || readDeck(run.deckJson()).size() >= 18) {
+            return null;
+        }
+        AdventurePackageReader.AdventureEncounter encounter =
+                content.encounters().get(node.encounterId());
+        if (encounter == null) {
+            return null;
+        }
+        List<String> deck = readDeck(run.deckJson());
+        List<AdventureDtos.RewardChoice> choices = new ArrayList<>();
+        for (String cardDefinitionId : encounter.rewardCardIds()) {
+            if (choices.size() >= 3 || !BattleDeckCatalog.supports(cardDefinitionId)) {
+                continue;
+            }
+            long copies = deck.stream()
+                    .filter(cardDefinitionId::equals)
+                    .count();
+            if (copies >= 3) {
+                continue;
+            }
+            AdventurePackageReader.AdventureCard card =
+                    content.cards().get(cardDefinitionId);
+            String name = card == null
+                    ? BattleDeckCatalog.displayName(cardDefinitionId)
+                    : card.name();
+            String description = card == null ? "" : card.description();
+            choices.add(new AdventureDtos.RewardChoice(
+                    cardDefinitionId,
+                    cardDefinitionId,
+                    name,
+                    description));
+        }
+        if (choices.isEmpty()) {
+            return null;
+        }
+        String offerId = UUID.nameUUIDFromBytes(
+                ("adventure-reward:" + ownerId + ":" + run.id() + ":"
+                        + node.nodeId()).getBytes(StandardCharsets.UTF_8))
+                .toString();
+        String targetNodeId = node.victoryNodeId() != null
+                ? node.victoryNodeId()
+                : node.nextNodeId();
+        AdventureRewardOfferRow row = new AdventureRewardOfferRow(
+                ownerId,
+                run.id(),
+                offerId,
+                node.nodeId(),
+                targetNodeId,
+                objectMapper.writeValueAsString(choices),
+                "pending",
+                null,
+                null,
+                now,
+                now);
+        progressMapper.insertReward(row);
+        return row;
+    }
+
+    private List<AdventureDtos.RewardChoice> readRewardChoices(String raw) {
+        List<AdventureDtos.RewardChoice> choices = new ArrayList<>();
+        for (var value : objectMapper.readTree(raw)) {
+            choices.add(new AdventureDtos.RewardChoice(
+                    value.path("choiceId").asText(),
+                    value.path("cardDefinitionId").asText(),
+                    value.path("name").asText(),
+                    value.path("description").asText()));
+        }
+        return choices;
+    }
+
+    private List<String> readDeck(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return new ArrayList<>(BattleDeckCatalog.teachingDeck());
+        }
+        List<String> deck = new ArrayList<>();
+        for (var value : objectMapper.readTree(raw)) {
+            if (!value.isString()) {
+                throw new IllegalStateException("Stored adventure deck is invalid");
+            }
+            deck.add(value.stringValue());
+        }
+        return deck;
+    }
+
+    private void requireCompanionAvailable(String ownerId, String companionKey) {
+        if ("lia".equals(companionKey) || "serin".equals(companionKey)) {
+            return;
+        }
+        if (!"fina".equals(companionKey)
+                || progressMapper.hasCharacter(ownerId, companionKey) == 0) {
+            throw conflict(
+                    "ADVENTURE_COMPANION_LOCKED",
+                    "该伙伴尚未在剧情中加入");
+        }
+    }
+
+    private void applyNodeProgress(
+            String ownerId,
+            AdventureRunRow run,
+            AdventurePackageReader.AdventureNode node,
+            long now) {
+        if (node.unlockCharacterId() != null) {
+            progressMapper.unlockCharacter(
+                    ownerId,
+                    node.unlockCharacterId(),
+                    node.nodeId() + "." + node.unlockCharacterId(),
+                    run.id(),
+                    node.nodeId(),
+                    now);
+        }
+        if (node.recollectionId() != null) {
+            String recollectionKey = run.namespaceId()
+                    + ":" + run.bookId()
+                    + ":" + node.recollectionId();
+            progressMapper.unlockRecollection(
+                    ownerId,
+                    recollectionKey,
+                    run.namespaceId(),
+                    run.bookId(),
+                    node.chapterId(),
+                    node.recollectionTitle(),
+                    node.speaker(),
+                    node.recollectionText(),
+                    run.id(),
+                    node.nodeId(),
+                    now);
+        }
     }
 
     private AdventureBattleBindingRow requireEncounterResolution(
@@ -532,6 +788,14 @@ public class AdventureService {
         AdventurePackageReader.AdventureNode node =
                 requireNode(content, row.currentNodeId());
         ContentInstallationRow installation = installed.installation();
+        AdventureRewardOfferRow pendingReward =
+                progressMapper.findPendingReward(row.ownerId(), row.id());
+        AdventureDtos.RewardOffer rewardOffer = pendingReward == null
+                ? null
+                : new AdventureDtos.RewardOffer(
+                        pendingReward.offerId(),
+                        pendingReward.nodeId(),
+                        readRewardChoices(pendingReward.candidatesJson()));
         return new AdventureDtos.Run(
                 row.id(),
                 row.installationId(),
@@ -553,11 +817,15 @@ public class AdventureService {
                         node.speaker(),
                         node.text(),
                         node.encounterId(),
+                        node.portraitCharacterId(),
                         node.choices().stream()
                                 .map(choice -> new AdventureDtos.Choice(
                                         choice.choiceId(),
                                         choice.label()))
                                 .toList()),
+                readDeck(row.deckJson()),
+                listUnlockedCompanions(row.ownerId()),
+                rewardOffer,
                 readFlags(row.flagsJson()),
                 row.createdAtMs(),
                 row.updatedAtMs());

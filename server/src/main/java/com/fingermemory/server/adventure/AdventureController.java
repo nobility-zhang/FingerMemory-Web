@@ -56,6 +56,20 @@ public class AdventureController {
         return adventureService.get(principal.id(), runId);
     }
 
+    @GetMapping("/companions")
+    public List<String> companions(Authentication authentication) {
+        FmUserPrincipal principal = CurrentUser.require(authentication);
+        return adventureService.listUnlockedCompanions(principal.id());
+    }
+
+    @GetMapping("/recollections")
+    public List<AdventureDtos.Recollection> recollections(
+            Authentication authentication,
+            @RequestParam(defaultValue = "50") int limit) {
+        FmUserPrincipal principal = CurrentUser.require(authentication);
+        return adventureService.listRecollections(principal.id(), limit);
+    }
+
     @PostMapping("/{runId}/encounters")
     public ResponseEntity<AdventureDtos.Encounter> startEncounter(
             Authentication authentication,

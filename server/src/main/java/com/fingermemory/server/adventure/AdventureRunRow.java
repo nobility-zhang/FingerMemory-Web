@@ -16,6 +16,7 @@ public record AdventureRunRow(
         String activeSlot,
         long runVersion,
         String flagsJson,
+        String deckJson,
         String battleId,
         long createdAtMs,
         long updatedAtMs) {

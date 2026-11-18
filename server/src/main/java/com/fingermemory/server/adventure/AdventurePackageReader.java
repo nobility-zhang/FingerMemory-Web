@@ -37,7 +37,14 @@ public class AdventurePackageReader {
                 }
             }
             List<Vocabulary> vocabulary = readVocabulary(root.resolve("vocabulary.tsv"));
-            return new AdventurePackage(Map.copyOf(nodes), List.copyOf(vocabulary));
+            Map<String, AdventureCard> cards = readCards(root.resolve("cards.json"));
+            Map<String, AdventureEncounter> encounters =
+                    readEncounters(root.resolve("encounters.json"));
+            return new AdventurePackage(
+                    Map.copyOf(nodes),
+                    List.copyOf(vocabulary),
+                    Map.copyOf(cards),
+                    Map.copyOf(encounters));
         } catch (IOException exception) {
             throw new AdventureException(
                     HttpStatus.CONFLICT,
@@ -73,7 +80,46 @@ public class AdventurePackageReader {
                 text(node, "encounterId", null),
                 text(node, "victoryNodeId", null),
                 text(node, "rescueNodeId", null),
+                text(node, "unlockCharacterId", null),
+                text(node, "recollectionId", null),
+                text(node, "recollectionTitle", null),
+                text(node, "recollectionText", null),
+                text(node, "portraitCharacterId", null),
                 List.copyOf(choices));
+    }
+
+    private Map<String, AdventureCard> readCards(Path path) throws IOException {
+        JsonNode root = readJson(path);
+        Map<String, AdventureCard> cards = new LinkedHashMap<>();
+        for (JsonNode card : root.path("cards")) {
+            String cardId = text(card, "cardId", "");
+            cards.put(cardId, new AdventureCard(
+                    cardId,
+                    text(card, "name", cardId),
+                    text(card, "description", "")));
+        }
+        return cards;
+    }
+
+    private Map<String, AdventureEncounter> readEncounters(Path path)
+            throws IOException {
+        JsonNode root = readJson(path);
+        Map<String, AdventureEncounter> encounters = new LinkedHashMap<>();
+        for (JsonNode encounter : root.path("encounters")) {
+            String encounterId = text(encounter, "encounterId", "");
+            List<String> rewardCardIds = new ArrayList<>();
+            for (JsonNode rewardCardId : encounter.path("rewardCardIds")) {
+                if (rewardCardId.isString()) {
+                    rewardCardIds.add(rewardCardId.stringValue());
+                }
+            }
+            encounters.put(
+                    encounterId,
+                    new AdventureEncounter(
+                            encounterId,
+                            List.copyOf(rewardCardIds)));
+        }
+        return encounters;
     }
 
     private List<Vocabulary> readVocabulary(Path path) throws IOException {
@@ -104,9 +150,16 @@ public class AdventurePackageReader {
                 : fallback;
     }
 
+    private JsonNode readJson(Path path) throws IOException {
+        return objectMapper.readTree(
+                Files.readString(path, StandardCharsets.UTF_8));
+    }
+
     public record AdventurePackage(
             Map<String, AdventureNode> nodes,
-            List<Vocabulary> vocabulary) {
+            List<Vocabulary> vocabulary,
+            Map<String, AdventureCard> cards,
+            Map<String, AdventureEncounter> encounters) {
     }
 
     public record AdventureNode(
@@ -120,6 +173,11 @@ public class AdventurePackageReader {
             String encounterId,
             String victoryNodeId,
             String rescueNodeId,
+            String unlockCharacterId,
+            String recollectionId,
+            String recollectionTitle,
+            String recollectionText,
+            String portraitCharacterId,
             List<AdventureChoice> choices) {
     }
 
@@ -135,5 +193,16 @@ public class AdventurePackageReader {
             String meaning,
             String acceptedAnswersJson,
             String hintsJson) {
+    }
+
+    public record AdventureCard(
+            String cardId,
+            String name,
+            String description) {
+    }
+
+    public record AdventureEncounter(
+            String encounterId,
+            List<String> rewardCardIds) {
     }
 }

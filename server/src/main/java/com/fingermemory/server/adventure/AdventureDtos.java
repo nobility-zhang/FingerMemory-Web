@@ -23,10 +23,11 @@ public final class AdventureDtos {
     public record ActionRequest(
             @Min(0) long expectedVersion,
             @NotBlank
-            @Pattern(regexp = "^(advance|choose|resolve-encounter|complete)$")
+            @Pattern(regexp = "^(advance|choose|resolve-encounter|claim-reward|select-companion|complete)$")
             String action,
             @Size(max = 128) String choiceId,
-            @Size(max = 36) String battleId) {
+            @Size(max = 36) String battleId,
+            @Pattern(regexp = "^(lia|serin|fina)$") String companionKey) {
     }
 
     public record Choice(
@@ -42,7 +43,21 @@ public final class AdventureDtos {
             String speaker,
             String text,
             String encounterId,
+            String portraitCharacterId,
             List<Choice> choices) {
+    }
+
+    public record RewardChoice(
+            String choiceId,
+            String cardDefinitionId,
+            String name,
+            String description) {
+    }
+
+    public record RewardOffer(
+            String offerId,
+            String nodeId,
+            List<RewardChoice> choices) {
     }
 
     public record Run(
@@ -59,6 +74,9 @@ public final class AdventureDtos {
             String sessionId,
             String battleId,
             Node currentNode,
+            List<String> deck,
+            List<String> unlockedCharacters,
+            RewardOffer rewardOffer,
             Map<String, Boolean> flags,
             long createdAtMs,
             long updatedAtMs) {
@@ -79,5 +97,16 @@ public final class AdventureDtos {
             String battleId,
             String runId,
             long runVersion) {
+    }
+
+    public record Recollection(
+            String key,
+            String namespace,
+            String bookId,
+            String chapterId,
+            String title,
+            String speaker,
+            String text,
+            long unlockedAtMs) {
     }
 }

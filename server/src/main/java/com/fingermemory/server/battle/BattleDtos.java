@@ -18,7 +18,27 @@ public final class BattleDtos {
             @NotBlank @Size(max = 128) String studyItemId,
             @NotBlank @Pattern(regexp = "^(lia|serin|fina)$") String companionKey,
             Long seed,
-            Boolean shuffle) {
+            Boolean shuffle,
+            List<@NotBlank @Size(max = 64) String> deck) {
+
+        public CreateBattleRequest(
+                String battleId,
+                String encounterId,
+                String sessionId,
+                String studyItemId,
+                String companionKey,
+                Long seed,
+                Boolean shuffle) {
+            this(
+                    battleId,
+                    encounterId,
+                    sessionId,
+                    studyItemId,
+                    companionKey,
+                    seed,
+                    shuffle,
+                    null);
+        }
     }
 
     public record BattleCommandRequest(

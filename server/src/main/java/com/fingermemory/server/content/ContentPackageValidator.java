@@ -352,6 +352,13 @@ public class ContentPackageValidator {
                 if (!nodeIds.add(nodeId)) {
                     throw invalid("节点 ID 重复：" + nodeId);
                 }
+                if (node.has("portraitCharacterId")) {
+                    requiredIdentifier(node, "portraitCharacterId");
+                }
+                if (node.has("unlockCharacterId")) {
+                    requiredIdentifier(node, "unlockCharacterId");
+                }
+                validateRecollectionFields(node);
                 hasEnding |= "chapter-end".equals(type);
                 Set<String> targets = transitions.computeIfAbsent(
                         nodeId,
@@ -492,6 +499,21 @@ public class ContentPackageValidator {
                                 + " 引用了不存在的 encounterId：" + encounterId);
             }
         }
+    }
+
+    private void validateRecollectionFields(JsonNode node) {
+        boolean hasId = node.has("recollectionId");
+        boolean hasTitle = node.has("recollectionTitle");
+        boolean hasText = node.has("recollectionText");
+        if (!hasId && !hasTitle && !hasText) {
+            return;
+        }
+        if (!hasId || !hasTitle || !hasText) {
+            throw invalid("回忆字段必须同时声明 ID、标题和正文");
+        }
+        requiredIdentifier(node, "recollectionId");
+        requiredText(node, "recollectionTitle", 200);
+        requiredText(node, "recollectionText", 4000);
     }
 
     private CharacterSummary validateCharacters(Path expanded, Set<String> cardIds)

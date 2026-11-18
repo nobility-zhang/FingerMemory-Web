@@ -33,6 +33,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -54,6 +55,9 @@ class AdventureApiIT {
 
     @BeforeEach
     void cleanDatabaseAndStorage() throws Exception {
+        jdbcTemplate.update("DELETE FROM fm_adventure_recollection");
+        jdbcTemplate.update("DELETE FROM fm_adventure_character_unlock");
+        jdbcTemplate.update("DELETE FROM fm_adventure_reward_offer");
         jdbcTemplate.update("DELETE FROM fm_adventure_event");
         jdbcTemplate.update("DELETE FROM fm_adventure_receipt");
         jdbcTemplate.update("DELETE FROM fm_adventure_battle_binding");
@@ -344,6 +348,219 @@ class AdventureApiIT {
                 .andExpect(jsonPath("$.code").value("ADVENTURE_VERSION_CONFLICT"));
     }
 
+    @Test
+    void completesThreeChaptersWithRewardDeckFinaUnlockAndDedupedRecollections()
+            throws Exception {
+        RegisteredUser user = registerAndLogin("adventure-three-chapters");
+        Csrf csrf = csrf(user.session());
+        MvcResult installed = mockMvc.perform(multipart("/api/v1/content-packages")
+                        .file(new MockMultipartFile(
+                                "file",
+                                "warm-lantern-2.0.0.fmbook",
+                                "application/zip",
+                                zip(progressPackageFiles())))
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("Idempotency-Key", "install-three-chapters"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String installationId = JsonPath.read(
+                installed.getResponse().getContentAsString(),
+                "$.installation.id");
+
+        mockMvc.perform(get("/api/v1/adventures/companions")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").value(
+                        org.hamcrest.Matchers.contains("lia", "serin")));
+
+        MvcResult started = start(
+                csrf,
+                installationId,
+                "serin",
+                "three-chapter-start")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.run.deck.length()").value(12))
+                .andExpect(jsonPath("$.run.unlockedCharacters").value(
+                        org.hamcrest.Matchers.contains("lia", "serin")))
+                .andReturn();
+        String runId = JsonPath.read(
+                started.getResponse().getContentAsString(),
+                "$.run.id");
+        String sessionId = JsonPath.read(
+                started.getResponse().getContentAsString(),
+                "$.run.sessionId");
+
+        action(csrf, runId, "three-chapter-prepare", Map.of(
+                "expectedVersion", 0,
+                "action", "choose",
+                "choiceId", "prepare"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("three.camp1"));
+        action(csrf, runId, "three-chapter-to-bridge", Map.of(
+                "expectedVersion", 1,
+                "action", "advance"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("three.bridge"));
+
+        String firstBattle = startEncounter(csrf, runId, "three-battle-1", 2);
+        setBattleTerminal(user.id(), firstBattle, "victory");
+        action(csrf, runId, "three-resolve-1", Map.of(
+                "expectedVersion", 3,
+                "action", "resolve-encounter",
+                "battleId", firstBattle))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("three.bridge"))
+                .andExpect(jsonPath("$.run.rewardOffer.choices.length()")
+                        .value(3))
+                .andExpect(jsonPath("$.run.rewardOffer.choices[0].choiceId")
+                        .value("herb-pouch"));
+        action(csrf, runId, "three-blocked-by-reward", Map.of(
+                "expectedVersion", 4,
+                "action", "advance"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ADVENTURE_REWARD_PENDING"));
+        action(csrf, runId, "three-claim-1", Map.of(
+                "expectedVersion", 4,
+                "action", "claim-reward",
+                "choiceId", "party-strike"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("three.after-bridge"))
+                .andExpect(jsonPath("$.run.deck.length()").value(13))
+                .andExpect(jsonPath("$.run.deck[12]").value("party-strike"))
+                .andExpect(jsonPath("$.run.rewardOffer").doesNotExist());
+        advanceSessionStudyItem(user.id(), sessionId);
+
+        action(csrf, runId, "three-to-end-1", Map.of(
+                "expectedVersion", 5,
+                "action", "advance"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("three.end1"));
+        action(csrf, runId, "three-complete-1", Map.of(
+                "expectedVersion", 6,
+                "action", "complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.status").value("active"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter2.start"))
+                .andExpect(jsonPath("$.run.unlockedCharacters").value(
+                        org.hamcrest.Matchers.hasItem("fina")));
+
+        mockMvc.perform(get("/api/v1/adventures/companions")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").value(
+                        org.hamcrest.Matchers.hasItem("fina")));
+
+        action(csrf, runId, "three-to-camp-2", Map.of(
+                "expectedVersion", 7,
+                "action", "advance"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter2.camp"));
+        action(csrf, runId, "three-switch-fina", Map.of(
+                "expectedVersion", 8,
+                "action", "select-companion",
+                "companionKey", "fina"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.companionKey").value("fina"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter2.camp"));
+
+        action(csrf, runId, "three-to-bridge-2", Map.of(
+                "expectedVersion", 9,
+                "action", "advance"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter2.bridge"));
+        String secondBattle = startEncounter(csrf, runId, "three-battle-2", 10);
+        setBattleTerminal(user.id(), secondBattle, "victory");
+        action(csrf, runId, "three-resolve-2", Map.of(
+                "expectedVersion", 11,
+                "action", "resolve-encounter",
+                "battleId", secondBattle))
+                .andExpect(jsonPath("$.run.rewardOffer.choices.length()")
+                        .value(3));
+        action(csrf, runId, "three-claim-2", Map.of(
+                "expectedVersion", 12,
+                "action", "claim-reward",
+                "choiceId", "observe-signpost"))
+                .andExpect(jsonPath("$.run.deck.length()").value(14))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter2.after"));
+        advanceSessionStudyItem(user.id(), sessionId);
+        action(csrf, runId, "three-complete-2", Map.of(
+                "expectedVersion", 13,
+                "action", "advance"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter2.end"));
+        action(csrf, runId, "three-complete-2-end", Map.of(
+                "expectedVersion", 14,
+                "action", "complete"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter3.start"));
+
+        action(csrf, runId, "three-to-bridge-3", Map.of(
+                "expectedVersion", 15,
+                "action", "advance"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter3.bridge"));
+        String thirdBattle = startEncounter(csrf, runId, "three-battle-3", 16);
+        setBattleTerminal(user.id(), thirdBattle, "victory");
+        action(csrf, runId, "three-resolve-3", Map.of(
+                "expectedVersion", 17,
+                "action", "resolve-encounter",
+                "battleId", thirdBattle))
+                .andExpect(jsonPath("$.run.rewardOffer.choices.length()")
+                        .value(3));
+        action(csrf, runId, "three-claim-3", Map.of(
+                "expectedVersion", 18,
+                "action", "claim-reward",
+                "choiceId", "herb-pouch"))
+                .andExpect(jsonPath("$.run.deck.length()").value(15))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter3.after"));
+        action(csrf, runId, "three-to-final-end", Map.of(
+                "expectedVersion", 19,
+                "action", "advance"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("chapter3.end"));
+        action(csrf, runId, "three-complete-book", Map.of(
+                "expectedVersion", 20,
+                "action", "complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.status").value("completed"));
+
+        mockMvc.perform(get("/api/v1/adventures/recollections")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3));
+
+        MvcResult replay = start(
+                csrf,
+                installationId,
+                "fina",
+                "three-chapter-replay")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.run.companionKey").value("fina"))
+                .andExpect(jsonPath("$.run.deck.length()").value(12))
+                .andReturn();
+        String replayRunId = JsonPath.read(
+                replay.getResponse().getContentAsString(),
+                "$.run.id");
+        action(csrf, replayRunId, "replay-prepare", Map.of(
+                "expectedVersion", 0,
+                "action", "choose",
+                "choiceId", "prepare"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/adventures/recollections")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3));
+    }
+
     private org.springframework.test.web.servlet.ResultActions start(
             Csrf csrf,
             String installationId,
@@ -371,6 +588,25 @@ class AdventureApiIT {
                 .header("Idempotency-Key", actionId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)));
+    }
+
+    private String startEncounter(
+            Csrf csrf,
+            String runId,
+            String actionId,
+            long runVersion) throws Exception {
+        return JsonPath.read(mockMvc.perform(post(
+                                "/api/v1/adventures/{runId}/encounters",
+                                runId)
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("Idempotency-Key", actionId))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.runVersion").value(runVersion + 1))
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+                "$.battleId");
     }
 
     private InstalledPackage install(
@@ -410,6 +646,44 @@ class AdventureApiIT {
                 ownerId,
                 battleId);
         assertThat(updated).isEqualTo(1);
+    }
+
+    private void advanceSessionStudyItem(String ownerId, String sessionId) {
+        String raw = jdbcTemplate.queryForObject(
+                "SELECT payload_json FROM fm_user_data WHERE owner_id = ?",
+                String.class,
+                ownerId);
+        ObjectNode document = (ObjectNode) objectMapper.readTree(raw);
+        ObjectNode session = null;
+        for (var value : document.path("tables").path("practiceSessions")) {
+            if (value.isObject()
+                    && sessionId.equals(value.path("id").asText())) {
+                session = (ObjectNode) value;
+                break;
+            }
+        }
+        assertThat(session).isNotNull();
+        int currentIndex = session.path("currentIndex").asInt();
+        var queue = session.path("queue");
+        ObjectNode current = (ObjectNode) queue.get(currentIndex);
+        current.put("status", "completed");
+        int nextIndex = currentIndex + 1;
+        if (nextIndex >= queue.size()) {
+            throw new AssertionError("test session has no next study item");
+        }
+        session.put("currentIndex", nextIndex);
+        session.put(
+                "currentStudyItemId",
+                queue.get(nextIndex).path("studyItemId").asText());
+        session.put("version", session.path("version").asInt() + 1);
+        jdbcTemplate.update(
+                """
+                UPDATE fm_user_data
+                SET payload_json = ?, data_version = data_version + 1
+                WHERE owner_id = ?
+                """,
+                objectMapper.writeValueAsString(document),
+                ownerId);
     }
 
     private RegisteredUser registerAndLogin(String username) throws Exception {
@@ -547,6 +821,130 @@ class AdventureApiIT {
                 """
                 {"encounters":[{"encounterId":"bridge-guardian",
                   "battleRulesVersion":"card-battle-v1","rewardCardIds":[]}]}
+                """.getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "characters.json",
+                "{\"characters\":[]}".getBytes(StandardCharsets.UTF_8));
+        files.put("assets.json", "{\"assets\":[]}".getBytes(StandardCharsets.UTF_8));
+        return files;
+    }
+
+    private Map<String, byte[]> progressPackageFiles() {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put(
+                "manifest.json",
+                """
+                {"schemaVersion":1,"namespace":"fm.demo","bookId":"three-chapters",
+                 "contentVersion":"2.0.0","title":"三章旅途",
+                 "engineRange":{"minInclusive":"0.3.0","maxExclusive":"0.4.0"},
+                 "entryNodeId":"three.start","seriesId":"three-chapters",
+                 "capabilities":["card-battle-v1"],"requires":[]}
+                """.getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "vocabulary.tsv",
+                ("wordKey\tterm\tmeaning\tacceptedAnswers\thints\n"
+                        + "lantern\tlantern\t提灯\t\"[\"\"lantern\"\"]\"\t\"[\"\"灯\"\"]\"\n"
+                        + "bridge\tbridge\t桥\t\"[\"\"bridge\"\"]\"\t\"[\"\"桥\"\"]\"\n"
+                        + "home\thome\t家\t\"[\"\"home\"\"]\"\t\"[\"\"家\"\"]\"\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "bindings.json",
+                """
+                {"bindings":[
+                  {"nodeId":"three.start","wordKeys":["lantern"]},
+                  {"nodeId":"chapter2.start","wordKeys":["bridge"]},
+                  {"nodeId":"chapter3.start","wordKeys":["home"]}
+                ]}
+                """.getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "story.json",
+                """
+                {"chapters":[
+                  {"chapterId":"chapter-1","title":"第一章","nodes":[
+                    {"nodeId":"three.start","type":"choice","title":"起点",
+                      "text":"准备出发。","choices":[
+                        {"choiceId":"prepare","label":"前进","targetNodeId":"three.camp1"}
+                      ]},
+                    {"nodeId":"three.camp1","type":"camp","title":"营地一",
+                      "speaker":"旅伴","text":"第一夜的营火。",
+                      "recollectionId":"camp-1","recollectionTitle":"第一夜",
+                      "recollectionText":"第一夜的营火记录。","nextNodeId":"three.bridge"},
+                    {"nodeId":"three.bridge","type":"encounter","title":"桥一",
+                      "text":"第一场战斗。","encounterId":"bridge-guardian",
+                      "victoryNodeId":"three.after-bridge","rescueNodeId":"three.rescue"},
+                    {"nodeId":"three.after-bridge","type":"dialogue","title":"桥后",
+                      "speaker":"旅伴","text":"第一场胜利。","nextNodeId":"three.end1"},
+                    {"nodeId":"three.rescue","type":"camp","title":"救援一",
+                      "speaker":"旅伴","text":"第一场救援。","nextNodeId":"three.end1"},
+                    {"nodeId":"three.end1","type":"chapter-end","title":"第一章完成",
+                      "text":"进入第二章。","nextNodeId":"chapter2.start"}
+                  ]},
+                  {"chapterId":"chapter-2","title":"第二章","nodes":[
+                    {"nodeId":"chapter2.start","type":"dialogue","title":"菲妮",
+                      "speaker":"菲妮","portraitCharacterId":"fina",
+                      "unlockCharacterId":"fina","text":"菲妮加入旅团。",
+                      "recollectionId":"fina-met","recollectionTitle":"相遇",
+                      "recollectionText":"在钟塔下遇见菲妮。","nextNodeId":"chapter2.camp"},
+                    {"nodeId":"chapter2.camp","type":"camp","title":"营地二",
+                      "speaker":"旅伴","text":"可以切换伙伴。","nextNodeId":"chapter2.bridge"},
+                    {"nodeId":"chapter2.bridge","type":"encounter","title":"桥二",
+                      "text":"第二场战斗。","encounterId":"clockwork-sentinel",
+                      "victoryNodeId":"chapter2.after","rescueNodeId":"chapter2.rescue"},
+                    {"nodeId":"chapter2.after","type":"camp","title":"钟塔营火",
+                      "speaker":"旅伴","text":"第二场胜利。",
+                      "recollectionId":"clock","recollectionTitle":"钟塔",
+                      "recollectionText":"钟塔重新走动。","nextNodeId":"chapter2.end"},
+                    {"nodeId":"chapter2.rescue","type":"camp","title":"救援二",
+                      "speaker":"旅伴","text":"第二场救援。","nextNodeId":"chapter2.end"},
+                    {"nodeId":"chapter2.end","type":"chapter-end","title":"第二章完成",
+                      "text":"进入第三章。","nextNodeId":"chapter3.start"}
+                  ]},
+                  {"chapterId":"chapter-3","title":"第三章","nodes":[
+                    {"nodeId":"chapter3.start","type":"dialogue","title":"树心",
+                      "speaker":"旅伴","text":"最后一段路。","nextNodeId":"chapter3.bridge"},
+                    {"nodeId":"chapter3.bridge","type":"encounter","title":"树心战",
+                      "text":"最后一场战斗。","encounterId":"heartwood-guardian",
+                      "victoryNodeId":"chapter3.after","rescueNodeId":"chapter3.rescue"},
+                    {"nodeId":"chapter3.after","type":"dialogue","title":"回信",
+                      "speaker":"旅伴","text":"最后一封信。","nextNodeId":"chapter3.end"},
+                    {"nodeId":"chapter3.rescue","type":"camp","title":"救援三",
+                      "speaker":"旅伴","text":"最后的救援。","nextNodeId":"chapter3.end"},
+                    {"nodeId":"chapter3.end","type":"chapter-end","title":"全书完成",
+                      "text":"三章旅途完成。"}
+                  ]}
+                ]}
+                """.getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "cards.json",
+                """
+                {"cards":[
+                  {"cardId":"traveler-strike","name":"旅人突刺","cost":1,"target":"enemy",
+                    "effects":[{"type":"damage","amount":6}],"description":"造成 6 点伤害。"},
+                  {"cardId":"companion-guard","name":"同伴守护","cost":1,"target":"none",
+                    "effects":[{"type":"block","amount":5}],"description":"获得 5 点格挡。"},
+                  {"cardId":"ember-rune","name":"余烬符文","cost":1,"target":"enemy",
+                    "effects":[{"type":"damage","amount":3},
+                      {"type":"apply-burn","remainingTurns":2,"damagePerTurn":2}],
+                    "description":"造成伤害与灼烧。"},
+                  {"cardId":"herb-pouch","name":"采药包","cost":1,"target":"none",
+                    "effects":[{"type":"heal","amount":4}],"description":"回复生命。"},
+                  {"cardId":"observe-signpost","name":"观察路标","cost":0,"target":"none",
+                    "effects":[{"type":"draw","amount":1}],"description":"抽 1 张牌。"},
+                  {"cardId":"party-strike","name":"旅团合击","cost":2,"target":"enemy",
+                    "effects":[{"type":"damage","amount":10}],"description":"造成 10 点伤害。"}
+                ]}
+                """.getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "encounters.json",
+                """
+                {"encounters":[
+                  {"encounterId":"bridge-guardian","battleRulesVersion":"card-battle-v1",
+                    "rewardCardIds":["herb-pouch","observe-signpost","party-strike"]},
+                  {"encounterId":"clockwork-sentinel","battleRulesVersion":"card-battle-v1",
+                    "rewardCardIds":["herb-pouch","observe-signpost","ember-rune"]},
+                  {"encounterId":"heartwood-guardian","battleRulesVersion":"card-battle-v1",
+                    "rewardCardIds":["ember-rune","herb-pouch","observe-signpost"]}
+                ]}
                 """.getBytes(StandardCharsets.UTF_8));
         files.put(
                 "characters.json",

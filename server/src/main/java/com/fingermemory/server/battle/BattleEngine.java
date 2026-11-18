@@ -20,11 +20,15 @@ public class BattleEngine {
         if (!BattleCatalog.COMPANIONS.contains(command.companionKey())) {
             throw new BattleRuleException("unsupported companion skill");
         }
+        List<String> deckOrder = command.deck() == null
+                ? BattleCatalog.TEACHING_DECK_ORDER
+                : List.copyOf(command.deck());
+        BattleDeckCatalog.validateAdventureDeck(deckOrder);
         List<BattleState.CardInstance> deck = new ArrayList<>();
-        for (int index = 0; index < BattleCatalog.TEACHING_DECK_ORDER.size(); index += 1) {
+        for (int index = 0; index < deckOrder.size(); index += 1) {
             deck.add(new BattleState.CardInstance(
                     "card-%02d".formatted(index + 1),
-                    BattleCatalog.TEACHING_DECK_ORDER.get(index)));
+                    deckOrder.get(index)));
         }
         long seed = normalizeSeed(command.seed() == null ? DEFAULT_SEED : command.seed());
         ShuffleResult shuffled = command.shuffle()
@@ -751,7 +755,29 @@ public class BattleEngine {
             String studyItemId,
             String companionKey,
             Long seed,
-            boolean shuffle) {
+            boolean shuffle,
+            List<String> deck) {
+
+        public CreateBattleCommand(
+                String battleId,
+                String encounterId,
+                String learningTaskId,
+                String sessionId,
+                String studyItemId,
+                String companionKey,
+                Long seed,
+                boolean shuffle) {
+            this(
+                    battleId,
+                    encounterId,
+                    learningTaskId,
+                    sessionId,
+                    studyItemId,
+                    companionKey,
+                    seed,
+                    shuffle,
+                    null);
+        }
     }
 
     public record NextLearningTask(

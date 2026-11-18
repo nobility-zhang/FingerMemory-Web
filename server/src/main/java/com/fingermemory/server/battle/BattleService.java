@@ -91,7 +91,8 @@ public class BattleService {
                     request.studyItemId(),
                     request.companionKey(),
                     request.seed(),
-                    !Boolean.FALSE.equals(request.shuffle())));
+                    !Boolean.FALSE.equals(request.shuffle()),
+                    request.deck()));
         } catch (BattleEngine.BattleRuleException exception) {
             throw ruleViolation(exception);
         }
