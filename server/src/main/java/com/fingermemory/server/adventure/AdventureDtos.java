@@ -14,9 +14,7 @@ public final class AdventureDtos {
 
     public record StartRequest(
             @NotBlank @Size(max = 36) String installationId,
-            @NotBlank
-            @Pattern(regexp = "^(lia|serin|fina)$")
-            String companionKey,
+            @NotBlank @Size(max = 128) String companionKey,
             boolean reduceMotion) {
     }
 
@@ -27,7 +25,7 @@ public final class AdventureDtos {
             String action,
             @Size(max = 128) String choiceId,
             @Size(max = 36) String battleId,
-            @Pattern(regexp = "^(lia|serin|fina)$") String companionKey) {
+            @Size(max = 128) String companionKey) {
     }
 
     public record Choice(
@@ -46,7 +44,46 @@ public final class AdventureDtos {
             String portraitCharacterId,
             String sceneId,
             String costumeId,
+            String encounterName,
+            String encounterDescription,
             List<Choice> choices) {
+    }
+
+    public record Dialogue(
+            String welcome,
+            String again,
+            String rest,
+            String training,
+            String practice,
+            String result) {
+    }
+
+    public record Skill(
+            String name,
+            String description,
+            String type,
+            int amount) {
+    }
+
+    public record Character(
+            String characterKey,
+            String installationId,
+            String name,
+            String epithet,
+            String description,
+            int age,
+            String defaultCostumeId,
+            Map<String, Map<String, String>> costumes,
+            Dialogue dialogue,
+            Skill skill) {
+    }
+
+    public record Scene(
+            String sceneId,
+            String name,
+            String background,
+            String battleTheme,
+            String ambientKey) {
     }
 
     public record RewardChoice(
@@ -78,6 +115,8 @@ public final class AdventureDtos {
             Node currentNode,
             List<String> deck,
             List<String> unlockedCharacters,
+            List<Character> characters,
+            List<Scene> scenes,
             RewardOffer rewardOffer,
             Map<String, Boolean> flags,
             long createdAtMs,

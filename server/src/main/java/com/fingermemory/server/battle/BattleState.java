@@ -57,6 +57,16 @@ public record BattleState(
             String submissionId) {
     }
 
-    public record Companion(String key, boolean skillUsed) {
+    public record Companion(
+            String key,
+            boolean skillUsed,
+            String skillName,
+            String skillDescription,
+            String skillType,
+            int skillAmount) {
+
+        public Companion(String key, boolean skillUsed) {
+            this(key, skillUsed, null, null, null, 0);
+        }
     }
 }

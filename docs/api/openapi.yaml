@@ -775,7 +775,7 @@ components:
           maxLength: 128
         companionKey:
           type: string
-          enum: [lia, serin, fina]
+          maxLength: 128
         seed:
           type: integer
         shuffle:
@@ -864,18 +864,122 @@ components:
           type: string
         portraitCharacterId:
           type: string
-          enum: [lia, serin, fina]
+          maxLength: 128
         sceneId:
           type: string
-          enum:
-            [inn-warm-lantern, forest-path, bridge-guardian, camp-fire, coast-beach, coast-tidepools, coast-lighthouse]
+          maxLength: 64
         costumeId:
           type: string
-          enum: [summer-travel, beach-swimwear]
+          maxLength: 64
+        encounterName:
+          type: string
+          maxLength: 120
+        encounterDescription:
+          type: string
+          maxLength: 2000
         choices:
           type: array
           items:
             $ref: '#/components/schemas/AdventureChoice'
+    AdventureDialogue:
+      type: object
+      additionalProperties: false
+      required: [welcome, again, rest, training, practice, result]
+      properties:
+        welcome:
+          type: string
+        again:
+          type: string
+        rest:
+          type: string
+        training:
+          type: string
+        practice:
+          type: string
+        result:
+          type: string
+    AdventureSkill:
+      type: object
+      additionalProperties: false
+      required: [name, description, type, amount]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        type:
+          type: string
+          enum: [heal, block, draw, damage]
+        amount:
+          type: integer
+          minimum: 1
+          maximum: 20
+    AdventureCharacter:
+      type: object
+      additionalProperties: false
+      required:
+        - characterKey
+        - installationId
+        - name
+        - epithet
+        - description
+        - age
+        - defaultCostumeId
+        - costumes
+        - dialogue
+        - skill
+      properties:
+        characterKey:
+          type: string
+          maxLength: 128
+        installationId:
+          type: string
+          maxLength: 36
+        name:
+          type: string
+          maxLength: 120
+        epithet:
+          type: string
+        description:
+          type: string
+        age:
+          type: integer
+          minimum: 1
+          maximum: 120
+        defaultCostumeId:
+          type: string
+          maxLength: 64
+        costumes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+        dialogue:
+          $ref: '#/components/schemas/AdventureDialogue'
+        skill:
+          oneOf:
+            - $ref: '#/components/schemas/AdventureSkill'
+            - type: 'null'
+    AdventureScene:
+      type: object
+      additionalProperties: false
+      required: [sceneId, name, background, battleTheme]
+      properties:
+        sceneId:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 120
+        background:
+          type: string
+        battleTheme:
+          type: string
+        ambientKey:
+          type: string
     AdventureRewardChoice:
       type: object
       additionalProperties: false
@@ -945,7 +1049,7 @@ components:
           type: string
         companionKey:
           type: string
-          enum: [lia, serin, fina]
+          maxLength: 128
         status:
           type: string
           enum: [active, completed]
@@ -968,7 +1072,15 @@ components:
           type: array
           items:
             type: string
-            enum: [lia, serin, fina]
+            maxLength: 128
+        characters:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdventureCharacter'
+        scenes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdventureScene'
         rewardOffer:
           $ref: '#/components/schemas/AdventureRewardOffer'
         flags:
@@ -991,7 +1103,7 @@ components:
           maxLength: 36
         companionKey:
           type: string
-          enum: [lia, serin, fina]
+          maxLength: 128
         reduceMotion:
           type: boolean
     AdventureStartResult:
@@ -1024,7 +1136,7 @@ components:
           maxLength: 36
         companionKey:
           type: string
-          enum: [lia, serin, fina]
+          maxLength: 128
     AdventureActionResult:
       type: object
       additionalProperties: false
@@ -2730,7 +2842,22 @@ paths:
                 type: array
                 items:
                   type: string
-                  enum: [lia, serin, fina]
+                  maxLength: 128
+  /adventures/companions/definitions:
+    get:
+      summary: 列出当前账号已解锁的已安装内容包伙伴定义
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: 角色身份、服装立绘、对白和本书伙伴技能
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdventureCharacter'
   /adventures/recollections:
     get:
       summary: 列出账号级去重的剧情回忆

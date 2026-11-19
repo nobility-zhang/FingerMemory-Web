@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -59,16 +60,16 @@ public class ContentPackageValidator {
             "characters.json",
             "assets.json");
     private static final Set<String> OPTIONAL_ROOT_FILES =
-            Set.of("README.md", "LICENSE.txt");
+            Set.of("README.md", "LICENSE.txt", "scenes.json");
     private static final Set<String> NODE_TYPES = Set.of(
             "dialogue", "choice", "explore", "encounter", "camp", "chapter-end");
     private static final Set<String> CARD_EFFECTS = Set.of(
             "damage", "block", "heal", "draw", "apply-burn");
     private static final Set<String> EXPRESSIONS = Set.of(
             "neutral", "welcome", "cheer", "concern", "relief", "surprise");
-    private static final Set<String> COSTUMES = Set.of(
+    private static final Set<String> BUILTIN_COSTUMES = Set.of(
             "summer-travel", "beach-swimwear");
-    private static final Set<String> SCENES = Set.of(
+    private static final Set<String> BUILTIN_SCENES = Set.of(
             "inn-warm-lantern",
             "forest-path",
             "bridge-guardian",
@@ -76,6 +77,12 @@ public class ContentPackageValidator {
             "coast-beach",
             "coast-tidepools",
             "coast-lighthouse");
+    private static final Set<String> BUILTIN_CHARACTERS =
+            Set.of("lia", "serin", "fina");
+    private static final Set<String> SKILL_TYPES =
+            Set.of("heal", "block", "draw", "damage");
+    private static final Set<String> AVAILABILITIES =
+            Set.of("npc", "companion");
     private static final Set<String> REJECTED_EXTENSIONS = Set.of(
             "svg", "html", "htm", "js", "mjs", "cjs", "glb", "gltf", "exe", "sh");
     private static final Set<String> ASSET_EXTENSIONS = Set.of(
@@ -115,17 +122,20 @@ public class ContentPackageValidator {
             JsonNode manifest = readJson(expanded, "manifest.json", MAX_JSON_BYTES);
             PackageIdentity identity = validateManifest(manifest, engineVersion);
             List<VocabularyRow> vocabulary = validateVocabulary(expanded);
-            StorySummary story = validateStory(expanded);
+            CardSummary cards = validateCards(expanded);
+            EncounterSummary encounters = validateEncounters(expanded, cards.cardIds());
+            CharacterSummary characters = validateCharacters(expanded, cards.cardIds());
+            SceneSummary scenes = validateScenes(expanded);
+            StorySummary story = validateStory(expanded, characters, scenes);
             if (!story.nodeIds().contains(identity.entryNodeId())) {
                 throw invalid("manifest.entryNodeId 不在 story 节点中");
             }
             validateBindings(expanded, vocabulary, story.nodeIds());
-            CardSummary cards = validateCards(expanded);
-            EncounterSummary encounters = validateEncounters(expanded, cards.cardIds());
             validateStoryReferences(story, encounters.encounterIds());
-            CharacterSummary characters = validateCharacters(expanded, cards.cardIds());
+            Set<String> referencedAssets = new HashSet<>(characters.assetPaths());
+            referencedAssets.addAll(scenes.assetPaths());
             List<ContentPackageDtos.AssetView> assets =
-                    validateAssets(expanded, characters.assetPaths());
+                    validateAssets(expanded, referencedAssets);
             validateReachability(story, identity.entryNodeId());
             return new ValidatedContentPackage(
                     fileName,
@@ -141,7 +151,7 @@ public class ContentPackageValidator {
                     vocabulary.size(),
                     story.chapterCount(),
                     story.nodeIds().size(),
-                    characters.count(),
+                    characters.characterKeys().size(),
                     cards.cardIds().size(),
                     encounters.encounterIds().size(),
                     assets,
@@ -336,12 +346,21 @@ public class ContentPackageValidator {
         return rows;
     }
 
-    private StorySummary validateStory(Path expanded) throws IOException {
+    private StorySummary validateStory(
+            Path expanded,
+            CharacterSummary characters,
+            SceneSummary scenes) throws IOException {
         JsonNode story = readJson(expanded, "story.json", MAX_JSON_BYTES);
         JsonNode chapters = requiredArray(story, "chapters");
         if (chapters.isEmpty()) {
             throw invalid("story.chapters 不能为空");
         }
+        Set<String> allowedCharacters = new HashSet<>(BUILTIN_CHARACTERS);
+        allowedCharacters.addAll(characters.characterKeys());
+        Set<String> allowedCostumes = new HashSet<>(BUILTIN_COSTUMES);
+        allowedCostumes.addAll(characters.costumeIds());
+        Set<String> allowedScenes = new HashSet<>(BUILTIN_SCENES);
+        allowedScenes.addAll(scenes.sceneIds());
         Set<String> nodeIds = new HashSet<>();
         Map<String, Set<String>> transitions = new HashMap<>();
         Map<String, String> encounterByNode = new HashMap<>();
@@ -363,22 +382,36 @@ public class ContentPackageValidator {
                     throw invalid("节点 ID 重复：" + nodeId);
                 }
                 if (node.has("portraitCharacterId")) {
-                    requiredIdentifier(node, "portraitCharacterId");
+                    String portraitCharacterId =
+                            requiredIdentifier(node, "portraitCharacterId");
+                    if (!allowedCharacters.contains(portraitCharacterId)) {
+                        throw invalid("未知角色立绘：" + portraitCharacterId);
+                    }
                 }
                 if (node.has("sceneId")) {
                     String sceneId = requiredText(node, "sceneId", 64);
-                    if (!SCENES.contains(sceneId)) {
+                    if (!allowedScenes.contains(sceneId)) {
                         throw invalid("未知场景 ID：" + sceneId);
                     }
                 }
                 if (node.has("costumeId")) {
                     String costumeId = requiredText(node, "costumeId", 64);
-                    if (!COSTUMES.contains(costumeId)) {
+                    if (!allowedCostumes.contains(costumeId)) {
                         throw invalid("未知角色服装：" + costumeId);
                     }
                 }
                 if (node.has("unlockCharacterId")) {
-                    requiredIdentifier(node, "unlockCharacterId");
+                    String unlockCharacterId =
+                            requiredIdentifier(node, "unlockCharacterId");
+                    if (!allowedCharacters.contains(unlockCharacterId)) {
+                        throw invalid("未知解锁角色：" + unlockCharacterId);
+                    }
+                }
+                if (node.has("encounterName")) {
+                    requiredText(node, "encounterName", 120);
+                }
+                if (node.has("encounterDescription")) {
+                    requiredText(node, "encounterDescription", 2000);
                 }
                 validateRecollectionFields(node);
                 hasEnding |= "chapter-end".equals(type);
@@ -543,6 +576,7 @@ public class ContentPackageValidator {
         JsonNode root = readJson(expanded, "characters.json", MAX_JSON_BYTES);
         JsonNode characters = requiredArray(root, "characters");
         Set<String> characterKeys = new HashSet<>();
+        Set<String> costumeIds = new HashSet<>();
         Set<String> assetPaths = new HashSet<>();
         for (JsonNode character : characters) {
             String characterKey = requiredIdentifier(character, "characterKey");
@@ -551,29 +585,137 @@ public class ContentPackageValidator {
             }
             requiredText(character, "name", 120);
             requiredVersion(character, "definitionVersion");
+            if (character.has("age")) {
+                requiredInt(character, "age", 1, 120);
+            }
+            String availability = character.has("availability")
+                    ? requiredText(character, "availability", 32)
+                    : "npc";
+            if (!AVAILABILITIES.contains(availability)) {
+                throw invalid("未知角色可用类型：" + availability);
+            }
             JsonNode skillCardIds = character.path("skillCardIds");
             if (!skillCardIds.isMissingNode()) {
                 validateReferences(skillCardIds, cardIds, "角色技能卡牌");
             }
-            JsonNode portraits = requiredObjectField(character, "portraits");
-            Set<String> expressions = new HashSet<>();
-            portraits.properties().forEach(property -> {
-                String expression = property.getKey();
-                if (!EXPRESSIONS.contains(expression)) {
-                    throw invalid("未知角色表情：" + expression);
+            Map<String, Set<String>> expressionsByCostume = new LinkedHashMap<>();
+            if (character.path("costumes").isObject()) {
+                JsonNode costumes = character.path("costumes");
+                if (costumes.isEmpty()) {
+                    throw invalid("角色 " + characterKey + " 的 costumes 不能为空");
                 }
-                String assetPath = requireTextNode(property.getValue(), "portrait path");
-                if (!assetPath.startsWith("assets/")) {
-                    throw invalid("角色立绘必须引用包内 assets/ 资源");
-                }
-                expressions.add(expression);
-                assetPaths.add(assetPath);
-            });
-            if (!expressions.contains("neutral")) {
-                throw invalid("角色 " + characterKey + " 缺少 neutral 立绘");
+                costumes.properties().forEach(property -> {
+                    String costumeId = identifier(property.getKey(), "costumeId");
+                    expressionsByCostume.put(
+                            costumeId,
+                            validatePortraitSet(
+                                    characterKey,
+                                    costumeId,
+                                    property.getValue(),
+                                    assetPaths));
+                });
+            } else {
+                JsonNode portraits = requiredObjectField(character, "portraits");
+                expressionsByCostume.put(
+                        "summer-travel",
+                        validatePortraitSet(
+                                characterKey,
+                                "summer-travel",
+                                portraits,
+                                assetPaths));
+            }
+            costumeIds.addAll(expressionsByCostume.keySet());
+            String defaultCostumeId = character.has("defaultCostumeId")
+                    ? requiredText(character, "defaultCostumeId", 64)
+                    : expressionsByCostume.keySet().iterator().next();
+            if (!expressionsByCostume.containsKey(defaultCostumeId)) {
+                throw invalid("默认服装不存在：" + defaultCostumeId);
+            }
+            if ("companion".equals(availability)) {
+                validateCompanionDefinition(character, expressionsByCostume);
             }
         }
-        return new CharacterSummary(characterKeys.size(), assetPaths);
+        return new CharacterSummary(characterKeys, costumeIds, assetPaths);
+    }
+
+    private Set<String> validatePortraitSet(
+            String characterKey,
+            String costumeId,
+            JsonNode portraits,
+            Set<String> assetPaths) {
+        requireObject(portraits, "角色服装立绘必须是对象");
+        Set<String> expressions = new HashSet<>();
+        portraits.properties().forEach(property -> {
+            String expression = property.getKey();
+            if (!EXPRESSIONS.contains(expression)) {
+                throw invalid("未知角色表情：" + expression);
+            }
+            String assetPath = requireTextNode(property.getValue(), "portrait path");
+            if (!assetPath.startsWith("assets/")) {
+                throw invalid("角色立绘必须引用包内 assets/ 资源");
+            }
+            expressions.add(expression);
+            assetPaths.add(assetPath);
+        });
+        if (!expressions.contains("neutral")) {
+            throw invalid("角色 " + characterKey + " 的服装 " + costumeId
+                    + " 缺少 neutral 立绘");
+        }
+        return expressions;
+    }
+
+    private void validateCompanionDefinition(
+            JsonNode character,
+            Map<String, Set<String>> expressionsByCostume) {
+        for (Map.Entry<String, Set<String>> entry : expressionsByCostume.entrySet()) {
+            if (!entry.getValue().containsAll(EXPRESSIONS)) {
+                throw invalid("可陪伴角色服装 " + entry.getKey()
+                        + " 必须包含六种表情");
+            }
+        }
+        JsonNode dialogue = requiredObjectField(character, "dialogue");
+        for (String key : List.of(
+                "welcome", "again", "rest", "training", "practice", "result")) {
+            requiredText(dialogue, key, 1000);
+        }
+        JsonNode skill = requiredObjectField(character, "skill");
+        requiredText(skill, "name", 120);
+        requiredText(skill, "description", 1000);
+        String skillType = requiredText(skill, "type", 32);
+        if (!SKILL_TYPES.contains(skillType)) {
+            throw invalid("未知伙伴技能类型：" + skillType);
+        }
+        requiredInt(skill, "amount", 1, 20);
+    }
+
+    private SceneSummary validateScenes(Path expanded) throws IOException {
+        Path path = expanded.resolve("scenes.json");
+        if (!Files.isRegularFile(path)) {
+            return new SceneSummary(Set.of(), Set.of());
+        }
+        JsonNode root = readJson(expanded, "scenes.json", MAX_JSON_BYTES);
+        JsonNode scenes = requiredArray(root, "scenes");
+        Set<String> sceneIds = new HashSet<>();
+        Set<String> assetPaths = new HashSet<>();
+        for (JsonNode scene : scenes) {
+            String sceneId = requiredIdentifier(scene, "sceneId");
+            if (!sceneIds.add(sceneId)) {
+                throw invalid("场景 ID 重复：" + sceneId);
+            }
+            requiredText(scene, "name", 120);
+            String background = requiredText(scene, "background", 512);
+            if (!background.startsWith("assets/")) {
+                throw invalid("场景背景必须引用包内 assets/ 资源");
+            }
+            assetPaths.add(background);
+            if (scene.has("battleTheme")) {
+                requiredText(scene, "battleTheme", 32);
+            }
+            if (scene.has("ambientKey")) {
+                requiredText(scene, "ambientKey", 64);
+            }
+        }
+        return new SceneSummary(sceneIds, assetPaths);
     }
 
     private List<ContentPackageDtos.AssetView> validateAssets(
@@ -1021,6 +1163,14 @@ public class ContentPackageValidator {
     private record EncounterSummary(Set<String> encounterIds) {
     }
 
-    private record CharacterSummary(int count, Set<String> assetPaths) {
+    private record CharacterSummary(
+            Set<String> characterKeys,
+            Set<String> costumeIds,
+            Set<String> assetPaths) {
+    }
+
+    private record SceneSummary(
+            Set<String> sceneIds,
+            Set<String> assetPaths) {
     }
 }

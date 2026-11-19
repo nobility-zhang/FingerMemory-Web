@@ -62,6 +62,13 @@ public class AdventureController {
         return adventureService.listUnlockedCompanions(principal.id());
     }
 
+    @GetMapping("/companions/definitions")
+    public List<AdventureDtos.Character> companionDefinitions(
+            Authentication authentication) {
+        FmUserPrincipal principal = CurrentUser.require(authentication);
+        return adventureService.listCompanionDefinitions(principal.id());
+    }
+
     @GetMapping("/recollections")
     public List<AdventureDtos.Recollection> recollections(
             Authentication authentication,

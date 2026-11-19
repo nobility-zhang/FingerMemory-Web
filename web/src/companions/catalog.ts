@@ -42,14 +42,14 @@ export type CompanionExpression = (typeof companionExpressions)[number];
 
 export const companionIds = ['lia', 'serin', 'fina'] as const;
 
-export type CompanionId = (typeof companionIds)[number];
+export type CompanionId = string;
 
 export const companionCostumeIds = [
   'summer-travel',
   'beach-swimwear',
 ] as const;
 
-export type CompanionCostumeId = (typeof companionCostumeIds)[number];
+export type CompanionCostumeId = string;
 export type CompanionPortraitSet = Record<CompanionExpression, string>;
 
 export interface CompanionDialogue {
@@ -62,12 +62,22 @@ export interface CompanionDialogue {
 }
 
 export interface CompanionProfile {
-  id: CompanionId;
+  id: string;
   name: string;
   epithet: string;
+  age?: number;
+  description?: string;
+  source?: 'built-in' | 'content-package';
+  defaultCostumeId?: string;
   portraits: CompanionPortraitSet;
   costumes: Partial<Record<CompanionCostumeId, CompanionPortraitSet>>;
   dialogue: CompanionDialogue;
+  skill?: {
+    name: string;
+    description: string;
+    type: 'heal' | 'block' | 'draw' | 'damage';
+    amount: number;
+  };
 }
 
 const liaTravelPortraits: CompanionPortraitSet = {
@@ -119,6 +129,9 @@ export const lia: CompanionProfile = {
   id: 'lia',
   name: '莉娅',
   epithet: '暖灯旅店的看板娘',
+  age: 15,
+  source: 'built-in',
+  defaultCostumeId: 'summer-travel',
   portraits: liaTravelPortraits,
   costumes: {
     'summer-travel': liaTravelPortraits,
@@ -132,12 +145,21 @@ export const lia: CompanionProfile = {
     practice: '看过提示或答案也没关系，这段会诚实记作练习，不会打乱你的正式笔记。',
     result: '这些已经收好了。接下来的路，我陪你慢慢走。',
   },
+  skill: {
+    name: '暖灯照料',
+    description: '回复 6 点生命',
+    type: 'heal',
+    amount: 6,
+  },
 };
 
 export const serin: CompanionProfile = {
   id: 'serin',
   name: '瑟琳',
   epithet: '古树契约的旅行祭司',
+  age: 14,
+  source: 'built-in',
+  defaultCostumeId: 'summer-travel',
   portraits: serinTravelPortraits,
   costumes: {
     'summer-travel': serinTravelPortraits,
@@ -151,12 +173,21 @@ export const serin: CompanionProfile = {
     practice: '这次已经看见了答案，就把它当作熟悉路标，而不是正式回想。',
     result: '路标重新亮起来了。你刚才记下的东西，已经让下一页有了方向。',
   },
+  skill: {
+    name: '古树守护',
+    description: '获得 8 点格挡',
+    type: 'block',
+    amount: 8,
+  },
 };
 
 export const fina: CompanionProfile = {
   id: 'fina',
   name: '菲妮',
   epithet: '罗盘与远路的绘图师',
+  age: 16,
+  source: 'built-in',
+  defaultCostumeId: 'summer-travel',
   portraits: finaTravelPortraits,
   costumes: {
     'summer-travel': finaTravelPortraits,
@@ -169,11 +200,17 @@ export const fina: CompanionProfile = {
     practice: '看过答案就算熟悉路线，不算闭着眼走完。',
     result: '路找对了。把这一页收好，下一段我来带路。',
   },
+  skill: {
+    name: '罗盘引路',
+    description: '抽 2 张牌',
+    type: 'draw',
+    amount: 2,
+  },
 };
 
 export const companions: readonly CompanionProfile[] = [lia, serin, fina];
 
-export const companionById: Record<CompanionId, CompanionProfile> = {
+export const companionById: Record<string, CompanionProfile> = {
   lia,
   serin,
   fina,

@@ -185,6 +185,7 @@ describe('AdventureJourney', () => {
         speaker: '莉娅',
         text: '潮水拍过旧石阶。',
         encounterId: 'tide-guardian',
+        encounterName: '潮汐守卫',
         sceneId: 'coast-tidepools',
         costumeId: 'beach-swimwear',
         choices: [],
@@ -289,5 +290,83 @@ describe('AdventureJourney', () => {
     await nextTick();
     buttonByText(camp, '菲妮').click();
     expect(selectCompanion).toHaveBeenCalledWith('fina');
+  });
+
+  it('renders a package character, costume and scene without a built-in branch', async () => {
+    const portraits = Object.fromEntries(
+      ['neutral', 'welcome', 'cheer', 'concern', 'relief', 'surprise']
+        .map((expression) => [
+          expression,
+          `assets/characters/nora/wind-courier/${expression}.png`,
+        ]),
+    );
+    const root = mountJourney(run({
+      title: '风车邮路',
+      bookId: 'windmill-post',
+      installationId: 'installation-windmill',
+      companionKey: 'lia',
+      unlockedCharacters: ['lia', 'serin', 'nora'],
+      characters: [{
+        characterKey: 'nora',
+        installationId: 'installation-windmill',
+        name: '诺拉',
+        epithet: '逆风邮路的年轻信使',
+        description: '熟悉每一阵会改变路标方向的风。',
+        age: 15,
+        defaultCostumeId: 'wind-courier',
+        costumes: {
+          'wind-courier': portraits,
+        },
+        dialogue: {
+          welcome: '风向正好。',
+          again: '下一次再送。',
+          rest: '邮站会等到明天。',
+          training: '先看路标，再迈步。',
+          practice: '这次算熟悉路线。',
+          result: '信送到了。',
+        },
+        skill: {
+          name: '顺风投递',
+          description: '对首个敌人造成 6 点伤害。',
+          type: 'damage',
+          amount: 6,
+        },
+      }],
+      scenes: [{
+        sceneId: 'windmill-road',
+        name: '风车邮路',
+        background: 'assets/scenes/windmill-road.jpg',
+        battleTheme: 'bridge',
+      }],
+      currentNode: {
+        nodeId: 'windmill.meet',
+        chapterId: 'windmill-post-chapter',
+        type: 'dialogue',
+        title: '路中央的信使',
+        speaker: '诺拉',
+        portraitCharacterId: 'nora',
+        costumeId: 'wind-courier',
+        sceneId: 'windmill-road',
+        text: '深青短发的信使从麦田边跑来。',
+        choices: [],
+      },
+    }));
+    await nextTick();
+
+    const scene = root.querySelector<HTMLElement>('.adventure-journey');
+    expect(scene?.dataset.sceneId).toBe('windmill-road');
+    expect(scene?.dataset.costumeId).toBe('wind-courier');
+    expect(scene?.style.getPropertyValue('--scene-background')).toContain(
+      '/api/v1/content-packages/installation-windmill/assets/'
+        + 'assets/scenes/windmill-road.jpg',
+    );
+    const portrait = root.querySelector<HTMLElement>(
+      '[data-companion="nora"]',
+    );
+    expect(portrait?.dataset.costumeId).toBe('wind-courier');
+    expect(portrait?.querySelector('img')?.getAttribute('src')).toContain(
+      'assets/characters/nora/wind-courier/cheer.png',
+    );
+    expect(root.textContent).toContain('诺拉');
   });
 });

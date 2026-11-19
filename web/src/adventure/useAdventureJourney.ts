@@ -40,7 +40,7 @@ export interface AdventureJourney {
   notice: Ref<string | null>;
   start(input: {
     installationId: string;
-    companionKey: 'lia' | 'serin' | 'fina';
+    companionKey: string;
     reduceMotion: boolean;
   }): Promise<boolean>;
   resume(runId: string): Promise<boolean>;
@@ -51,7 +51,7 @@ export interface AdventureJourney {
   startEncounter(): Promise<void>;
   resolveEncounter(): Promise<void>;
   claimReward(choiceId: string): Promise<void>;
-  selectCompanion(companionKey: 'lia' | 'serin' | 'fina'): Promise<void>;
+  selectCompanion(companionKey: string): Promise<void>;
   completeChapter(): Promise<void>;
   reset(): void;
   dispose(): void;
@@ -96,7 +96,7 @@ export function useAdventureJourney({
 
   async function start(input: {
     installationId: string;
-    companionKey: 'lia' | 'serin' | 'fina';
+    companionKey: string;
     reduceMotion: boolean;
   }): Promise<boolean> {
     const requestGeneration = ++generation;
@@ -206,7 +206,7 @@ export function useAdventureJourney({
       | 'complete',
     choiceId?: string,
     battleId?: string,
-    companionKey?: 'lia' | 'serin' | 'fina',
+    companionKey?: string,
   ): Promise<void> {
     const current = run.value;
     if (current === undefined || busy.value) {
@@ -335,7 +335,7 @@ export function useAdventureJourney({
   }
 
   async function selectCompanion(
-    companionKey: 'lia' | 'serin' | 'fina',
+    companionKey: string,
   ): Promise<void> {
     await submitAction(
       `select-companion:${companionKey}`,

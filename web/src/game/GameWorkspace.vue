@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  computed,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -18,6 +19,8 @@ import {
   type AccountClient,
 } from '../api/client';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
+import { companions as builtInCompanions } from '../companions/catalog';
+import { mergeCompanions } from '../companions/registry';
 import AdventureJourney from '../adventure/AdventureJourney.vue';
 import { useAdventureJourney } from '../adventure/useAdventureJourney';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
@@ -52,12 +55,6 @@ const emit = defineEmits<{
 }>();
 
 const {
-  selectedCompanion,
-  companionDensity,
-  selectCompanion,
-  selectCompanionDensity,
-} = useCompanionPreferences();
-const {
   user,
   initializing,
   authenticating,
@@ -85,6 +82,7 @@ const {
   contentPackages,
   adventures,
   unlockedCompanions,
+  companionDefinitions,
   recollections,
   loading: lobbyLoading,
   error: lobbyError,
@@ -96,6 +94,18 @@ const {
   api: () => props.api,
   describeError: gameErrorMessage,
   timeZone: currentTimeZone,
+});
+const allCompanions = computed(() => mergeCompanions(
+  builtInCompanions,
+  companionDefinitions.value,
+));
+const {
+  selectedCompanion,
+  companionDensity,
+  selectCompanion,
+  selectCompanionDensity,
+} = useCompanionPreferences({
+  profiles: () => allCompanions.value,
 });
 const {
   run: adventureRun,
@@ -124,8 +134,16 @@ const {
 watch(
   unlockedCompanions,
   (available) => {
-    if (!available.includes(selectedCompanion.value.id)) {
-      selectCompanion('lia');
+    const availableProfiles = allCompanions.value.filter(
+      (profile) => available.includes(profile.id),
+    );
+    if (
+      availableProfiles.length > 0
+      && !availableProfiles.some(
+        (profile) => profile.id === selectedCompanion.value.id,
+      )
+    ) {
+      selectCompanion(availableProfiles[0]!.id);
     }
   },
   { immediate: true },
@@ -505,6 +523,7 @@ onBeforeUnmount(() => {
     <InnLobby
       v-else-if="phase === 'lobby' && user"
       :companion="selectedCompanion"
+      :companion-options="allCompanions"
       :user="user"
       :plan="plan"
       :lexicons-count="lexicons.length"
@@ -535,6 +554,7 @@ onBeforeUnmount(() => {
       :run="adventureRun"
       :session="adventureSession"
       :companion="selectedCompanion"
+      :companion-options="allCompanions"
       :loading="adventureLoading"
       :busy="adventureBusy"
       :error="adventureError"

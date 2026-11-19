@@ -14,6 +14,8 @@ public class BattleStateValidator {
             "victory", "defeat");
     private static final Set<String> INTENT_TYPES = Set.of(
             "attack", "defend");
+    private static final Set<String> SKILL_TYPES = Set.of(
+            "heal", "block", "draw", "damage");
 
     public void validate(BattleState state) {
         if (state == null
@@ -79,8 +81,22 @@ public class BattleStateValidator {
             }
         }
         if (state.companion() == null
-                || !BattleCatalog.COMPANIONS.contains(state.companion().key())) {
+                || state.companion().key() == null
+                || state.companion().key().isBlank()) {
             throw JsonSupport.validation("伙伴技能状态无效");
+        }
+        if (state.companion().skillType() == null) {
+            if (!BattleCatalog.COMPANIONS.contains(state.companion().key())) {
+                throw JsonSupport.validation("伙伴技能状态无效");
+            }
+        } else {
+            if (!SKILL_TYPES.contains(state.companion().skillType())
+                    || state.companion().skillAmount() < 1
+                    || state.companion().skillAmount() > 20
+                    || state.companion().skillName() == null
+                    || state.companion().skillName().isBlank()) {
+                throw JsonSupport.validation("伙伴技能配置无效");
+            }
         }
         boolean terminalPhase = "victory".equals(state.phase())
                 || "defeat".equals(state.phase());

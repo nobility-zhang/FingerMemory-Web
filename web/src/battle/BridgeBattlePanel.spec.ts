@@ -330,7 +330,7 @@ describe('BridgeBattlePanel', () => {
           targetId: 'bridge-guardian',
         }),
       );
-      expect(buttonByText(root, '协助').disabled).toBe(false);
+      expect(buttonByText(root, '暖灯照料').disabled).toBe(false);
       expect(root.querySelector('[data-shortcut-context="card-select"]')).not.toBeNull();
     });
 
@@ -345,7 +345,7 @@ describe('BridgeBattlePanel', () => {
     });
 
     await nextTick();
-    buttonByText(root, '协助').click();
+    buttonByText(root, '暖灯照料').click();
     await vi.waitFor(() => {
       expect(api.useBattleCompanionSkill).toHaveBeenCalled();
     });
@@ -436,7 +436,7 @@ describe('BridgeBattlePanel', () => {
 
     await vi.waitFor(() => {
       expect(getBattle).toHaveBeenCalledWith('battle-adventure');
-      expect(root.textContent).toContain('溪桥的路标重新亮了起来');
+      expect(root.textContent).toContain('桥雾守卫已被击败');
     });
     expect(createBattle).not.toHaveBeenCalled();
     buttonByText(root, '继续剧情').click();

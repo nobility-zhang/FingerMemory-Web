@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
@@ -30,6 +31,8 @@ import tools.jackson.databind.ObjectMapper;
 public class AdventureService {
     private static final Pattern ACTION_ID =
             Pattern.compile("^[A-Za-z0-9_.:-]{3,128}$");
+    private static final Set<String> BUILTIN_COMPANIONS =
+            Set.of("lia", "serin", "fina");
     private static final long TUTORIAL_BATTLE_SEED = 42L;
 
     private final AdventureMapper adventureMapper;
@@ -79,7 +82,7 @@ public class AdventureService {
                         request.installationId());
         AdventurePackageReader.AdventurePackage content =
                 packageReader.read(installed.root());
-        requireCompanionAvailable(ownerId, request.companionKey());
+        requireCompanionAvailable(ownerId, request.companionKey(), content);
         String fingerprint = fingerprint(
                 "start",
                 request.installationId(),
@@ -243,10 +246,10 @@ public class AdventureService {
                 contentPackageService.installedPackage(
                         ownerId,
                         row.installationId());
-        AdventurePackageReader.AdventureNode node = packageReader
-                .read(installed.root())
-                .nodes()
-                .get(row.currentNodeId());
+        AdventurePackageReader.AdventurePackage content =
+                packageReader.read(installed.root());
+        AdventurePackageReader.AdventureNode node =
+                content.nodes().get(row.currentNodeId());
         if (node == null
                 || !"encounter".equals(node.type())
                 || node.encounterId() == null) {
@@ -270,7 +273,19 @@ public class AdventureService {
                         + row.currentNodeId() + ":" + actionId)
                         .getBytes(StandardCharsets.UTF_8))
                 .toString();
-        BattleDtos.BattleEnvelope battle = battleService.create(
+        AdventurePackageReader.AdventureCharacter character =
+                BUILTIN_COMPANIONS.contains(row.companionKey())
+                        ? null
+                        : content.characters().get(row.companionKey());
+        BattleEngine.CompanionSkillDefinition companionSkill =
+                character == null || character.skill() == null
+                        ? null
+                        : new BattleEngine.CompanionSkillDefinition(
+                                character.skill().name(),
+                                character.skill().description(),
+                                character.skill().type(),
+                                character.skill().amount());
+        BattleDtos.BattleEnvelope battle = battleService.createAdventure(
                 ownerId,
                 battleCreateActionId,
                 new BattleDtos.CreateBattleRequest(
@@ -281,7 +296,8 @@ public class AdventureService {
                         row.companionKey(),
                         TUTORIAL_BATTLE_SEED,
                         false,
-                        readDeck(row.deckJson())));
+                        readDeck(row.deckJson())),
+                companionSkill);
         long now = clock.instant().toEpochMilli();
         if (adventureMapper.bindBattle(
                 ownerId,
@@ -388,7 +404,7 @@ public class AdventureService {
                             "ADVENTURE_COMPANION_SWITCH_UNAVAILABLE",
                             "只能在营地切换带队伙伴");
                 }
-                requireCompanionAvailable(ownerId, request.companionKey());
+                requireCompanionAvailable(ownerId, request.companionKey(), content);
                 nextNodeId = node.nodeId();
                 selectedCompanion = request.companionKey();
                 battleId = null;
@@ -564,6 +580,25 @@ public class AdventureService {
         return List.copyOf(unlocked);
     }
 
+    public List<AdventureDtos.Character> listCompanionDefinitions(String ownerId) {
+        List<String> unlocked = listUnlockedCompanions(ownerId);
+        Map<String, AdventureDtos.Character> characters = new HashMap<>();
+        for (var installation : contentPackageService.listOwned(ownerId, 100)) {
+            ContentPackageService.InstalledPackage installed =
+                    contentPackageService.installedPackage(ownerId, installation.id());
+            for (AdventurePackageReader.AdventureCharacter character
+                    : packageReader.read(installed.root()).characters().values()) {
+                if (!BUILTIN_COMPANIONS.contains(character.characterKey())
+                        && unlocked.contains(character.characterKey())) {
+                    characters.putIfAbsent(
+                            character.characterKey(),
+                            toCharacterView(installation.id(), character));
+                }
+            }
+        }
+        return List.copyOf(characters.values());
+    }
+
     public List<AdventureDtos.Recollection> listRecollections(
             String ownerId,
             int limit) {
@@ -673,11 +708,24 @@ public class AdventureService {
         return deck;
     }
 
-    private void requireCompanionAvailable(String ownerId, String companionKey) {
+    private void requireCompanionAvailable(
+            String ownerId,
+            String companionKey,
+            AdventurePackageReader.AdventurePackage content) {
         if ("lia".equals(companionKey) || "serin".equals(companionKey)) {
             return;
         }
-        if (!"fina".equals(companionKey)
+        if ("fina".equals(companionKey)) {
+            if (progressMapper.hasCharacter(ownerId, companionKey) > 0) {
+                return;
+            }
+            throw conflict(
+                    "ADVENTURE_COMPANION_LOCKED",
+                    "该伙伴尚未在剧情中加入");
+        }
+        AdventurePackageReader.AdventureCharacter character =
+                content.characters().get(companionKey);
+        if (character == null || character.skill() == null
                 || progressMapper.hasCharacter(ownerId, companionKey) == 0) {
             throw conflict(
                     "ADVENTURE_COMPANION_LOCKED",
@@ -796,6 +844,17 @@ public class AdventureService {
                         pendingReward.offerId(),
                         pendingReward.nodeId(),
                         readRewardChoices(pendingReward.candidatesJson()));
+        List<AdventureDtos.Character> characters = content.characters().values().stream()
+                .map(character -> toCharacterView(installation.id(), character))
+                .toList();
+        List<AdventureDtos.Scene> scenes = content.scenes().values().stream()
+                .map(scene -> new AdventureDtos.Scene(
+                        scene.sceneId(),
+                        scene.name(),
+                        scene.background(),
+                        scene.battleTheme(),
+                        scene.ambientKey()))
+                .toList();
         return new AdventureDtos.Run(
                 row.id(),
                 row.installationId(),
@@ -820,6 +879,8 @@ public class AdventureService {
                         node.portraitCharacterId(),
                         node.sceneId(),
                         node.costumeId(),
+                        node.encounterName(),
+                        node.encounterDescription(),
                         node.choices().stream()
                                 .map(choice -> new AdventureDtos.Choice(
                                         choice.choiceId(),
@@ -827,10 +888,42 @@ public class AdventureService {
                                 .toList()),
                 readDeck(row.deckJson()),
                 listUnlockedCompanions(row.ownerId()),
+                characters,
+                scenes,
                 rewardOffer,
                 readFlags(row.flagsJson()),
                 row.createdAtMs(),
                 row.updatedAtMs());
+    }
+
+    private AdventureDtos.Character toCharacterView(
+            String installationId,
+            AdventurePackageReader.AdventureCharacter character) {
+        AdventurePackageReader.AdventureDialogue dialogue = character.dialogue();
+        AdventurePackageReader.AdventureSkill skill = character.skill();
+        return new AdventureDtos.Character(
+                character.characterKey(),
+                installationId,
+                character.name(),
+                character.epithet(),
+                character.description(),
+                character.age(),
+                character.defaultCostumeId(),
+                character.costumes(),
+                new AdventureDtos.Dialogue(
+                        dialogue.welcome(),
+                        dialogue.again(),
+                        dialogue.rest(),
+                        dialogue.training(),
+                        dialogue.practice(),
+                        dialogue.result()),
+                skill == null
+                        ? null
+                        : new AdventureDtos.Skill(
+                                skill.name(),
+                                skill.description(),
+                                skill.type(),
+                                skill.amount()));
     }
 
     private AdventurePackageReader.AdventureNode requireNode(

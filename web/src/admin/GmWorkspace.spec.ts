@@ -65,6 +65,7 @@ function baseApi(loadCurrentUser: () => Promise<UserView | null>): AccountClient
     actAdventure: vi.fn(),
     listUnlockedCompanions: vi.fn(async () =>
       ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
+    listCompanionDefinitions: vi.fn(async () => []),
     listAdventureRecollections: vi.fn(async () => []),
     previewContentPackage: vi.fn(),
     installContentPackage: vi.fn(),

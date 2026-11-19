@@ -40,11 +40,16 @@ public class AdventurePackageReader {
             Map<String, AdventureCard> cards = readCards(root.resolve("cards.json"));
             Map<String, AdventureEncounter> encounters =
                     readEncounters(root.resolve("encounters.json"));
+            Map<String, AdventureCharacter> characters =
+                    readCharacters(root.resolve("characters.json"));
+            Map<String, AdventureScene> scenes = readScenes(root.resolve("scenes.json"));
             return new AdventurePackage(
                     Map.copyOf(nodes),
                     List.copyOf(vocabulary),
                     Map.copyOf(cards),
-                    Map.copyOf(encounters));
+                    Map.copyOf(encounters),
+                    Map.copyOf(characters),
+                    Map.copyOf(scenes));
         } catch (IOException exception) {
             throw new AdventureException(
                     HttpStatus.CONFLICT,
@@ -87,6 +92,8 @@ public class AdventurePackageReader {
                 text(node, "portraitCharacterId", null),
                 text(node, "sceneId", null),
                 text(node, "costumeId", null),
+                text(node, "encounterName", null),
+                text(node, "encounterDescription", null),
                 List.copyOf(choices));
     }
 
@@ -124,6 +131,83 @@ public class AdventurePackageReader {
         return encounters;
     }
 
+    private Map<String, AdventureCharacter> readCharacters(Path path)
+            throws IOException {
+        JsonNode root = readJson(path);
+        Map<String, AdventureCharacter> characters = new LinkedHashMap<>();
+        for (JsonNode character : root.path("characters")) {
+            String characterKey = text(character, "characterKey", "");
+            Map<String, Map<String, String>> costumes = new LinkedHashMap<>();
+            JsonNode costumeNode = character.path("costumes");
+            if (costumeNode.isObject()) {
+                costumeNode.properties().forEach(costume -> {
+                    Map<String, String> portraits = new LinkedHashMap<>();
+                    costume.getValue().properties().forEach(portrait ->
+                            portraits.put(
+                                    portrait.getKey(),
+                                    stringValue(portrait.getValue(), "")));
+                    costumes.put(costume.getKey(), Map.copyOf(portraits));
+                });
+            } else {
+                Map<String, String> portraits = new LinkedHashMap<>();
+                character.path("portraits").properties().forEach(portrait ->
+                        portraits.put(
+                                portrait.getKey(),
+                                stringValue(portrait.getValue(), "")));
+                costumes.put("summer-travel", Map.copyOf(portraits));
+            }
+            JsonNode skill = character.path("skill");
+            AdventureSkill parsedSkill = skill.isObject()
+                    ? new AdventureSkill(
+                            text(skill, "name", "伙伴协助"),
+                            text(skill, "description", ""),
+                            text(skill, "type", "block"),
+                            skill.path("amount").asInt(0))
+                    : null;
+            characters.put(
+                    characterKey,
+                    new AdventureCharacter(
+                            characterKey,
+                            text(character, "name", characterKey),
+                            text(character, "epithet", ""),
+                            text(character, "description", ""),
+                            character.path("age").asInt(0),
+                            text(character, "defaultCostumeId", "summer-travel"),
+                            Map.copyOf(costumes),
+                            readDialogue(character.path("dialogue")),
+                            parsedSkill));
+        }
+        return characters;
+    }
+
+    private AdventureDialogue readDialogue(JsonNode dialogue) {
+        return new AdventureDialogue(
+                text(dialogue, "welcome", ""),
+                text(dialogue, "again", ""),
+                text(dialogue, "rest", ""),
+                text(dialogue, "training", ""),
+                text(dialogue, "practice", ""),
+                text(dialogue, "result", ""));
+    }
+
+    private Map<String, AdventureScene> readScenes(Path path) throws IOException {
+        Map<String, AdventureScene> scenes = new LinkedHashMap<>();
+        if (!Files.isRegularFile(path)) {
+            return scenes;
+        }
+        JsonNode root = readJson(path);
+        for (JsonNode scene : root.path("scenes")) {
+            String sceneId = text(scene, "sceneId", "");
+            scenes.put(sceneId, new AdventureScene(
+                    sceneId,
+                    text(scene, "name", sceneId),
+                    text(scene, "background", ""),
+                    text(scene, "battleTheme", "bridge"),
+                    text(scene, "ambientKey", null)));
+        }
+        return scenes;
+    }
+
     private List<Vocabulary> readVocabulary(Path path) throws IOException {
         List<Vocabulary> rows = new ArrayList<>();
         try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8);
@@ -147,6 +231,10 @@ public class AdventurePackageReader {
 
     private static String text(JsonNode node, String field, String fallback) {
         JsonNode value = node.path(field);
+        return stringValue(value, fallback);
+    }
+
+    private static String stringValue(JsonNode value, String fallback) {
         return value.isString() && !value.stringValue().isBlank()
                 ? value.stringValue()
                 : fallback;
@@ -161,7 +249,9 @@ public class AdventurePackageReader {
             Map<String, AdventureNode> nodes,
             List<Vocabulary> vocabulary,
             Map<String, AdventureCard> cards,
-            Map<String, AdventureEncounter> encounters) {
+            Map<String, AdventureEncounter> encounters,
+            Map<String, AdventureCharacter> characters,
+            Map<String, AdventureScene> scenes) {
     }
 
     public record AdventureNode(
@@ -182,6 +272,8 @@ public class AdventurePackageReader {
             String portraitCharacterId,
             String sceneId,
             String costumeId,
+            String encounterName,
+            String encounterDescription,
             List<AdventureChoice> choices) {
     }
 
@@ -208,5 +300,41 @@ public class AdventurePackageReader {
     public record AdventureEncounter(
             String encounterId,
             List<String> rewardCardIds) {
+    }
+
+    public record AdventureCharacter(
+            String characterKey,
+            String name,
+            String epithet,
+            String description,
+            int age,
+            String defaultCostumeId,
+            Map<String, Map<String, String>> costumes,
+            AdventureDialogue dialogue,
+            AdventureSkill skill) {
+    }
+
+    public record AdventureDialogue(
+            String welcome,
+            String again,
+            String rest,
+            String training,
+            String practice,
+            String result) {
+    }
+
+    public record AdventureSkill(
+            String name,
+            String description,
+            String type,
+            int amount) {
+    }
+
+    public record AdventureScene(
+            String sceneId,
+            String name,
+            String background,
+            String battleTheme,
+            String ambientKey) {
     }
 }

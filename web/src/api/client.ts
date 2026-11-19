@@ -2,6 +2,7 @@ import type {
   AccountBackup,
   AccountClient,
   AdventureActionResult,
+  AdventureCharacterView,
   AdventureEncounterView,
   AdventureRecollectionView,
   AdventureRunView,
@@ -333,7 +334,7 @@ export class AccountApi implements AccountClient {
     encounterId: string;
     sessionId: string;
     studyItemId: string;
-    companionKey: 'lia' | 'serin' | 'fina';
+    companionKey: string;
     seed?: number;
     shuffle?: boolean;
     actionId: string;
@@ -420,7 +421,7 @@ export class AccountApi implements AccountClient {
 
   async startAdventure(input: {
     installationId: string;
-    companionKey: 'lia' | 'serin' | 'fina';
+    companionKey: string;
     reduceMotion: boolean;
     actionId: string;
   }): Promise<AdventureStartResult> {
@@ -444,9 +445,15 @@ export class AccountApi implements AccountClient {
     );
   }
 
-  async listUnlockedCompanions(): Promise<Array<'lia' | 'serin' | 'fina'>> {
-    return this.transport.request<Array<'lia' | 'serin' | 'fina'>>(
+  async listUnlockedCompanions(): Promise<string[]> {
+    return this.transport.request<string[]>(
       '/adventures/companions',
+    );
+  }
+
+  async listCompanionDefinitions(): Promise<AdventureCharacterView[]> {
+    return this.transport.request<AdventureCharacterView[]>(
+      '/adventures/companions/definitions',
     );
   }
 

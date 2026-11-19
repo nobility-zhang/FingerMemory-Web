@@ -17,7 +17,14 @@ public class BattleEngine {
     }
 
     public BattleTransition create(CreateBattleCommand command) {
-        if (!BattleCatalog.COMPANIONS.contains(command.companionKey())) {
+        BattleCatalog.CompanionSkill companionSkill = command.companionSkill() == null
+                ? BattleCatalog.COMPANION_SKILLS.get(command.companionKey())
+                : new BattleCatalog.CompanionSkill(
+                        command.companionSkill().name(),
+                        command.companionSkill().description(),
+                        command.companionSkill().type(),
+                        command.companionSkill().amount());
+        if (companionSkill == null) {
             throw new BattleRuleException("unsupported companion skill");
         }
         List<String> deckOrder = command.deck() == null
@@ -66,7 +73,13 @@ public class BattleEngine {
                 0,
                 null,
                 learningTask,
-                new BattleState.Companion(command.companionKey(), false));
+                new BattleState.Companion(
+                        command.companionKey(),
+                        false,
+                        companionSkill.name(),
+                        companionSkill.description(),
+                        companionSkill.type(),
+                        companionSkill.amount()));
         List<ObjectNode> events = new ArrayList<>();
         ObjectNode started = event("battle-started");
         started.put("turnId", 1);
@@ -271,9 +284,12 @@ public class BattleEngine {
         DrawResult draw = new DrawResult(
                 state.drawPile(), state.drawCursor(), state.discardPile(), state.rngState(),
                 state.hand(), List.of());
-        switch (state.companion().key()) {
-            case "lia" -> {
-                int healed = Math.min(6, party.maxHp() - party.hp());
+        BattleCatalog.CompanionSkill skill = resolveCompanionSkill(state);
+        switch (skill.type()) {
+            case "heal" -> {
+                int healed = Math.min(
+                        skill.amount(),
+                        party.maxHp() - party.hp());
                 party = new BattleState.Party(party.hp() + healed, party.maxHp(), party.block());
                 ObjectNode event = event("healed");
                 event.put("targetId", "party");
@@ -281,25 +297,75 @@ public class BattleEngine {
                 event.put("totalHp", party.hp());
                 events.add(event);
             }
-            case "serin" -> {
-                party = new BattleState.Party(party.hp(), party.maxHp(), party.block() + 8);
+            case "block" -> {
+                party = new BattleState.Party(
+                        party.hp(),
+                        party.maxHp(),
+                        party.block() + skill.amount());
                 ObjectNode event = event("block-gained");
                 event.put("targetId", "party");
-                event.put("amount", 8);
+                event.put("amount", skill.amount());
                 event.put("totalBlock", party.block());
                 events.add(event);
             }
-            case "fina" -> {
-                draw = drawCards(state, 2);
+            case "draw" -> {
+                draw = drawCards(state, skill.amount());
                 events.addAll(draw.events());
+            }
+            case "damage" -> {
+                BattleState.Enemy target = state.enemies().stream()
+                        .filter(enemy -> enemy.hp() > 0)
+                        .findFirst()
+                        .orElseThrow(() ->
+                                new BattleRuleException("no living enemy target"));
+                DamageResult damaged = damageEnemy(target, skill.amount());
+                List<BattleState.Enemy> enemies = new ArrayList<>(state.enemies());
+                replaceEnemy(enemies, damaged.enemy());
+                events.add(damaged.event("companion"));
+                BattleState next = copy(
+                        state,
+                        state.stateVersion() + 1,
+                        party,
+                        enemies,
+                        state.energy(),
+                        draw.drawPile(),
+                        draw.drawCursor(),
+                        draw.hand(),
+                        state.discardPile(),
+                        state.exhaustPile(),
+                        state.phase(),
+                        state.learningTask(),
+                        new BattleState.Companion(
+                                state.companion().key(),
+                                true,
+                                skill.name(),
+                                skill.description(),
+                                skill.type(),
+                                skill.amount()));
+                next = applyTerminal(next, events);
+                ObjectNode used = event("companion-skill-used");
+                used.put("companionKey", state.companion().key());
+                used.put("skillName", skill.name());
+                used.put("skillType", skill.type());
+                used.put("amount", skill.amount());
+                events.add(0, used);
+                return new BattleTransition(next, List.copyOf(events));
             }
             default -> throw new BattleRuleException("unsupported companion skill");
         }
         ObjectNode used = event("companion-skill-used");
         used.put("companionKey", state.companion().key());
+        used.put("skillName", skill.name());
+        used.put("skillType", skill.type());
+        used.put("amount", skill.amount());
         events.add(0, used);
         BattleState.Companion companion = new BattleState.Companion(
-                state.companion().key(), true);
+                state.companion().key(),
+                true,
+                skill.name(),
+                skill.description(),
+                skill.type(),
+                skill.amount());
         BattleState next = copy(
                 state,
                 state.stateVersion() + 1,
@@ -709,6 +775,23 @@ public class BattleEngine {
         return new ArrayList<>(enemies);
     }
 
+    private BattleCatalog.CompanionSkill resolveCompanionSkill(BattleState state) {
+        if (state.companion().skillType() != null
+                && state.companion().skillAmount() > 0) {
+            return new BattleCatalog.CompanionSkill(
+                    state.companion().skillName(),
+                    state.companion().skillDescription(),
+                    state.companion().skillType(),
+                    state.companion().skillAmount());
+        }
+        BattleCatalog.CompanionSkill fallback =
+                BattleCatalog.COMPANION_SKILLS.get(state.companion().key());
+        if (fallback == null) {
+            throw new BattleRuleException("unsupported companion skill");
+        }
+        return fallback;
+    }
+
     private DamageResult damageEnemy(BattleState.Enemy enemy, int amount) {
         int blocked = Math.min(enemy.block(), amount);
         int hpLoss = Math.min(enemy.hp(), amount - blocked);
@@ -758,7 +841,8 @@ public class BattleEngine {
             String companionKey,
             Long seed,
             boolean shuffle,
-            List<String> deck) {
+            List<String> deck,
+            CompanionSkillDefinition companionSkill) {
 
         public CreateBattleCommand(
                 String battleId,
@@ -778,8 +862,16 @@ public class BattleEngine {
                     companionKey,
                     seed,
                     shuffle,
+                    null,
                     null);
         }
+    }
+
+    public record CompanionSkillDefinition(
+            String name,
+            String description,
+            String type,
+            int amount) {
     }
 
     public record NextLearningTask(

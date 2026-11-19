@@ -19,10 +19,10 @@ function memoryStorage(initial: Record<string, string> = {}): {
 describe('useCompanionPreferences', () => {
   it('loads the selected companion and density from storage', () => {
     const preferences = useCompanionPreferences(
-      memoryStorage({
+      { storage: memoryStorage({
         'fm.companion': 'serin',
         'fm.companionDensity': 'rich',
-      }),
+      }) },
     );
 
     expect(preferences.selectedCompanion.value.id).toBe('serin');
@@ -31,7 +31,7 @@ describe('useCompanionPreferences', () => {
 
   it('updates the current state and persists each explicit choice', () => {
     const storage = memoryStorage();
-    const preferences = useCompanionPreferences(storage);
+    const preferences = useCompanionPreferences({ storage });
 
     preferences.selectCompanion('serin');
     preferences.selectCompanionDensity('quiet');
@@ -44,7 +44,7 @@ describe('useCompanionPreferences', () => {
 
   it('restores Fina once her unlocked preference has been selected', () => {
     const preferences = useCompanionPreferences(
-      memoryStorage({ 'fm.companion': 'fina' }),
+      { storage: memoryStorage({ 'fm.companion': 'fina' }) },
     );
 
     expect(preferences.selectedCompanion.value.id).toBe('fina');
@@ -59,7 +59,7 @@ describe('useCompanionPreferences', () => {
         throw new Error('storage blocked');
       },
     };
-    const preferences = useCompanionPreferences(throwingStorage);
+    const preferences = useCompanionPreferences({ storage: throwingStorage });
 
     preferences.selectCompanion('serin');
     preferences.selectCompanionDensity('rich');

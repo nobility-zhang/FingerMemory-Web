@@ -25,9 +25,9 @@ import type {
   CompanionProfile,
 } from '../companions/catalog';
 import {
-  companionById,
-  companions,
+  companions as builtInCompanions,
 } from '../companions/catalog';
+import { companionsForRun } from '../companions/registry';
 import AdventureAmbientAudio from './AdventureAmbientAudio.vue';
 import { sceneForNode } from './sceneCatalog';
 
@@ -37,6 +37,7 @@ const props = withDefaults(
     run: AdventureRunView;
     session?: SessionEnvelope;
     companion: CompanionProfile;
+    companionOptions?: CompanionProfile[];
     loading: boolean;
     busy: boolean;
     error: string | null;
@@ -47,6 +48,7 @@ const props = withDefaults(
   {
     api: () => accountApi,
     session: undefined,
+    companionOptions: () => [],
     enableAudio: false,
     reduceMotion: false,
   },
@@ -66,18 +68,31 @@ const emit = defineEmits<{
 
 const node = computed(() => props.run.currentNode);
 const fixedHash = computed(() => props.run.contentHash.slice(0, 8));
-const scene = computed(() => sceneForNode(node.value));
-const sceneCostumeId = computed<CompanionCostumeId>(
-  () => node.value.costumeId ?? 'summer-travel',
-);
+const scene = computed(() => sceneForNode(
+  node.value,
+  props.run.scenes ?? [],
+  props.run.installationId,
+));
+const runtimeCompanions = computed(() => companionsForRun(
+  props.run,
+  props.companionOptions.length > 0
+    ? props.companionOptions
+    : builtInCompanions,
+));
 const sceneCompanion = computed(() => {
-  const portraitCharacterId = node.value.portraitCharacterId;
-  return portraitCharacterId === undefined
-    ? companionById[props.run.companionKey]
-    : companionById[portraitCharacterId];
+  const targetId = node.value.portraitCharacterId
+    ?? props.run.companionKey;
+  return runtimeCompanions.value.find((candidate) => candidate.id === targetId)
+    ?? runtimeCompanions.value[0]
+    ?? props.companion;
 });
+const sceneCostumeId = computed<CompanionCostumeId>(
+  () => node.value.costumeId
+    ?? sceneCompanion.value.defaultCostumeId
+    ?? 'summer-travel',
+);
 const availableCompanions = computed(() =>
-  companions.filter((candidate) =>
+  runtimeCompanions.value.filter((candidate) =>
     props.run.unlockedCharacters.includes(candidate.id),
   ),
 );
@@ -128,30 +143,17 @@ const battleReady = computed(
 const battleCompanionKey = computed<CompanionId>(
   () => props.run.companionKey,
 );
-const encounterEnemyName = computed(() => {
-  switch (node.value.encounterId) {
-    case 'clockwork-sentinel':
-      return '钟摆守卫';
-    case 'heartwood-guardian':
-      return '古树守卫';
-    case 'tide-guardian':
-      return '潮汐守卫';
-    default:
-      return '桥雾守卫';
-  }
-});
-const encounterBrief = computed(() => {
-  if (node.value.encounterId === 'tide-guardian') {
-    return '潮汐守卫踏过被海水淹没的石阶。先完成这一轮回忆，再决定攻势。';
-  }
-  if (node.value.encounterId === 'clockwork-sentinel') {
-    return '钟摆守卫沿着齿轮移动。先完成这一轮回忆，再选择出牌。';
-  }
-  if (node.value.encounterId === 'heartwood-guardian') {
-    return '古树守卫守着最后一封信。先完成这一轮回忆，再决定如何前进。';
-  }
-  return '雾中的守卫没有让路。先完成这一轮回忆，再决定如何出牌。';
-});
+const battleCompanion = computed(() =>
+  runtimeCompanions.value.find(
+    (candidate) => candidate.id === battleCompanionKey.value,
+  ) ?? runtimeCompanions.value[0] ?? props.companion,
+);
+const encounterEnemyName = computed(
+  () => node.value.encounterName ?? node.value.title,
+);
+const encounterBrief = computed(
+  () => node.value.encounterDescription ?? node.value.text,
+);
 const primaryLabel = computed(() => {
   if (node.value.type === 'camp') {
     return '在营火旁收好笔记';
@@ -253,6 +255,7 @@ function finishBattle(): void {
         :api="api"
         :session="session!"
         :companion-key="battleCompanionKey"
+        :companion-profile="battleCompanion"
         :companion-costume-id="sceneCostumeId"
         :initial-battle-id="run.battleId"
         :encounter-id="node.encounterId ?? 'bridge-guardian'"
@@ -305,7 +308,10 @@ function finishBattle(): void {
           </div>
 
           <div v-else-if="node.type === 'encounter'" class="encounter-actions">
-            <p>{{ encounterBrief }}</p>
+            <p>
+              <strong>{{ encounterEnemyName }}</strong>
+              {{ encounterBrief }}
+            </p>
             <button
               type="button"
               class="journey-primary"

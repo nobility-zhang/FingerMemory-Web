@@ -28,16 +28,16 @@ import type {
   UserView,
 } from '../api/client';
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
-import {
-  companions,
-  type CompanionId,
-  type CompanionProfile,
+import type {
+  CompanionProfile,
 } from '../companions/catalog';
+import { companions as builtInCompanions } from '../companions/catalog';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 
 const props = withDefaults(
   defineProps<{
     companion: CompanionProfile;
+    companionOptions?: CompanionProfile[];
     companionDensity: 'quiet' | 'standard' | 'rich';
     reduceMotion: boolean;
     user: UserView;
@@ -48,7 +48,7 @@ const props = withDefaults(
     contentPackages: ContentPackageInstallation[];
     adventures: AdventureRunView[];
     recollections?: AdventureRecollectionView[];
-    unlockedCompanionIds?: CompanionId[];
+    unlockedCompanionIds?: string[];
     loading: boolean;
     error: string | null;
   }>(),
@@ -56,6 +56,7 @@ const props = withDefaults(
     plan: undefined,
     activeSession: undefined,
     recollections: () => [],
+    companionOptions: () => [...builtInCompanions],
     unlockedCompanionIds: () => ['lia', 'serin'],
   },
 );
@@ -64,7 +65,7 @@ const emit = defineEmits<{
   start: [];
   resume: [session: SessionEnvelope];
   help: [];
-  'select-companion': [companionId: CompanionId];
+  'select-companion': [companionId: string];
   'select-density': [density: 'quiet' | 'standard' | 'rich'];
   'classic-study': [];
   'start-adventure': [installationId: string];
@@ -75,7 +76,7 @@ const emit = defineEmits<{
 const densities = ['quiet', 'standard', 'rich'] as const;
 const selectedInstallationId = ref('');
 const availableCompanions = computed(() =>
-  companions.filter((candidate) =>
+  props.companionOptions.filter((candidate) =>
     props.unlockedCompanionIds.includes(candidate.id),
   ),
 );
@@ -153,16 +154,6 @@ function startOrResumeAdventure(): void {
   }
 }
 
-function companionRole(companionId: CompanionId): string {
-  switch (companionId) {
-    case 'lia':
-      return '暖灯照料';
-    case 'serin':
-      return '记事与指引';
-    case 'fina':
-      return '罗盘与远路';
-  }
-}
 </script>
 
 <template>
@@ -204,7 +195,7 @@ function companionRole(companionId: CompanionId): string {
           />
           <span>
             <strong>{{ candidate.name }}</strong>
-            <small>{{ companionRole(candidate.id) }}</small>
+            <small>{{ candidate.epithet }}</small>
           </span>
         </button>
       </div>
@@ -275,7 +266,7 @@ function companionRole(companionId: CompanionId): string {
             <Map :size="18" />
           </span>
           <div>
-            <p class="section-label">第一章 · 暖灯与失语之森</p>
+            <p class="section-label">旅店中的词库冒险</p>
             <h2 id="adventure-entry-title">
               {{ selectedPackage?.title ?? '等待一本可冒险的词库' }}
             </h2>
@@ -414,7 +405,7 @@ function companionRole(companionId: CompanionId): string {
     <div class="chapter-footer" aria-label="第一章冒险状态">
       <span class="seal" aria-hidden="true">I</span>
       <div>
-        <strong>暖灯与失语之森</strong>
+        <strong>{{ selectedPackage?.title ?? '旅店冒险' }}</strong>
         <span v-if="activeAdventure">
           固定内容 v{{ activeAdventure.contentVersion }} ·
           {{ activeAdventure.currentNode.title }}

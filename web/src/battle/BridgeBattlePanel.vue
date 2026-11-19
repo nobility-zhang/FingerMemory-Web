@@ -23,9 +23,10 @@ import {
 import CompanionPortrait from '../companions/CompanionPortrait.vue';
 import {
   companionById,
+  companions as builtInCompanions,
   type CompanionExpression,
-  type CompanionId,
   type CompanionCostumeId,
+  type CompanionProfile,
 } from '../companions/catalog';
 import type { AdventureBattleTheme } from '../adventure/sceneCatalog';
 import type { GameSoundKey } from '../game-runtime/soundCatalog';
@@ -67,7 +68,8 @@ const props = withDefaults(
   defineProps<{
     api?: BattleApi;
     session: SessionEnvelope;
-    companionKey?: CompanionId;
+    companionKey?: string;
+    companionProfile?: CompanionProfile;
     companionCostumeId?: CompanionCostumeId;
     initialBattleId?: string;
     encounterId?: string;
@@ -83,6 +85,7 @@ const props = withDefaults(
   {
     api: () => accountApi,
     companionKey: 'lia',
+    companionProfile: undefined,
     companionCostumeId: 'summer-travel',
     initialBattleId: undefined,
     encounterId: 'bridge-guardian',
@@ -182,7 +185,11 @@ const selectedTarget = computed(() => {
   }
   return targets[selectedTargetIndex.value % targets.length];
 });
-const companion = computed(() => companionById[props.companionKey]);
+const companion = computed(() => (
+  props.companionProfile
+  ?? companionById[props.companionKey]
+  ?? builtInCompanions[0]!
+));
 const companionExpression = computed<CompanionExpression>(() => {
   if (battle.value?.battle.phase === 'victory') {
     return 'cheer';
@@ -195,6 +202,16 @@ const companionExpression = computed<CompanionExpression>(() => {
   }
   return 'relief';
 });
+const companionSkillName = computed(
+  () => battle.value?.battle.companion?.skillName
+    ?? companion.value.skill?.name
+    ?? '协助',
+);
+const companionSkillDescription = computed(
+  () => battle.value?.battle.companion?.skillDescription
+    ?? companion.value.skill?.description
+    ?? '伙伴将在本场战斗中协助一次。',
+);
 const phaseLabel = computed(() => {
   switch (battle.value?.battle.phase) {
     case 'learning':
@@ -202,7 +219,7 @@ const phaseLabel = computed(() => {
     case 'player-action':
       return '玩家行动';
     case 'victory':
-      return props.battleTheme === 'coast' ? '潮声平息' : '迷雾散去';
+      return '战斗胜利';
     case 'defeat':
       return '需要救援';
     default:
@@ -1034,7 +1051,7 @@ onBeforeUnmount(() => {
             <strong data-field="intent">{{ intentText(battle.battle) }}</strong>
           </div>
           <div>
-            <span>守卫生命</span>
+            <span>敌方生命</span>
             <strong data-field="enemy-hp">
               {{ currentEnemy?.hp ?? 0 }}/{{ currentEnemy?.maxHp ?? 0 }}
             </strong>
@@ -1095,9 +1112,12 @@ onBeforeUnmount(() => {
             <button
               type="button"
               :disabled="busy || battle.battle.companion?.skillUsed === true"
+              :title="companionSkillDescription"
               @click="useCompanionSkill"
             >
-              {{ battle.battle.companion?.skillUsed ? '协助已使用' : `${companion.name}协助` }}
+              {{ battle.battle.companion?.skillUsed
+                ? '协助已使用'
+                : `${companion.name} · ${companionSkillName}` }}
             </button>
           </div>
           <div class="hand-grid" aria-label="手牌">
@@ -1152,14 +1172,12 @@ onBeforeUnmount(() => {
         <section v-else class="battle-result">
           <p class="section-label">
             {{ battle.battle.phase === 'victory'
-              ? (battleTheme === 'coast' ? '潮汐退去' : '桥面重见天日')
+              ? '战斗结算'
               : '救援信号' }}
           </p>
           <h4>
             {{ battle.battle.phase === 'victory'
-              ? (battleTheme === 'coast'
-                ? `${enemyName}让开了路`
-                : '溪桥的路标重新亮了起来')
+              ? `${enemyName}已被击败`
               : '伙伴会把你带回营地' }}
           </h4>
           <p>

@@ -1,6 +1,7 @@
 package com.fingermemory.server.battle;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
@@ -76,6 +77,38 @@ class BattleEngineTest {
         assertThatThrownBy(() -> engine.endTurn(skilled.state(), 2, null))
                 .isInstanceOf(BattleEngine.BattleRuleException.class)
                 .hasMessage("next learning task is required");
+    }
+
+    @Test
+    void appliesAnAuthoredDamageSkillForAContentPackageCompanion() {
+        BattleTransition created = engine.create(new BattleEngine.CreateBattleCommand(
+                "battle-nora",
+                "gust-guardian",
+                "task-nora",
+                "session-nora",
+                "study-nora",
+                "nora",
+                11L,
+                false,
+                null,
+                new BattleEngine.CompanionSkillDefinition(
+                        "顺风投递",
+                        "对首个敌人造成 6 点伤害",
+                        "damage",
+                        6)));
+        BattleTransition claimed = engine.claimLearning(
+                created.state(), 0, "review-nora");
+        BattleTransition skilled = engine.useCompanionSkill(
+                claimed.state(), 1);
+
+        assertThat(skilled.state().companion().skillName())
+                .isEqualTo("顺风投递");
+        assertThat(skilled.state().enemies().get(0).hp()).isEqualTo(30);
+        assertThatCode(() -> new BattleStateValidator().validate(skilled.state()))
+                .doesNotThrowAnyException();
+        assertThat(skilled.events())
+                .extracting(node -> node.path("type").asText())
+                .contains("companion-skill-used", "damage");
     }
 
     @Test

@@ -1,4 +1,7 @@
-import type { AdventureNodeView } from '../api/contracts';
+import type {
+  AdventureNodeView,
+  AdventureSceneView,
+} from '../api/contracts';
 import campBackground from '../assets/scenes/camp/runtime/camp-fire.jpg';
 import bridgeBackground from '../assets/scenes/bridge/runtime/bridge-guardian.jpg';
 import coastBeachBackground from '../assets/scenes/coast/runtime/coast-beach.jpg';
@@ -7,17 +10,11 @@ import coastTidepoolsBackground from '../assets/scenes/coast/runtime/coast-tidep
 import forestBackground from '../assets/scenes/forest/runtime/forest-path.jpg';
 import innBackground from '../assets/scenes/inn/runtime/inn-warm-lantern.jpg';
 import type { GameSoundKey } from '../game-runtime/soundCatalog';
+import { contentAssetUrl } from '../companions/registry';
 
-export type AdventureSceneId =
-  | 'inn-warm-lantern'
-  | 'forest-path'
-  | 'bridge-guardian'
-  | 'camp-fire'
-  | 'coast-beach'
-  | 'coast-tidepools'
-  | 'coast-lighthouse';
+export type AdventureSceneId = string;
 
-export type AdventureBattleTheme = 'bridge' | 'coast';
+export type AdventureBattleTheme = string;
 
 export interface AdventureScene {
   id: AdventureSceneId;
@@ -75,19 +72,35 @@ const SCENES: Record<AdventureSceneId, AdventureScene> = {
   },
 };
 
-export function sceneForNode(node: AdventureNodeView): AdventureScene {
+export function sceneForNode(
+  node: AdventureNodeView,
+  authoredScenes: readonly AdventureSceneView[] = [],
+  installationId?: string,
+): AdventureScene {
   const sceneId = node.sceneId;
+  const authored = authoredScenes.find((scene) => scene.sceneId === sceneId);
+  if (authored !== undefined) {
+    return {
+      id: authored.sceneId,
+      label: authored.name,
+      background: installationId === undefined
+        ? authored.background
+        : contentAssetUrl(installationId, authored.background),
+      battleTheme: authored.battleTheme,
+      ambientKey: authored.ambientKey as GameSoundKey | undefined,
+    };
+  }
   if (sceneId !== undefined && sceneId in SCENES) {
-    return SCENES[sceneId];
+    return SCENES[sceneId]!;
   }
   if (node.nodeId.startsWith('inn.')) {
-    return SCENES['inn-warm-lantern'];
+    return SCENES['inn-warm-lantern']!;
   }
   if (node.type === 'encounter') {
-    return SCENES['bridge-guardian'];
+    return SCENES['bridge-guardian']!;
   }
   if (node.type === 'camp' || node.type === 'chapter-end') {
-    return SCENES['camp-fire'];
+    return SCENES['camp-fire']!;
   }
-  return SCENES['forest-path'];
+  return SCENES['forest-path']!;
 }

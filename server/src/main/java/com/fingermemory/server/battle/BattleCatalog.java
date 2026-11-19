@@ -47,7 +47,11 @@ final class BattleCatalog {
                     "party-strike", "旅团合击", 2, "enemy", false,
                     List.of(new CardEffect("damage", 10, 0, 0))));
 
-    static final Set<String> COMPANIONS = Set.of("lia", "serin", "fina");
+    static final Map<String, CompanionSkill> COMPANION_SKILLS = Map.of(
+            "lia", new CompanionSkill("暖灯照料", "回复 6 点生命", "heal", 6),
+            "serin", new CompanionSkill("古树守护", "获得 8 点格挡", "block", 8),
+            "fina", new CompanionSkill("罗盘引路", "抽 2 张牌", "draw", 2));
+    static final Set<String> COMPANIONS = COMPANION_SKILLS.keySet();
 
     private BattleCatalog() {
     }
@@ -66,5 +70,12 @@ final class BattleCatalog {
             int amount,
             int remainingTurns,
             int damagePerTurn) {
+    }
+
+    record CompanionSkill(
+            String name,
+            String description,
+            String type,
+            int amount) {
     }
 }

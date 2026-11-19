@@ -302,6 +302,9 @@ describe('AccountApi', () => {
       if (String(url).endsWith('/adventures/companions')) {
         return jsonResponse(['lia', 'serin', 'fina']);
       }
+      if (String(url).endsWith('/adventures/companions/definitions')) {
+        return jsonResponse([]);
+      }
       if (String(url).includes('/adventures/recollections?')) {
         return jsonResponse([]);
       }
@@ -314,6 +317,7 @@ describe('AccountApi', () => {
 
     await api.listAdventures();
     await api.listUnlockedCompanions();
+    await api.listCompanionDefinitions();
     await api.listAdventureRecollections();
     await api.startAdventure({
       installationId: 'installation-1',
@@ -345,6 +349,10 @@ describe('AccountApi', () => {
     )).toBe(true);
     expect(calls.some(
       (call) => call.url.endsWith('/adventures/companions')
+        && call.init?.method === 'GET',
+    )).toBe(true);
+    expect(calls.some(
+      (call) => call.url.endsWith('/adventures/companions/definitions')
         && call.init?.method === 'GET',
     )).toBe(true);
     expect(calls.some(

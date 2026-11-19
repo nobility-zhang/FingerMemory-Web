@@ -16,7 +16,7 @@ public final class BattleDtos {
             @NotBlank @Size(max = 64) String encounterId,
             @NotBlank @Size(max = 36) String sessionId,
             @NotBlank @Size(max = 128) String studyItemId,
-            @NotBlank @Pattern(regexp = "^(lia|serin|fina)$") String companionKey,
+            @NotBlank @Size(max = 128) String companionKey,
             Long seed,
             Boolean shuffle,
             List<@NotBlank @Size(max = 64) String> deck) {

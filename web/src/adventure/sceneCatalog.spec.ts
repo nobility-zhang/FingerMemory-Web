@@ -16,6 +16,29 @@ function node(overrides: Partial<AdventureNodeView>): AdventureNodeView {
 }
 
 describe('adventure scene catalog', () => {
+  it('resolves a scene registered by an installed content package', () => {
+    const scene = sceneForNode(
+      node({
+        nodeId: 'windmill.post',
+        sceneId: 'windmill-post',
+      }),
+      [{
+        sceneId: 'windmill-post',
+        name: '逆风邮站',
+        background: 'assets/scenes/windmill-post.jpg',
+        battleTheme: 'bridge',
+      }],
+      'installation-windmill',
+    );
+
+    expect(scene.id).toBe('windmill-post');
+    expect(scene.label).toBe('逆风邮站');
+    expect(scene.background).toBe(
+      '/api/v1/content-packages/installation-windmill/assets/'
+        + 'assets/scenes/windmill-post.jpg',
+    );
+  });
+
   it('resolves authored coast scenes and their ambient track', () => {
     const scene = sceneForNode(node({
       nodeId: 'coast.tidepools',

@@ -111,13 +111,16 @@ function createApi() {
         'companion-guard',
         'party-strike',
       ] as AdventureRunView['deck'],
-      unlockedCharacters: ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>,
+      unlockedCharacters: ['lia', 'serin'],
+      characters: [],
+      scenes: [],
       flags: {},
       createdAtMs: 1,
       updatedAtMs: 2,
     }]),
     listUnlockedCompanions: vi.fn(async () =>
-      ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
+      ['lia', 'serin']),
+    listCompanionDefinitions: vi.fn(async () => []),
     listAdventureRecollections: vi.fn(async () => []),
   } satisfies Pick<
     AccountClient,
@@ -127,6 +130,7 @@ function createApi() {
     | 'listContentPackages'
     | 'listAdventures'
     | 'listUnlockedCompanions'
+    | 'listCompanionDefinitions'
     | 'listAdventureRecollections'
   >;
 }

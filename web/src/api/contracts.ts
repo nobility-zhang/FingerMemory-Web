@@ -242,7 +242,11 @@ export interface BattleStateView {
     submissionId: string | null;
   } | null;
   companion: {
-    key: 'lia' | 'serin' | 'fina';
+    key: string;
+    skillName?: string;
+    skillDescription?: string;
+    skillType?: 'heal' | 'block' | 'draw' | 'damage';
+    skillAmount?: number;
     skillUsed: boolean;
   } | null;
 }
@@ -266,17 +270,45 @@ export interface AdventureNodeView {
   speaker: string;
   text: string;
   encounterId?: string;
-  portraitCharacterId?: 'lia' | 'serin' | 'fina';
-  sceneId?:
-    | 'inn-warm-lantern'
-    | 'forest-path'
-    | 'bridge-guardian'
-    | 'camp-fire'
-    | 'coast-beach'
-    | 'coast-tidepools'
-    | 'coast-lighthouse';
-  costumeId?: 'summer-travel' | 'beach-swimwear';
+  portraitCharacterId?: string;
+  sceneId?: string;
+  costumeId?: string;
+  encounterName?: string;
+  encounterDescription?: string;
   choices: AdventureChoiceView[];
+}
+
+export interface AdventureCharacterView {
+  characterKey: string;
+  installationId: string;
+  name: string;
+  epithet: string;
+  description: string;
+  age: number;
+  defaultCostumeId: string;
+  costumes: Record<string, Record<string, string>>;
+  dialogue: {
+    welcome: string;
+    again: string;
+    rest: string;
+    training: string;
+    practice: string;
+    result: string;
+  };
+  skill: {
+    name: string;
+    description: string;
+    type: 'heal' | 'block' | 'draw' | 'damage';
+    amount: number;
+  } | null;
+}
+
+export interface AdventureSceneView {
+  sceneId: string;
+  name: string;
+  background: string;
+  battleTheme: string;
+  ambientKey?: string;
 }
 
 export interface AdventureRewardChoiceView {
@@ -306,14 +338,16 @@ export interface AdventureRunView {
   contentVersion: string;
   contentHash: string;
   title: string;
-  companionKey: 'lia' | 'serin' | 'fina';
+  companionKey: string;
   status: 'active' | 'completed';
   runVersion: number;
   sessionId: string;
   battleId?: string;
   currentNode: AdventureNodeView;
   deck: Array<AdventureRewardChoiceView['cardDefinitionId']>;
-  unlockedCharacters: Array<'lia' | 'serin' | 'fina'>;
+  unlockedCharacters: string[];
+  characters?: AdventureCharacterView[];
+  scenes?: AdventureSceneView[];
   rewardOffer?: AdventureRewardOfferView;
   flags: Record<string, boolean>;
   createdAtMs: number;
@@ -654,7 +688,7 @@ export interface AccountClient {
     encounterId: string;
     sessionId: string;
     studyItemId: string;
-    companionKey: 'lia' | 'serin' | 'fina';
+    companionKey: string;
     seed?: number;
     shuffle?: boolean;
     actionId: string;
@@ -688,12 +722,13 @@ export interface AccountClient {
   listAdventures(limit?: number): Promise<AdventureRunView[]>;
   startAdventure(input: {
     installationId: string;
-    companionKey: 'lia' | 'serin' | 'fina';
+    companionKey: string;
     reduceMotion: boolean;
     actionId: string;
   }): Promise<AdventureStartResult>;
   getAdventure(runId: string): Promise<AdventureRunView>;
-  listUnlockedCompanions(): Promise<Array<'lia' | 'serin' | 'fina'>>;
+  listUnlockedCompanions(): Promise<string[]>;
+  listCompanionDefinitions(): Promise<AdventureCharacterView[]>;
   listAdventureRecollections(
     limit?: number,
   ): Promise<AdventureRecollectionView[]>;
@@ -715,7 +750,7 @@ export interface AccountClient {
         | 'complete';
       choiceId?: string;
       battleId?: string;
-      companionKey?: 'lia' | 'serin' | 'fina';
+      companionKey?: string;
     },
   ): Promise<AdventureActionResult>;
   previewContentPackage(file: File): Promise<ContentPackagePreview>;

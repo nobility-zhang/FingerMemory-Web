@@ -109,6 +109,7 @@ describe('AccountWorkspace', () => {
       actAdventure: vi.fn(),
       listUnlockedCompanions: vi.fn(async () =>
         ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
+      listCompanionDefinitions: vi.fn(async () => []),
       listAdventureRecollections: vi.fn(async () => []),
       previewContentPackage: vi.fn(),
       installContentPackage: vi.fn(),
@@ -309,6 +310,7 @@ describe('AccountWorkspace', () => {
       actAdventure: vi.fn(),
       listUnlockedCompanions: vi.fn(async () =>
         ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
+      listCompanionDefinitions: vi.fn(async () => []),
       listAdventureRecollections: vi.fn(async () => []),
       previewContentPackage: vi.fn(),
       installContentPackage: vi.fn(),
@@ -522,6 +524,7 @@ describe('AccountWorkspace', () => {
       actAdventure: vi.fn(),
       listUnlockedCompanions: vi.fn(async () =>
         ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
+      listCompanionDefinitions: vi.fn(async () => []),
       listAdventureRecollections: vi.fn(async () => []),
       previewContentPackage: vi.fn(),
       installContentPackage: vi.fn(),

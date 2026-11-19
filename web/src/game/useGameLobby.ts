@@ -6,6 +6,7 @@ import {
 } from 'vue';
 import type {
   AccountClient,
+  AdventureCharacterView,
   AdventureRecollectionView,
   AdventureRunView,
   ContentPackageInstallation,
@@ -22,6 +23,7 @@ type GameLobbyApi = Pick<
   | 'listContentPackages'
   | 'listAdventures'
   | 'listUnlockedCompanions'
+  | 'listCompanionDefinitions'
   | 'listAdventureRecollections'
 >;
 
@@ -41,7 +43,8 @@ export function useGameLobby({
   sessions: Ref<SessionEnvelope[]>;
   contentPackages: Ref<ContentPackageInstallation[]>;
   adventures: Ref<AdventureRunView[]>;
-  unlockedCompanions: Ref<Array<'lia' | 'serin' | 'fina'>>;
+  unlockedCompanions: Ref<string[]>;
+  companionDefinitions: Ref<AdventureCharacterView[]>;
   recollections: Ref<AdventureRecollectionView[]>;
   loading: Ref<boolean>;
   error: Ref<string | null>;
@@ -55,9 +58,8 @@ export function useGameLobby({
   const sessions = ref<SessionEnvelope[]>([]);
   const contentPackages = ref<ContentPackageInstallation[]>([]);
   const adventures = ref<AdventureRunView[]>([]);
-  const unlockedCompanions = ref<Array<'lia' | 'serin' | 'fina'>>(
-    ['lia', 'serin'],
-  );
+  const unlockedCompanions = ref<string[]>(['lia', 'serin']);
+  const companionDefinitions = ref<AdventureCharacterView[]>([]);
   const recollections = ref<AdventureRecollectionView[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -77,6 +79,7 @@ export function useGameLobby({
         nextContentPackages,
         nextAdventures,
         nextUnlockedCompanions,
+        nextCompanionDefinitions,
         nextRecollections,
       ] = await Promise.all([
         api().loadQueuePlan({ timeZone: timeZone() }),
@@ -85,6 +88,7 @@ export function useGameLobby({
         api().listContentPackages(),
         api().listAdventures(),
         api().listUnlockedCompanions(),
+        api().listCompanionDefinitions(),
         api().listAdventureRecollections(),
       ]);
       if (request !== generation) {
@@ -96,6 +100,7 @@ export function useGameLobby({
       contentPackages.value = nextContentPackages;
       adventures.value = nextAdventures;
       unlockedCompanions.value = nextUnlockedCompanions;
+      companionDefinitions.value = nextCompanionDefinitions;
       recollections.value = nextRecollections;
     } catch (cause) {
       if (request === generation) {
@@ -125,6 +130,7 @@ export function useGameLobby({
     contentPackages,
     adventures,
     unlockedCompanions,
+    companionDefinitions,
     recollections,
     loading,
     error,

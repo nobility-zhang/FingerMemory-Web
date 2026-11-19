@@ -6,6 +6,7 @@ import com.fingermemory.server.battle.BattleDtos.CreateBattleRequest;
 import com.fingermemory.server.battle.BattleDtos.EndTurnRequest;
 import com.fingermemory.server.battle.BattleDtos.LearningClaimRequest;
 import com.fingermemory.server.battle.BattleDtos.PlayCardRequest;
+import com.fingermemory.server.battle.BattleEngine.CompanionSkillDefinition;
 import com.fingermemory.server.common.ApiException;
 import com.fingermemory.server.common.JsonSupport;
 import com.fingermemory.server.learning.LearningDocuments;
@@ -68,6 +69,23 @@ public class BattleService {
             String ownerId,
             String actionId,
             CreateBattleRequest request) {
+        return createInternal(ownerId, actionId, request, null);
+    }
+
+    @Transactional
+    public BattleEnvelope createAdventure(
+            String ownerId,
+            String actionId,
+            CreateBattleRequest request,
+            CompanionSkillDefinition companionSkill) {
+        return createInternal(ownerId, actionId, request, companionSkill);
+    }
+
+    private BattleEnvelope createInternal(
+            String ownerId,
+            String actionId,
+            CreateBattleRequest request,
+            CompanionSkillDefinition companionSkill) {
         validateActionId(actionId);
         LockedUserData locked = userDataStore.lock(ownerId);
         String fingerprint = fingerprint("create", request);
@@ -92,7 +110,8 @@ public class BattleService {
                     request.companionKey(),
                     request.seed(),
                     !Boolean.FALSE.equals(request.shuffle()),
-                    request.deck()));
+                    request.deck(),
+                    companionSkill));
         } catch (BattleEngine.BattleRuleException exception) {
             throw ruleViolation(exception);
         }
