@@ -15,6 +15,7 @@ type AdventureApi = Pick<
   | 'getSession'
   | 'startAdventure'
   | 'getAdventure'
+  | 'upgradeAdventure'
   | 'startAdventureEncounter'
   | 'actAdventure'
 >;
@@ -41,8 +42,10 @@ export interface AdventureJourney {
   start(input: {
     installationId: string;
     companionKey: string;
+    sourceCompletionId?: string;
     reduceMotion: boolean;
   }): Promise<boolean>;
+  upgrade(runId: string, installationId: string): Promise<boolean>;
   resume(runId: string): Promise<boolean>;
   refresh(): Promise<void>;
   setSession(session: SessionEnvelope): void;
@@ -71,6 +74,7 @@ export function useAdventureJourney({
   const node = computed(() => run.value?.currentNode);
   let generation = 0;
   let pendingStart: PendingRequest | undefined;
+  let pendingUpgrade: PendingRequest | undefined;
   let pendingEncounter: PendingRequest | undefined;
   let pendingAction: PendingRequest | undefined;
 
@@ -97,6 +101,7 @@ export function useAdventureJourney({
   async function start(input: {
     installationId: string;
     companionKey: string;
+    sourceCompletionId?: string;
     reduceMotion: boolean;
   }): Promise<boolean> {
     const requestGeneration = ++generation;
@@ -107,6 +112,7 @@ export function useAdventureJourney({
       'start',
       input.installationId,
       input.companionKey,
+      input.sourceCompletionId ?? '',
       String(input.reduceMotion),
     ].join(':');
     pendingStart = reusableAction(pendingStart, signature);
@@ -125,6 +131,45 @@ export function useAdventureJourney({
       notice.value = result.outcome === 'created'
         ? '冒险存档已创建，当前内容版本已经锁定。'
         : '已回到继续进行中的冒险。';
+      return true;
+    } catch (cause) {
+      if (requestGeneration === generation) {
+        error.value = describeError(cause);
+      }
+      return false;
+    } finally {
+      if (requestGeneration === generation) {
+        busy.value = false;
+      }
+    }
+  }
+
+  async function upgrade(
+    runId: string,
+    installationId: string,
+  ): Promise<boolean> {
+    const requestGeneration = ++generation;
+    busy.value = true;
+    error.value = null;
+    notice.value = null;
+    pendingUpgrade = reusableAction(
+      pendingUpgrade,
+      `upgrade:${runId}:${installationId}`,
+    );
+    try {
+      const result = await api().upgradeAdventure(
+        runId,
+        pendingUpgrade.actionId,
+        installationId,
+      );
+      if (requestGeneration !== generation) {
+        return false;
+      }
+      run.value = result.run;
+      session.value = undefined;
+      await loadSession(requestGeneration, result.run.sessionId);
+      pendingUpgrade = undefined;
+      notice.value = `旧存档已安全开启 v${result.run.contentVersion} 的新章节。`;
       return true;
     } catch (cause) {
       if (requestGeneration === generation) {
@@ -355,6 +400,7 @@ export function useAdventureJourney({
     error.value = null;
     notice.value = null;
     pendingStart = undefined;
+    pendingUpgrade = undefined;
     pendingEncounter = undefined;
     pendingAction = undefined;
   }
@@ -372,6 +418,7 @@ export function useAdventureJourney({
     error,
     notice,
     start,
+    upgrade,
     resume,
     refresh,
     setSession,

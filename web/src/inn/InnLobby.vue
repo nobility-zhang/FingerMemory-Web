@@ -20,9 +20,11 @@ import {
   TriangleAlert,
 } from '@lucide/vue';
 import type {
+  AdventureCompletionView,
   AdventureRecollectionView,
   AdventureRunView,
   ContentPackageInstallation,
+  ContentPackageRequirement,
   QueuePlanView,
   SessionEnvelope,
   UserView,
@@ -47,6 +49,7 @@ const props = withDefaults(
     sessionCount: number;
     contentPackages: ContentPackageInstallation[];
     adventures: AdventureRunView[];
+    completions?: AdventureCompletionView[];
     recollections?: AdventureRecollectionView[];
     unlockedCompanionIds?: string[];
     loading: boolean;
@@ -56,6 +59,7 @@ const props = withDefaults(
     plan: undefined,
     activeSession: undefined,
     recollections: () => [],
+    completions: () => [],
     companionOptions: () => [...builtInCompanions],
     unlockedCompanionIds: () => ['lia', 'serin'],
   },
@@ -68,13 +72,19 @@ const emit = defineEmits<{
   'select-companion': [companionId: string];
   'select-density': [density: 'quiet' | 'standard' | 'rich'];
   'classic-study': [];
-  'start-adventure': [installationId: string];
+  'start-adventure': [input: {
+    installationId: string;
+    sourceCompletionId?: string;
+  }];
+  'upgrade-adventure': [runId: string, installationId: string];
   'resume-adventure': [runId: string];
   'content-settings': [];
 }>();
 
 const densities = ['quiet', 'standard', 'rich'] as const;
 const selectedInstallationId = ref('');
+const selectedSourceCompletionId = ref('');
+const selectedUpgradeCompletionId = ref('');
 const availableCompanions = computed(() =>
   props.companionOptions.filter((candidate) =>
     props.unlockedCompanionIds.includes(candidate.id),
@@ -86,6 +96,24 @@ const selectedPackage = computed(() =>
     (contentPackage) => contentPackage.id === selectedInstallationId.value,
   ),
 );
+const requirements = computed(() => selectedPackage.value?.requirements ?? []);
+const eligibleCompletions = computed(() => props.completions.filter(
+  (completion) => requirements.value.some(
+    (requirement) => matchesRequirement(completion, requirement),
+  ),
+));
+const upgradeCompletions = computed(() => {
+  const selected = selectedPackage.value;
+  if (selected === undefined) {
+    return [];
+  }
+  return props.completions.filter(
+    (completion) =>
+      completion.bookId === selected.bookId
+      && completion.contentVersion !== selected.contentVersion
+      && compareVersions(completion.contentVersion, selected.contentVersion) < 0,
+  );
+});
 const activeAdventure = computed(() =>
   props.adventures.find(
     (run) => run.installationId === selectedInstallationId.value,
@@ -143,6 +171,34 @@ watch(
   { immediate: true },
 );
 
+watch(
+  eligibleCompletions,
+  (completions) => {
+    if (
+      !completions.some(
+        (completion) => completion.id === selectedSourceCompletionId.value,
+      )
+    ) {
+      selectedSourceCompletionId.value = completions[0]?.id ?? '';
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  upgradeCompletions,
+  (completions) => {
+    if (
+      !completions.some(
+        (completion) => completion.id === selectedUpgradeCompletionId.value,
+      )
+    ) {
+      selectedUpgradeCompletionId.value = completions[0]?.id ?? '';
+    }
+  },
+  { immediate: true },
+);
+
 function startOrResumeAdventure(): void {
   const active = activeAdventure.value;
   if (active !== undefined) {
@@ -150,8 +206,75 @@ function startOrResumeAdventure(): void {
     return;
   }
   if (selectedPackage.value !== undefined) {
-    emit('start-adventure', selectedPackage.value.id);
+    if (
+      requirements.value.length > 0
+      && selectedSourceCompletionId.value.length === 0
+    ) {
+      return;
+    }
+    emit('start-adventure', {
+      installationId: selectedPackage.value.id,
+      sourceCompletionId:
+        selectedSourceCompletionId.value.length > 0
+          ? selectedSourceCompletionId.value
+          : undefined,
+    });
   }
+}
+
+function upgradeAdventure(): void {
+  if (
+    selectedPackage.value === undefined
+    || selectedUpgradeCompletionId.value.length === 0
+  ) {
+    return;
+  }
+  const completion = upgradeCompletions.value.find(
+    (item) => item.id === selectedUpgradeCompletionId.value,
+  );
+  if (completion !== undefined) {
+    emit('upgrade-adventure', completion.runId, selectedPackage.value.id);
+  }
+}
+
+function packageTitle(bookId: string): string {
+  return props.contentPackages.find((item) => item.bookId === bookId)?.title
+    ?? bookId;
+}
+
+function matchesRequirement(
+  completion: AdventureCompletionView,
+  requirement: ContentPackageRequirement,
+): boolean {
+  return completion.bookId === requirement.bookId
+    && completion.endingId === requirement.endingId
+    && (
+      requirement.minContentVersion === undefined
+      || compareVersions(
+        completion.contentVersion,
+        requirement.minContentVersion,
+      ) >= 0
+    )
+    && (
+      requirement.maxContentVersionExclusive === undefined
+      || compareVersions(
+        completion.contentVersion,
+        requirement.maxContentVersionExclusive,
+      ) < 0
+    );
+}
+
+function compareVersions(left: string, right: string): number {
+  const leftParts = left.split('.').map(Number);
+  const rightParts = right.split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    const leftPart = leftParts[index] ?? 0;
+    const rightPart = rightParts[index] ?? 0;
+    if (leftPart !== rightPart) {
+      return leftPart - rightPart;
+    }
+  }
+  return 0;
 }
 
 </script>
@@ -294,10 +417,65 @@ function startOrResumeAdventure(): void {
           <p v-else class="adventure-version">
             开局后将固定当前书版本，升级不会改写这段旅途。
           </p>
+          <div
+            v-if="requirements.length > 0"
+            class="adventure-requirements"
+          >
+            <p class="section-label">前作结局</p>
+            <label v-if="eligibleCompletions.length > 0">
+              <span>继承完成回执</span>
+              <select v-model="selectedSourceCompletionId">
+                <option
+                  v-for="completion in eligibleCompletions"
+                  :key="completion.id"
+                  :value="completion.id"
+                >
+                  {{ packageTitle(completion.bookId) }}
+                  · {{ completion.endingTitle }}
+                  · v{{ completion.contentVersion }}
+                </option>
+              </select>
+            </label>
+            <p v-else class="adventure-warning" role="status">
+              <TriangleAlert :size="16" aria-hidden="true" />
+              尚未满足前作条件：需要完成
+              <template
+                v-for="(requirement, index) in requirements"
+                :key="`${requirement.bookId}:${requirement.endingId}`"
+              >
+                <span v-if="index > 0">，或</span>
+                《{{ packageTitle(requirement.bookId) }}》的
+                {{ requirement.endingTitle }} 结局
+              </template>
+            </p>
+          </div>
+          <div
+            v-if="!activeAdventure && upgradeCompletions.length > 0"
+            class="adventure-upgrade"
+          >
+            <p class="section-label">旧旅程新增章节</p>
+            <label>
+              <span>安全检查点</span>
+              <select v-model="selectedUpgradeCompletionId">
+                <option
+                  v-for="completion in upgradeCompletions"
+                  :key="completion.id"
+                  :value="completion.id"
+                >
+                  {{ completion.endingTitle }}
+                  · v{{ completion.contentVersion }}
+                </option>
+              </select>
+            </label>
+            <button type="button" :disabled="loading" @click="upgradeAdventure">
+              继承检查点并开启新章
+            </button>
+          </div>
           <button
             type="button"
             class="adventure-cta"
-            :disabled="loading"
+            :disabled="loading
+              || (requirements.length > 0 && eligibleCompletions.length === 0)"
             @click="startOrResumeAdventure"
           >
             <RotateCcw v-if="activeAdventure" :size="18" aria-hidden="true" />
@@ -722,6 +900,37 @@ h1 span {
   font-size: 0.7rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.adventure-requirements,
+.adventure-upgrade {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgb(217 183 121 / 24%);
+  border-radius: 6px;
+  padding: 10px;
+  background: rgb(30 22 21 / 54%);
+}
+
+.adventure-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  color: #e3b899;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.adventure-upgrade button {
+  width: fit-content;
+  min-height: 36px;
+  border: 1px solid rgb(217 183 121 / 44%);
+  border-radius: 5px;
+  padding: 6px 11px;
+  background: rgb(61 43 36 / 74%);
+  color: #efd9b7;
+  cursor: pointer;
 }
 
 .adventure-cta {

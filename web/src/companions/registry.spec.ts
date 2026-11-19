@@ -56,6 +56,7 @@ function run(characters: AdventureCharacterView[]): AdventureRunView {
     contentVersion: '1.0.0',
     contentHash: 'a'.repeat(64),
     title: '风车邮路',
+    seriesId: 'windmill-post',
     companionKey: 'lia',
     status: 'active',
     runVersion: 1,

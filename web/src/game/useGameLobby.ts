@@ -7,6 +7,7 @@ import {
 import type {
   AccountClient,
   AdventureCharacterView,
+  AdventureCompletionView,
   AdventureRecollectionView,
   AdventureRunView,
   ContentPackageInstallation,
@@ -25,6 +26,7 @@ type GameLobbyApi = Pick<
   | 'listUnlockedCompanions'
   | 'listCompanionDefinitions'
   | 'listAdventureRecollections'
+  | 'listAdventureCompletions'
 >;
 
 interface UseGameLobbyOptions {
@@ -46,6 +48,7 @@ export function useGameLobby({
   unlockedCompanions: Ref<string[]>;
   companionDefinitions: Ref<AdventureCharacterView[]>;
   recollections: Ref<AdventureRecollectionView[]>;
+  completions: Ref<AdventureCompletionView[]>;
   loading: Ref<boolean>;
   error: Ref<string | null>;
   activeSession: ComputedRef<SessionEnvelope | undefined>;
@@ -61,6 +64,7 @@ export function useGameLobby({
   const unlockedCompanions = ref<string[]>(['lia', 'serin']);
   const companionDefinitions = ref<AdventureCharacterView[]>([]);
   const recollections = ref<AdventureRecollectionView[]>([]);
+  const completions = ref<AdventureCompletionView[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   let generation = 0;
@@ -81,6 +85,7 @@ export function useGameLobby({
         nextUnlockedCompanions,
         nextCompanionDefinitions,
         nextRecollections,
+        nextCompletions,
       ] = await Promise.all([
         api().loadQueuePlan({ timeZone: timeZone() }),
         api().listLexicons(),
@@ -90,6 +95,7 @@ export function useGameLobby({
         api().listUnlockedCompanions(),
         api().listCompanionDefinitions(),
         api().listAdventureRecollections(),
+        api().listAdventureCompletions(),
       ]);
       if (request !== generation) {
         return;
@@ -102,6 +108,7 @@ export function useGameLobby({
       unlockedCompanions.value = nextUnlockedCompanions;
       companionDefinitions.value = nextCompanionDefinitions;
       recollections.value = nextRecollections;
+      completions.value = nextCompletions;
     } catch (cause) {
       if (request === generation) {
         error.value = describeError(cause);
@@ -132,6 +139,7 @@ export function useGameLobby({
     unlockedCompanions,
     companionDefinitions,
     recollections,
+    completions,
     loading,
     error,
     activeSession,

@@ -192,7 +192,16 @@ onMounted(() => {
       </header>
       <dl>
         <div><dt>身份</dt><dd>{{ preview.namespace }}:{{ preview.bookId }}</dd></div>
+        <div><dt>系列</dt><dd>{{ preview.seriesId }}</dd></div>
         <div><dt>版本</dt><dd>{{ preview.contentVersion }}</dd></div>
+        <div>
+          <dt>前作要求</dt>
+          <dd>
+            {{ preview.requirements.length > 0
+              ? `${preview.requirements.length} 条结局条件`
+              : '无' }}
+          </dd>
+        </div>
         <div><dt>词条</dt><dd>{{ preview.wordCount }}</dd></div>
         <div><dt>章节 / 节点</dt><dd>{{ preview.chapterCount }} / {{ preview.nodeCount }}</dd></div>
         <div><dt>角色 / 卡牌</dt><dd>{{ preview.characterCount }} / {{ preview.cardCount }}</dd></div>
@@ -222,6 +231,9 @@ onMounted(() => {
           <span>
             {{ installation.namespace }}:{{ installation.bookId }}
             · v{{ installation.contentVersion }}
+          </span>
+          <span v-if="installation.requirements.length > 0">
+            需要前作结局 {{ installation.requirements.length }} 条
           </span>
           <small>
             {{ installation.wordCount }} 词 · {{ installation.chapterCount }} 章

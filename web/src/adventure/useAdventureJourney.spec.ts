@@ -39,6 +39,7 @@ function run(overrides: Partial<AdventureRunView> = {}): AdventureRunView {
     contentVersion: '1.0.0',
     contentHash: 'a'.repeat(64),
     title: '暖灯与失语之森',
+    seriesId: 'warm-lantern',
     companionKey: 'lia',
     status: 'active',
     runVersion: 0,
@@ -79,6 +80,7 @@ function api(): Pick<
   | 'getSession'
   | 'startAdventure'
   | 'getAdventure'
+  | 'upgradeAdventure'
   | 'startAdventureEncounter'
   | 'actAdventure'
 > {
@@ -86,6 +88,10 @@ function api(): Pick<
     getSession: vi.fn(async () => session()),
     startAdventure: vi.fn(async () => ({ outcome: 'created' as const, run: run() })),
     getAdventure: vi.fn(async () => run()),
+    upgradeAdventure: vi.fn(async () => ({
+      outcome: 'upgraded' as const,
+      run: run({ runVersion: 1 }),
+    })),
     startAdventureEncounter: vi.fn(async () => ({
       outcome: 'started' as const,
       battleId: 'battle-adventure',
@@ -252,6 +258,35 @@ describe('useAdventureJourney', () => {
     );
     expect(journey.run.value?.currentNode.nodeId).toBe('bridge.crossed');
     expect(journey.run.value?.battleId).toBeUndefined();
+  });
+
+  it('upgrades a completed checkpoint into an explicitly installed chapter version', async () => {
+    const client = api();
+    vi.mocked(client.upgradeAdventure).mockResolvedValueOnce({
+      outcome: 'upgraded',
+      run: run({
+        installationId: 'installation-next',
+        contentVersion: '1.1.0',
+        status: 'active',
+        runVersion: 4,
+      }),
+    });
+    const journey = useAdventureJourney({
+      api: () => client,
+      describeError: () => '请求失败',
+      createActionId: () => 'upgrade-action',
+    });
+
+    await expect(journey.upgrade('run-old', 'installation-next'))
+      .resolves.toBe(true);
+
+    expect(client.upgradeAdventure).toHaveBeenCalledWith(
+      'run-old',
+      'upgrade-action',
+      'installation-next',
+    );
+    expect(journey.run.value?.contentVersion).toBe('1.1.0');
+    expect(journey.notice.value).toContain('安全开启');
   });
 
   it('claims a fixed reward and changes companion only at a camp', async () => {

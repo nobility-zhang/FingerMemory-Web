@@ -194,6 +194,9 @@ function finishBattle(): void {
       <div class="run-lock" aria-label="固定内容版本">
         <span>v{{ run.contentVersion }}</span>
         <code>{{ fixedHash }}</code>
+        <small v-if="run.sourceCompletionId">
+          前作回执 {{ run.sourceCompletionId.slice(0, 8) }}
+        </small>
       </div>
     </header>
 
@@ -489,6 +492,11 @@ function finishBattle(): void {
 .run-lock code {
   color: #a8c7b6;
   font-size: 0.66rem;
+}
+
+.run-lock small {
+  color: #c6b28f;
+  font-size: 0.62rem;
 }
 
 .journey-message {

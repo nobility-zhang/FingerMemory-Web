@@ -66,6 +66,7 @@ function baseApi(loadCurrentUser: () => Promise<UserView | null>): AccountClient
     listUnlockedCompanions: vi.fn(async () =>
       ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
     listCompanionDefinitions: vi.fn(async () => []),
+    listAdventureCompletions: vi.fn(async () => []),
     listAdventureRecollections: vi.fn(async () => []),
     previewContentPackage: vi.fn(),
     installContentPackage: vi.fn(),
@@ -88,6 +89,7 @@ function baseApi(loadCurrentUser: () => Promise<UserView | null>): AccountClient
     listGmSandboxes: vi.fn(async () => ({ items: [], nextCursor: null })),
     createGmSandbox: vi.fn(),
     executeGmSandboxCommand: vi.fn(),
+    upgradeAdventure: vi.fn(),
   };
 }
 

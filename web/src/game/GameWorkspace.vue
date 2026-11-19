@@ -84,6 +84,7 @@ const {
   unlockedCompanions,
   companionDefinitions,
   recollections,
+  completions,
   loading: lobbyLoading,
   error: lobbyError,
   activeSession,
@@ -115,6 +116,7 @@ const {
   error: adventureError,
   notice: adventureNotice,
   start: startAdventureRecord,
+  upgrade: upgradeAdventureRecord,
   resume: resumeAdventureRecord,
   setSession: setAdventureSession,
   choose: chooseAdventure,
@@ -245,16 +247,35 @@ async function startTraining(): Promise<void> {
   await startSession(plan.value);
 }
 
-async function startAdventure(installationId: string): Promise<void> {
+async function startAdventure(input: {
+  installationId: string;
+  sourceCompletionId?: string;
+}): Promise<void> {
   if (adventureBusy.value) {
     return;
   }
   const started = await startAdventureRecord({
-    installationId,
+    installationId: input.installationId,
+    sourceCompletionId: input.sourceCompletionId,
     companionKey: selectedCompanion.value.id,
     reduceMotion: reduceMotion.value,
   });
   if (started) {
+    helpOpen.value = false;
+    phase.value = 'adventure';
+    scrollPageToTop();
+  }
+}
+
+async function upgradeAdventure(
+  runId: string,
+  installationId: string,
+): Promise<void> {
+  if (adventureBusy.value) {
+    return;
+  }
+  const upgraded = await upgradeAdventureRecord(runId, installationId);
+  if (upgraded) {
     helpOpen.value = false;
     phase.value = 'adventure';
     scrollPageToTop();
@@ -533,6 +554,7 @@ onBeforeUnmount(() => {
       :adventures="adventures"
       :unlocked-companion-ids="unlockedCompanions"
       :recollections="recollections"
+      :completions="completions"
       :companion-density="companionDensity"
       :reduce-motion="reduceMotion"
       :loading="busy || lobbyLoading"
@@ -544,6 +566,7 @@ onBeforeUnmount(() => {
       @select-density="selectCompanionDensity"
       @classic-study="emit('classic-study')"
       @start-adventure="startAdventure"
+      @upgrade-adventure="upgradeAdventure"
       @resume-adventure="resumeAdventure"
       @content-settings="emit('account-settings')"
     />

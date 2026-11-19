@@ -13,6 +13,7 @@ function run(overrides: Partial<AdventureRunView> = {}): AdventureRunView {
     contentVersion: '1.0.0',
     contentHash: 'abcdef12'.repeat(8),
     title: '暖灯与失语之森',
+    seriesId: 'warm-lantern',
     companionKey: 'lia',
     status: 'active',
     runVersion: 2,

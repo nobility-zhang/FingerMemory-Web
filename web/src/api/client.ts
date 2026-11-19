@@ -3,10 +3,12 @@ import type {
   AccountClient,
   AdventureActionResult,
   AdventureCharacterView,
+  AdventureCompletionView,
   AdventureEncounterView,
   AdventureRecollectionView,
   AdventureRunView,
   AdventureStartResult,
+  AdventureUpgradeResult,
   BackupPreview,
   BackupRestoreResult,
   BattleEnvelopeView,
@@ -422,6 +424,7 @@ export class AccountApi implements AccountClient {
   async startAdventure(input: {
     installationId: string;
     companionKey: string;
+    sourceCompletionId?: string;
     reduceMotion: boolean;
     actionId: string;
   }): Promise<AdventureStartResult> {
@@ -434,9 +437,28 @@ export class AccountApi implements AccountClient {
       body: JSON.stringify({
         installationId: input.installationId,
         companionKey: input.companionKey,
+        sourceCompletionId: input.sourceCompletionId,
         reduceMotion: input.reduceMotion,
       }),
     });
+  }
+
+  async upgradeAdventure(
+    runId: string,
+    idempotencyKey: string,
+    installationId: string,
+  ): Promise<AdventureUpgradeResult> {
+    return this.transport.request<AdventureUpgradeResult>(
+      `/adventures/${encodeURIComponent(runId)}/upgrade`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify({ installationId }),
+      },
+    );
   }
 
   async getAdventure(runId: string): Promise<AdventureRunView> {
@@ -462,6 +484,14 @@ export class AccountApi implements AccountClient {
   ): Promise<AdventureRecollectionView[]> {
     return this.transport.request<AdventureRecollectionView[]>(
       `/adventures/recollections?limit=${encodeURIComponent(String(limit))}`,
+    );
+  }
+
+  async listAdventureCompletions(
+    limit = 50,
+  ): Promise<AdventureCompletionView[]> {
+    return this.transport.request<AdventureCompletionView[]>(
+      `/adventures/completions?limit=${encodeURIComponent(String(limit))}`,
     );
   }
 

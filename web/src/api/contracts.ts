@@ -338,6 +338,7 @@ export interface AdventureRunView {
   contentVersion: string;
   contentHash: string;
   title: string;
+  seriesId: string;
   companionKey: string;
   status: 'active' | 'completed';
   runVersion: number;
@@ -348,6 +349,7 @@ export interface AdventureRunView {
   unlockedCharacters: string[];
   characters?: AdventureCharacterView[];
   scenes?: AdventureSceneView[];
+  sourceCompletionId?: string;
   rewardOffer?: AdventureRewardOfferView;
   flags: Record<string, boolean>;
   createdAtMs: number;
@@ -356,6 +358,11 @@ export interface AdventureRunView {
 
 export interface AdventureStartResult {
   outcome: 'created' | 'existing';
+  run: AdventureRunView;
+}
+
+export interface AdventureUpgradeResult {
+  outcome: 'upgraded';
   run: AdventureRunView;
 }
 
@@ -380,6 +387,21 @@ export interface AdventureRecollectionView {
   speaker: string;
   text: string;
   unlockedAtMs: number;
+}
+
+export interface AdventureCompletionView {
+  id: string;
+  runId: string;
+  namespace: string;
+  bookId: string;
+  seriesId: string;
+  contentVersion: string;
+  contentHash: string;
+  endingId: string;
+  endingTitle: string;
+  endingText: string;
+  inheritedFlags: Record<string, boolean>;
+  completedAtMs: number;
 }
 
 export interface MigrationPreview {
@@ -554,6 +576,8 @@ export interface ContentPackagePreview {
   contentHash: string;
   engineVersion: string;
   entryNodeId: string;
+  seriesId: string;
+  requirements: ContentPackageRequirement[];
   wordCount: number;
   chapterCount: number;
   nodeCount: number;
@@ -572,6 +596,8 @@ export interface ContentPackageInstallation {
   contentHash: string;
   title: string;
   entryNodeId: string;
+  seriesId: string;
+  requirements: ContentPackageRequirement[];
   status: 'installed';
   wordCount: number;
   chapterCount: number;
@@ -581,6 +607,14 @@ export interface ContentPackageInstallation {
   encounterCount: number;
   assetCount: number;
   installedAtMs: number;
+}
+
+export interface ContentPackageRequirement {
+  bookId: string;
+  endingId: string;
+  endingTitle: string;
+  minContentVersion?: string;
+  maxContentVersionExclusive?: string;
 }
 
 export interface ContentPackageInstallResult {
@@ -723,15 +757,24 @@ export interface AccountClient {
   startAdventure(input: {
     installationId: string;
     companionKey: string;
+    sourceCompletionId?: string;
     reduceMotion: boolean;
     actionId: string;
   }): Promise<AdventureStartResult>;
   getAdventure(runId: string): Promise<AdventureRunView>;
+  upgradeAdventure(
+    runId: string,
+    idempotencyKey: string,
+    installationId: string,
+  ): Promise<AdventureUpgradeResult>;
   listUnlockedCompanions(): Promise<string[]>;
   listCompanionDefinitions(): Promise<AdventureCharacterView[]>;
   listAdventureRecollections(
     limit?: number,
   ): Promise<AdventureRecollectionView[]>;
+  listAdventureCompletions(
+    limit?: number,
+  ): Promise<AdventureCompletionView[]>;
   startAdventureEncounter(
     runId: string,
     actionId: string,

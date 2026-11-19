@@ -308,6 +308,15 @@ describe('AccountApi', () => {
       if (String(url).includes('/adventures/recollections?')) {
         return jsonResponse([]);
       }
+      if (String(url).includes('/adventures/completions?')) {
+        return jsonResponse([]);
+      }
+      if (String(url).endsWith('/upgrade')) {
+        return jsonResponse({
+          outcome: 'upgraded',
+          run: { id: 'run-1', runVersion: 3 },
+        });
+      }
       return jsonResponse({
         outcome: 'created',
         run: { id: 'run-1', runVersion: 0 },
@@ -319,13 +328,16 @@ describe('AccountApi', () => {
     await api.listUnlockedCompanions();
     await api.listCompanionDefinitions();
     await api.listAdventureRecollections();
+    await api.listAdventureCompletions();
     await api.startAdventure({
       installationId: 'installation-1',
       companionKey: 'serin',
+      sourceCompletionId: 'completion-1',
       reduceMotion: true,
       actionId: 'adventure-start-1',
     });
     await api.getAdventure('run/one');
+    await api.upgradeAdventure('run-1', 'adventure-upgrade-1', 'installation-2');
     await api.startAdventureEncounter('run-1', 'adventure-encounter-1');
     await api.actAdventure('run-1', 'adventure-choice-1', {
       expectedVersion: 2,
@@ -359,6 +371,10 @@ describe('AccountApi', () => {
       (call) => call.url.endsWith('/adventures/recollections?limit=50')
         && call.init?.method === 'GET',
     )).toBe(true);
+    expect(calls.some(
+      (call) => call.url.endsWith('/adventures/completions?limit=50')
+        && call.init?.method === 'GET',
+    )).toBe(true);
     const startCall = calls.find(
       (call) => call.url.endsWith('/adventures') && call.init?.method === 'POST',
     );
@@ -369,9 +385,17 @@ describe('AccountApi', () => {
     expect(JSON.parse(String(startCall?.init?.body))).toEqual({
       installationId: 'installation-1',
       companionKey: 'serin',
+      sourceCompletionId: 'completion-1',
       reduceMotion: true,
     });
-
+    const upgradeCall = calls.find(
+      (call) => call.url.endsWith('/adventures/run-1/upgrade'),
+    );
+    expect(new Headers(upgradeCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('adventure-upgrade-1');
+    expect(JSON.parse(String(upgradeCall?.init?.body))).toEqual({
+      installationId: 'installation-2',
+    });
     expect(calls.some(
       (call) => call.url.endsWith('/adventures/run%2Fone')
         && call.init?.method === 'GET',

@@ -110,6 +110,7 @@ describe('AccountWorkspace', () => {
       listUnlockedCompanions: vi.fn(async () =>
         ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
       listCompanionDefinitions: vi.fn(async () => []),
+      listAdventureCompletions: vi.fn(async () => []),
       listAdventureRecollections: vi.fn(async () => []),
       previewContentPackage: vi.fn(),
       installContentPackage: vi.fn(),
@@ -137,6 +138,7 @@ describe('AccountWorkspace', () => {
       listGmSandboxes: vi.fn(),
       createGmSandbox: vi.fn(),
       executeGmSandboxCommand: vi.fn(),
+      upgradeAdventure: vi.fn(),
     };
 
     const root = document.createElement('div');
@@ -311,6 +313,7 @@ describe('AccountWorkspace', () => {
       listUnlockedCompanions: vi.fn(async () =>
         ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
       listCompanionDefinitions: vi.fn(async () => []),
+      listAdventureCompletions: vi.fn(async () => []),
       listAdventureRecollections: vi.fn(async () => []),
       previewContentPackage: vi.fn(),
       installContentPackage: vi.fn(),
@@ -328,6 +331,7 @@ describe('AccountWorkspace', () => {
       listGmSandboxes: vi.fn(),
       createGmSandbox: vi.fn(),
       executeGmSandboxCommand: vi.fn(),
+      upgradeAdventure: vi.fn(),
     } as AccountClient;
     const root = document.createElement('div');
     document.body.append(root);
@@ -525,6 +529,7 @@ describe('AccountWorkspace', () => {
       listUnlockedCompanions: vi.fn(async () =>
         ['lia', 'serin'] as Array<'lia' | 'serin' | 'fina'>),
       listCompanionDefinitions: vi.fn(async () => []),
+      listAdventureCompletions: vi.fn(async () => []),
       listAdventureRecollections: vi.fn(async () => []),
       previewContentPackage: vi.fn(),
       installContentPackage: vi.fn(),
@@ -542,6 +547,7 @@ describe('AccountWorkspace', () => {
       listGmSandboxes: vi.fn(),
       createGmSandbox: vi.fn(),
       executeGmSandboxCommand: vi.fn(),
+      upgradeAdventure: vi.fn(),
     } as AccountClient;
     const root = document.createElement('div');
     document.body.append(root);

@@ -50,6 +50,8 @@ const contentPackage: ContentPackageInstallation = {
   contentHash: 'a'.repeat(64),
   title: '暖灯与失语之森',
   entryNodeId: 'inn.arrival',
+  seriesId: 'warm-lantern',
+  requirements: [],
   status: 'installed',
   wordCount: 4,
   chapterCount: 1,
@@ -69,6 +71,7 @@ const adventure: AdventureRunView = {
   contentVersion: contentPackage.contentVersion,
   contentHash: contentPackage.contentHash,
   title: contentPackage.title,
+  seriesId: 'warm-lantern',
   companionKey: 'lia',
   status: 'active',
   runVersion: 2,
@@ -109,6 +112,16 @@ afterEach(() => {
   mountedApp = null;
   document.body.innerHTML = '';
 });
+
+function buttonByText(root: ParentNode, text: string): HTMLButtonElement {
+  const button = [...root.querySelectorAll<HTMLButtonElement>('button')].find(
+    (candidate) => candidate.textContent?.includes(text),
+  );
+  if (button === undefined) {
+    throw new Error(`button not found: ${text}`);
+  }
+  return button;
+}
 
 describe('InnLobby', () => {
   it('renders Lia and the real queue summary before a session starts', async () => {
@@ -403,6 +416,145 @@ describe('InnLobby', () => {
       (button) => button.textContent?.includes('开始第一章'),
     );
     start?.click();
-    expect(startAdventure).toHaveBeenCalledWith('installation-inn');
+    expect(startAdventure).toHaveBeenCalledWith({
+      installationId: 'installation-inn',
+      sourceCompletionId: undefined,
+    });
+  });
+
+  it('blocks a sequel without a matching completion then binds the selected ending', async () => {
+    const startAdventure = vi.fn();
+    const sequel = {
+      ...contentPackage,
+      id: 'installation-sequel',
+      bookId: 'windmill-return',
+      title: '风车归途',
+      seriesId: 'windmill-post',
+      requirements: [{
+        bookId: 'windmill-post',
+        endingId: 'homeward-letter',
+        endingTitle: '回信归途',
+        minContentVersion: '1.1.0',
+      }],
+    };
+    const completion = {
+      id: 'completion-homeward',
+      runId: 'run-old',
+      namespace: 'fm.demo',
+      bookId: 'windmill-post',
+      seriesId: 'windmill-post',
+      contentVersion: '1.1.0',
+      contentHash: 'b'.repeat(64),
+      endingId: 'homeward-letter',
+      endingTitle: '回信归途',
+      endingText: '回信送回旅店。',
+      inheritedFlags: {},
+      completedAtMs: 3,
+    };
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(InnLobby, {
+      companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      contentPackages: [contentPackage, sequel],
+      adventures: [],
+      completions: [],
+      loading: false,
+      error: null,
+      onStartAdventure: startAdventure,
+    });
+    mountedApp.mount(root);
+    await nextTick();
+
+    const select = root.querySelector<HTMLSelectElement>('.adventure-entry select');
+    select!.value = sequel.id;
+    select!.dispatchEvent(new Event('change'));
+    await nextTick();
+    expect(root.textContent).toContain('尚未满足前作条件');
+    expect(buttonByText(root, '开始第一章').disabled).toBe(true);
+
+    mountedApp.unmount();
+    document.body.innerHTML = '';
+    const readyRoot = document.createElement('div');
+    document.body.append(readyRoot);
+    mountedApp = createApp(InnLobby, {
+      companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      contentPackages: [contentPackage, sequel],
+      adventures: [],
+      completions: [completion],
+      loading: false,
+      error: null,
+      onStartAdventure: startAdventure,
+    });
+    mountedApp.mount(readyRoot);
+    await nextTick();
+    const readySelect = readyRoot.querySelector<HTMLSelectElement>(
+      '.adventure-entry select',
+    );
+    readySelect!.value = sequel.id;
+    readySelect!.dispatchEvent(new Event('change'));
+    await nextTick();
+    buttonByText(readyRoot, '开始第一章').click();
+    expect(startAdventure).toHaveBeenCalledWith({
+      installationId: sequel.id,
+      sourceCompletionId: completion.id,
+    });
+  });
+
+  it('offers an explicit checkpoint upgrade for a completed older version', async () => {
+    const upgradeAdventure = vi.fn();
+    const root = document.createElement('div');
+    document.body.append(root);
+    mountedApp = createApp(InnLobby, {
+      companion: lia,
+      companionDensity: 'standard',
+      reduceMotion: false,
+      user,
+      plan,
+      lexiconsCount: 1,
+      sessionCount: 0,
+      contentPackages: [{
+        ...contentPackage,
+        contentVersion: '1.1.0',
+        contentHash: 'c'.repeat(64),
+      }],
+      adventures: [],
+      completions: [{
+        id: 'completion-main',
+        runId: 'run-completed',
+        namespace: 'fm.demo',
+        bookId: 'warm-lantern',
+        seriesId: 'warm-lantern',
+        contentVersion: '1.0.0',
+        contentHash: contentPackage.contentHash,
+        endingId: 'main',
+        endingTitle: '第一章完成',
+        endingText: '旧版结束。',
+        inheritedFlags: {},
+        completedAtMs: 2,
+      }],
+      loading: false,
+      error: null,
+      onUpgradeAdventure: upgradeAdventure,
+    });
+    mountedApp.mount(root);
+    await nextTick();
+
+    buttonByText(root, '继承检查点并开启新章').click();
+    expect(upgradeAdventure).toHaveBeenCalledWith(
+      'run-completed',
+      'installation-inn',
+    );
   });
 });

@@ -66,6 +66,8 @@ function createApi() {
       contentHash: 'a'.repeat(64),
       title: '暖灯与失语之森',
       entryNodeId: 'inn.arrival',
+      seriesId: 'warm-lantern',
+      requirements: [],
       status: 'installed' as const,
       wordCount: 1,
       chapterCount: 1,
@@ -84,6 +86,7 @@ function createApi() {
       contentVersion: '1.0.0',
       contentHash: 'a'.repeat(64),
       title: '暖灯与失语之森',
+      seriesId: 'warm-lantern',
       companionKey: 'lia' as const,
       status: 'active' as const,
       runVersion: 2,
@@ -121,6 +124,7 @@ function createApi() {
     listUnlockedCompanions: vi.fn(async () =>
       ['lia', 'serin']),
     listCompanionDefinitions: vi.fn(async () => []),
+    listAdventureCompletions: vi.fn(async () => []),
     listAdventureRecollections: vi.fn(async () => []),
   } satisfies Pick<
     AccountClient,
@@ -131,6 +135,7 @@ function createApi() {
     | 'listAdventures'
     | 'listUnlockedCompanions'
     | 'listCompanionDefinitions'
+    | 'listAdventureCompletions'
     | 'listAdventureRecollections'
   >;
 }
