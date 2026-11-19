@@ -14,6 +14,7 @@ public record AdventureRunRow(
         String companionKey,
         String status,
         String activeSlot,
+        String sourceCompletionId,
         long runVersion,
         String flagsJson,
         String deckJson,

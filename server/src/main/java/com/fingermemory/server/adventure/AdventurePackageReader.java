@@ -1,5 +1,6 @@
 package com.fingermemory.server.adventure;
 
+import com.fingermemory.server.content.ContentRequirement;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,6 +27,7 @@ public class AdventurePackageReader {
 
     public AdventurePackage read(Path root) {
         try {
+            JsonNode manifest = readJson(root.resolve("manifest.json"));
             JsonNode story = objectMapper.readTree(
                     Files.readString(root.resolve("story.json"), StandardCharsets.UTF_8));
             Map<String, AdventureNode> nodes = new LinkedHashMap<>();
@@ -49,7 +51,9 @@ public class AdventurePackageReader {
                     Map.copyOf(cards),
                     Map.copyOf(encounters),
                     Map.copyOf(characters),
-                    Map.copyOf(scenes));
+                    Map.copyOf(scenes),
+                    text(manifest, "seriesId", ""),
+                    readRequirements(manifest));
         } catch (IOException exception) {
             throw new AdventureException(
                     HttpStatus.CONFLICT,
@@ -94,6 +98,9 @@ public class AdventurePackageReader {
                 text(node, "costumeId", null),
                 text(node, "encounterName", null),
                 text(node, "encounterDescription", null),
+                text(node, "endingId", "main"),
+                text(node, "endingTitle", null),
+                stringList(node.path("inheritedFlags")),
                 List.copyOf(choices));
     }
 
@@ -208,6 +215,32 @@ public class AdventurePackageReader {
         return scenes;
     }
 
+    private List<ContentRequirement> readRequirements(JsonNode manifest) {
+        List<ContentRequirement> requirements = new ArrayList<>();
+        for (JsonNode requirement : manifest.path("requires")) {
+            requirements.add(new ContentRequirement(
+                    text(requirement, "bookId", ""),
+                    text(requirement, "endingId", ""),
+                    text(requirement, "endingTitle", ""),
+                    text(requirement, "minContentVersion", null),
+                    text(requirement, "maxContentVersionExclusive", null)));
+        }
+        return List.copyOf(requirements);
+    }
+
+    private List<String> stringList(JsonNode values) {
+        List<String> result = new ArrayList<>();
+        if (!values.isArray()) {
+            return result;
+        }
+        for (JsonNode value : values) {
+            if (value.isString()) {
+                result.add(value.stringValue());
+            }
+        }
+        return List.copyOf(result);
+    }
+
     private List<Vocabulary> readVocabulary(Path path) throws IOException {
         List<Vocabulary> rows = new ArrayList<>();
         try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8);
@@ -251,7 +284,9 @@ public class AdventurePackageReader {
             Map<String, AdventureCard> cards,
             Map<String, AdventureEncounter> encounters,
             Map<String, AdventureCharacter> characters,
-            Map<String, AdventureScene> scenes) {
+            Map<String, AdventureScene> scenes,
+            String seriesId,
+            List<ContentRequirement> requirements) {
     }
 
     public record AdventureNode(
@@ -274,6 +309,9 @@ public class AdventurePackageReader {
             String costumeId,
             String encounterName,
             String encounterDescription,
+            String endingId,
+            String endingTitle,
+            List<String> inheritedFlags,
             List<AdventureChoice> choices) {
     }
 

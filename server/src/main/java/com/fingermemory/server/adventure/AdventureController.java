@@ -33,6 +33,14 @@ public class AdventureController {
         return adventureService.listActive(principal.id(), limit);
     }
 
+    @GetMapping("/completions")
+    public List<AdventureDtos.Completion> completions(
+            Authentication authentication,
+            @RequestParam(defaultValue = "50") int limit) {
+        FmUserPrincipal principal = CurrentUser.require(authentication);
+        return adventureService.listCompletions(principal.id(), limit);
+    }
+
     @PostMapping
     public ResponseEntity<AdventureDtos.StartResult> start(
             Authentication authentication,
@@ -54,6 +62,20 @@ public class AdventureController {
             @PathVariable String runId) {
         FmUserPrincipal principal = CurrentUser.require(authentication);
         return adventureService.get(principal.id(), runId);
+    }
+
+    @PostMapping("/{runId}/upgrade")
+    public AdventureDtos.UpgradeResult upgrade(
+            Authentication authentication,
+            @PathVariable String runId,
+            @RequestHeader("Idempotency-Key") String actionId,
+            @Valid @RequestBody AdventureDtos.UpgradeRequest request) {
+        FmUserPrincipal principal = CurrentUser.require(authentication);
+        return adventureService.upgrade(
+                principal.id(),
+                runId,
+                actionId,
+                request);
     }
 
     @GetMapping("/companions")

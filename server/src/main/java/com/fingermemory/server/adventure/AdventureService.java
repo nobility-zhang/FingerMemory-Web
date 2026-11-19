@@ -6,6 +6,8 @@ import com.fingermemory.server.battle.BattleEngine;
 import com.fingermemory.server.battle.BattleService;
 import com.fingermemory.server.content.ContentInstallationRow;
 import com.fingermemory.server.content.ContentPackageService;
+import com.fingermemory.server.content.ContentRequirement;
+import com.fingermemory.server.content.ContentVersions;
 import com.fingermemory.server.learning.LearningDtos;
 import com.fingermemory.server.learning.SessionService;
 import com.fingermemory.server.learning.UserDataStore;
@@ -83,10 +85,15 @@ public class AdventureService {
         AdventurePackageReader.AdventurePackage content =
                 packageReader.read(installed.root());
         requireCompanionAvailable(ownerId, request.companionKey(), content);
+        AdventureCompletionRow sourceCompletion = requireStartCompletion(
+                ownerId,
+                request.sourceCompletionId(),
+                content);
         String fingerprint = fingerprint(
                 "start",
                 request.installationId(),
                 request.companionKey(),
+                request.sourceCompletionId(),
                 request.reduceMotion());
         String deterministicRunId = UUID.nameUUIDFromBytes(
                 ("adventure-start:" + ownerId + ":" + request.installationId()
@@ -123,6 +130,9 @@ public class AdventureService {
                 content,
                 request.reduceMotion());
         long now = clock.instant().toEpochMilli();
+        Map<String, Boolean> initialFlags = sourceCompletion == null
+                ? new HashMap<>()
+                : readFlags(sourceCompletion.inheritedFlagsJson());
         AdventureRunRow row = new AdventureRunRow(
                 ownerId,
                 deterministicRunId,
@@ -137,8 +147,9 @@ public class AdventureService {
                 request.companionKey(),
                 "active",
                 request.installationId(),
+                request.sourceCompletionId(),
                 0,
-                "{}",
+                objectMapper.writeValueAsString(initialFlags),
                 objectMapper.writeValueAsString(BattleDeckCatalog.teachingDeck()),
                 null,
                 now,
@@ -158,15 +169,19 @@ public class AdventureService {
             }
             throw exception;
         }
+        var startedEvent = objectMapper.createObjectNode();
+        startedEvent.put("installationId", row.installationId());
+        startedEvent.put("contentVersion", row.contentVersion());
+        if (row.sourceCompletionId() != null) {
+            startedEvent.put("sourceCompletionId", row.sourceCompletionId());
+        }
         adventureMapper.insertEvent(
                 ownerId,
                 row.id(),
                 0,
                 "run-started",
                 row.currentNodeId(),
-                objectMapper.writeValueAsString(Map.of(
-                        "installationId", row.installationId(),
-                        "contentVersion", row.contentVersion())),
+                objectMapper.writeValueAsString(startedEvent),
                 now);
         applyNodeProgress(ownerId, row, requireNode(content, row.currentNodeId()), now);
         AdventureDtos.StartResult result = startResult(
@@ -210,6 +225,156 @@ public class AdventureService {
                             packageReader.read(installed.root()));
                 })
                 .toList();
+    }
+
+    public List<AdventureDtos.Completion> listCompletions(
+            String ownerId,
+            int limit) {
+        if (limit < 1 || limit > 100) {
+            throw validation("limit 必须在 1 到 100 之间");
+        }
+        return adventureMapper.listCompletions(ownerId, limit).stream()
+                .map(this::toCompletionView)
+                .toList();
+    }
+
+    @Transactional
+    public AdventureDtos.UpgradeResult upgrade(
+            String ownerId,
+            String runId,
+            String actionId,
+            AdventureDtos.UpgradeRequest request) {
+        validateActionId(actionId);
+        AdventureRunRow row = adventureMapper.findForUpdate(ownerId, runId);
+        if (row == null) {
+            throw notFound();
+        }
+        String targetInstallationId = request.installationId();
+        String fingerprint = fingerprint("upgrade", runId, targetInstallationId);
+        AdventureReceiptRow existingReceipt =
+                adventureMapper.findReceipt(ownerId, runId, actionId);
+        if (existingReceipt != null) {
+            if (!fingerprint.equals(existingReceipt.requestFingerprint())) {
+                throw conflict(
+                        "ADVENTURE_IDEMPOTENCY_CONFLICT",
+                        "同一幂等键不能用于不同冒险请求");
+            }
+            return objectMapper.readValue(
+                    existingReceipt.responseJson(),
+                    AdventureDtos.UpgradeResult.class);
+        }
+        if (!"completed".equals(row.status())) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_UNSAFE",
+                    "只能从已通关的安全检查点开启新增章节");
+        }
+        ContentPackageService.InstalledPackage target =
+                contentPackageService.installedPackage(ownerId, targetInstallationId);
+        AdventurePackageReader.AdventurePackage content =
+                packageReader.read(target.root());
+        if (!row.namespaceId().equals(target.installation().namespaceId())
+                || !row.bookId().equals(target.installation().bookId())) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_BOOK_MISMATCH",
+                    "新增章节必须来自同一本书");
+        }
+        if (ContentVersions.compare(
+                target.installation().contentVersion(),
+                row.contentVersion()) <= 0) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_VERSION_INVALID",
+                    "目标内容版本必须高于旧 run 固定版本");
+        }
+        AdventurePackageReader.AdventureNode node = content.nodes().get(row.currentNodeId());
+        if (node == null) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_CHECKPOINT_MISSING",
+                    "新版本缺少旧 run 的检查点，未执行升级");
+        }
+        if (!"chapter-end".equals(node.type()) && !"camp".equals(node.type())) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_UNSAFE",
+                    "新版本检查点不是营地或章节结束，未执行升级");
+        }
+        if (node.nextNodeId() == null) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_NO_CHAPTER",
+                    "新版本没有从该检查点开启的章节");
+        }
+        if (progressMapper.findPendingReward(ownerId, runId) != null) {
+            throw conflict(
+                    "ADVENTURE_REWARD_PENDING",
+                    "需要先处理旧检查点的牌组奖励");
+        }
+        if (adventureMapper.findActive(ownerId, targetInstallationId) != null) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_ACTIVE_CONFLICT",
+                    "该书的新版本已有进行中的冒险");
+        }
+        String sessionId = sessionImporter.importWordsAndCreateSession(
+                ownerId,
+                target.installation(),
+                content,
+                false);
+        long now = clock.instant().toEpochMilli();
+        long nextVersion = row.runVersion() + 1;
+        AdventureRunRow upgraded = new AdventureRunRow(
+                row.ownerId(),
+                row.id(),
+                target.installation().id(),
+                target.installation().namespaceId(),
+                target.installation().bookId(),
+                target.installation().contentVersion(),
+                target.installation().contentHash(),
+                target.installation().entryNodeId(),
+                row.currentNodeId(),
+                sessionId,
+                row.companionKey(),
+                "active",
+                targetInstallationId,
+                row.sourceCompletionId(),
+                nextVersion,
+                row.flagsJson(),
+                row.deckJson(),
+                null,
+                row.createdAtMs(),
+                now);
+        try {
+            if (adventureMapper.updateRun(
+                    upgraded,
+                    ownerId,
+                    runId,
+                    row.runVersion()) != 1) {
+                throw versionConflict();
+            }
+        } catch (DuplicateKeyException exception) {
+            throw conflict(
+                    "ADVENTURE_UPGRADE_ACTIVE_CONFLICT",
+                    "该书的新版本已有进行中的冒险");
+        }
+        adventureMapper.insertEvent(
+                ownerId,
+                runId,
+                nextVersion,
+                "adventure-upgraded",
+                row.currentNodeId(),
+                objectMapper.writeValueAsString(Map.of(
+                        "fromVersion", row.contentVersion(),
+                        "toVersion", upgraded.contentVersion(),
+                        "installationId", upgraded.installationId())),
+                now);
+        AdventureDtos.UpgradeResult response = new AdventureDtos.UpgradeResult(
+                "upgraded",
+                toView(upgraded, target, content));
+        adventureMapper.insertReceipt(new AdventureReceiptRow(
+                ownerId,
+                runId,
+                actionId,
+                fingerprint,
+                objectMapper.writeValueAsString(response),
+                nextVersion,
+                now));
+        return response;
     }
 
     @Transactional
@@ -527,6 +692,7 @@ public class AdventureService {
                 selectedCompanion,
                 status,
                 "completed".equals(status) ? null : row.activeSlot(),
+                row.sourceCompletionId(),
                 nextVersion,
                 objectMapper.writeValueAsString(flags),
                 deckJson,
@@ -545,6 +711,9 @@ public class AdventureService {
                 next,
                 requireNode(content, nextNodeId),
                 now);
+        if ("completed".equals(status)) {
+            recordCompletion(ownerId, next, node, content, flags, now);
+        }
         AdventureDtos.ActionResult response = new AdventureDtos.ActionResult(
                 "applied",
                 toView(next, installed, content));
@@ -708,6 +877,124 @@ public class AdventureService {
         return deck;
     }
 
+    private AdventureCompletionRow requireStartCompletion(
+            String ownerId,
+            String sourceCompletionId,
+            AdventurePackageReader.AdventurePackage content) {
+        List<ContentRequirement> requirements = content.requirements();
+        if (requirements.isEmpty()) {
+            if (sourceCompletionId != null) {
+                throw conflict(
+                        "ADVENTURE_SOURCE_UNEXPECTED",
+                        "这本冒险不需要前作完成回执");
+            }
+            return null;
+        }
+        String requirementsText = requirements.stream()
+                .map(requirement -> requirement.bookId() + "/" + requirement.endingId())
+                .distinct()
+                .reduce((left, right) -> left + " 或 " + right)
+                .orElse("指定前作结局");
+        if (sourceCompletionId == null) {
+            throw conflict(
+                    "ADVENTURE_REQUIREMENT_MISSING",
+                    "需要先完成前作结局：" + requirementsText);
+        }
+        AdventureCompletionRow completion =
+                adventureMapper.findCompletion(ownerId, sourceCompletionId);
+        if (completion == null
+                || requirements.stream().noneMatch(requirement ->
+                        matchesRequirement(completion, requirement))) {
+            throw conflict(
+                    "ADVENTURE_REQUIREMENT_MISSING",
+                    "所选完成回执不满足前作结局：" + requirementsText);
+        }
+        return completion;
+    }
+
+    private boolean matchesRequirement(
+            AdventureCompletionRow completion,
+            ContentRequirement requirement) {
+        if (!requirement.bookId().equals(completion.bookId())
+                || !requirement.endingId().equals(completion.endingId())) {
+            return false;
+        }
+        if (requirement.minContentVersion() != null
+                && ContentVersions.compare(
+                        completion.contentVersion(),
+                        requirement.minContentVersion()) < 0) {
+            return false;
+        }
+        return requirement.maxContentVersionExclusive() == null
+                || ContentVersions.compare(
+                        completion.contentVersion(),
+                        requirement.maxContentVersionExclusive()) < 0;
+    }
+
+    private void recordCompletion(
+            String ownerId,
+            AdventureRunRow run,
+            AdventurePackageReader.AdventureNode node,
+            AdventurePackageReader.AdventurePackage content,
+            Map<String, Boolean> flags,
+            long now) {
+        Map<String, Boolean> inheritedFlags = new HashMap<>();
+        for (String flag : node.inheritedFlags()) {
+            if (flags.getOrDefault(flag, false)) {
+                inheritedFlags.put(flag, true);
+            }
+        }
+        String seriesId = content.seriesId().isBlank()
+                ? run.bookId()
+                : content.seriesId();
+        String completionId = UUID.nameUUIDFromBytes(
+                ("adventure-completion:" + ownerId + ":" + run.id() + ":"
+                        + run.contentHash() + ":" + node.endingId())
+                        .getBytes(StandardCharsets.UTF_8))
+                .toString();
+        AdventureCompletionRow row = new AdventureCompletionRow(
+                ownerId,
+                completionId,
+                run.id(),
+                run.namespaceId(),
+                run.bookId(),
+                seriesId,
+                run.contentVersion(),
+                run.contentHash(),
+                node.endingId(),
+                node.endingTitle() == null ? node.title() : node.endingTitle(),
+                node.text(),
+                node.nodeId(),
+                objectMapper.writeValueAsString(inheritedFlags),
+                now);
+        if (adventureMapper.insertCompletion(row) == 0) {
+            AdventureCompletionRow existing =
+                    adventureMapper.findCompletion(ownerId, completionId);
+            if (existing == null
+                    || !existing.endingId().equals(row.endingId())) {
+                throw conflict(
+                        "ADVENTURE_COMPLETION_CONFLICT",
+                        "该 run 与内容版本已经记录了不同结局");
+            }
+        }
+    }
+
+    private AdventureDtos.Completion toCompletionView(AdventureCompletionRow row) {
+        return new AdventureDtos.Completion(
+                row.id(),
+                row.runId(),
+                row.namespaceId(),
+                row.bookId(),
+                row.seriesId(),
+                row.contentVersion(),
+                row.contentHash(),
+                row.endingId(),
+                row.endingTitle(),
+                row.endingText(),
+                readFlags(row.inheritedFlagsJson()),
+                row.completedAtMs());
+    }
+
     private void requireCompanionAvailable(
             String ownerId,
             String companionKey,
@@ -863,6 +1150,7 @@ public class AdventureService {
                 row.contentVersion(),
                 row.contentHash(),
                 installation.title(),
+                content.seriesId(),
                 row.companionKey(),
                 row.status(),
                 row.runVersion(),
@@ -890,6 +1178,7 @@ public class AdventureService {
                 listUnlockedCompanions(row.ownerId()),
                 characters,
                 scenes,
+                row.sourceCompletionId(),
                 rewardOffer,
                 readFlags(row.flagsJson()),
                 row.createdAtMs(),

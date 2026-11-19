@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -279,6 +280,7 @@ public class ContentPackageService {
     }
 
     private ContentPackageDtos.Preview previewOf(ValidatedContentPackage validated) {
+        InstallationMetadata metadata = metadata(validated.manifestJson());
         return new ContentPackageDtos.Preview(
                 validated.fileName(),
                 validated.title(),
@@ -288,6 +290,8 @@ public class ContentPackageService {
                 validated.contentHash(),
                 validated.engineVersion(),
                 validated.entryNodeId(),
+                metadata.seriesId(),
+                metadata.requirements(),
                 validated.wordCount(),
                 validated.chapterCount(),
                 validated.nodeCount(),
@@ -329,6 +333,7 @@ public class ContentPackageService {
     }
 
     private ContentPackageDtos.Installation toView(ContentInstallationRow row) {
+        InstallationMetadata metadata = metadata(row.manifestJson());
         return new ContentPackageDtos.Installation(
                 row.id(),
                 row.namespaceId(),
@@ -337,6 +342,8 @@ public class ContentPackageService {
                 row.contentHash(),
                 row.title(),
                 row.entryNodeId(),
+                metadata.seriesId(),
+                metadata.requirements(),
                 row.status(),
                 row.wordCount(),
                 row.chapterCount(),
@@ -346,6 +353,26 @@ public class ContentPackageService {
                 row.encounterCount(),
                 row.assetCount(),
                 row.installedAtMs());
+    }
+
+    private InstallationMetadata metadata(String manifestJson) {
+        var manifest = objectMapper.readTree(manifestJson);
+        List<ContentRequirement> requirements = new ArrayList<>();
+        for (var requirement : manifest.path("requires")) {
+            requirements.add(new ContentRequirement(
+                    requirement.path("bookId").asText(),
+                    requirement.path("endingId").asText(),
+                    requirement.path("endingTitle").asText(),
+                    requirement.has("minContentVersion")
+                            ? requirement.path("minContentVersion").asText()
+                            : null,
+                    requirement.has("maxContentVersionExclusive")
+                            ? requirement.path("maxContentVersionExclusive").asText()
+                            : null));
+        }
+        return new InstallationMetadata(
+                manifest.path("seriesId").asText(""),
+                List.copyOf(requirements));
     }
 
     private ContentPackageDtos.InstallResult result(
@@ -449,5 +476,10 @@ public class ContentPackageService {
     }
 
     public record InstalledPackage(ContentInstallationRow installation, Path root) {
+    }
+
+    private record InstallationMetadata(
+            String seriesId,
+            List<ContentRequirement> requirements) {
     }
 }

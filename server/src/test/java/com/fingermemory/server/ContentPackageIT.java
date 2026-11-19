@@ -109,6 +109,8 @@ class ContentPackageIT {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.outcome").value("installed"))
                 .andExpect(jsonPath("$.installation.bookId").value("warm-lantern"))
+                .andExpect(jsonPath("$.installation.seriesId").value("warm-lantern"))
+                .andExpect(jsonPath("$.installation.requirements").isEmpty())
                 .andReturn();
         String installationId = JsonPath.read(
                 installed.getResponse().getContentAsString(),

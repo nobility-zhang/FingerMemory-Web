@@ -115,6 +115,26 @@ class ContentPackageValidatorTest {
     }
 
     @Test
+    void rejectsInvalidContinuationVersionRange() throws Exception {
+        Map<String, byte[]> files = validFiles();
+        files.put(
+                "manifest.json",
+                """
+                {"schemaVersion":1,"namespace":"fm.demo","bookId":"sequel",
+                 "contentVersion":"1.0.0","title":"续作",
+                 "engineRange":{"minInclusive":"0.3.0","maxExclusive":"0.4.0"},
+                 "entryNodeId":"inn","seriesId":"lineage",
+                 "capabilities":["card-battle-v1"],"requires":[
+                   {"bookId":"warm-lantern","endingId":"main",
+                    "endingTitle":"主线结局",
+                    "minContentVersion":"1.1.0",
+                    "maxContentVersionExclusive":"1.0.0"}
+                 ]}
+                """.getBytes(StandardCharsets.UTF_8));
+        assertInvalid(zip(files), "前作版本范围");
+    }
+
+    @Test
     void rejectsAssetHashMismatchAndUndeclaredAssets() throws Exception {
         Map<String, byte[]> files = validFiles();
         files.put(

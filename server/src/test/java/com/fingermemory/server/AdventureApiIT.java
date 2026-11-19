@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
@@ -55,6 +56,7 @@ class AdventureApiIT {
 
     @BeforeEach
     void cleanDatabaseAndStorage() throws Exception {
+        jdbcTemplate.update("DELETE FROM fm_adventure_completion");
         jdbcTemplate.update("DELETE FROM fm_adventure_recollection");
         jdbcTemplate.update("DELETE FROM fm_adventure_character_unlock");
         jdbcTemplate.update("DELETE FROM fm_adventure_reward_offer");
@@ -261,6 +263,170 @@ class AdventureApiIT {
                 Integer.class,
                 alice.id(),
                 runId)).isEqualTo(10);
+    }
+
+    @Test
+    void upgradesCompletedRunAndSelectsSequelByEnding() throws Exception {
+        RegisteredUser user = registerAndLogin("adventure-lineage");
+        Csrf csrf = csrf(user.session());
+        InstalledPackage first = installNamedPackage(
+                csrf,
+                "install-lineage-v1",
+                "lineage-v1.fmbook",
+                lineagePrequel("1.0.0"));
+        InstalledPackage second = installNamedPackage(
+                csrf,
+                "install-lineage-v2",
+                "lineage-v2.fmbook",
+                lineagePrequel("1.1.0"));
+        InstalledPackage wrongSequel = installNamedPackage(
+                csrf,
+                "install-lineage-dawn",
+                "lineage-dawn.fmbook",
+                lineageSequel("lineage-dawn", "station-keeper"));
+        InstalledPackage rightSequel = installNamedPackage(
+                csrf,
+                "install-lineage-return",
+                "lineage-return.fmbook",
+                lineageSequel("lineage-return", "homeward-letter"));
+
+        start(csrf, wrongSequel.id(), "lia", "missing-prequel")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ADVENTURE_REQUIREMENT_MISSING"));
+
+        MvcResult started = start(
+                csrf,
+                first.id(),
+                "lia",
+                "lineage-start")
+                .andExpect(status().isCreated())
+                .andReturn();
+        String runId = JsonPath.read(
+                started.getResponse().getContentAsString(),
+                "$.run.id");
+        action(csrf, runId, "lineage-go", Map.of(
+                "expectedVersion", 0,
+                "action", "choose",
+                "choiceId", "go"))
+                .andExpect(status().isOk());
+        action(csrf, runId, "lineage-finish-v1", Map.of(
+                "expectedVersion", 1,
+                "action", "complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.status").value("completed"));
+
+        mockMvc.perform(get("/api/v1/adventures/completions")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].bookId").value("lineage-book"))
+                .andExpect(jsonPath("$[0].endingId").value("main"))
+                .andExpect(jsonPath("$[0].contentVersion").value("1.0.0"));
+
+        mockMvc.perform(post("/api/v1/adventures/{runId}/upgrade", runId)
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("Idempotency-Key", "lineage-upgrade")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "installationId", second.id()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("upgraded"))
+                .andExpect(jsonPath("$.run.status").value("active"))
+                .andExpect(jsonPath("$.run.contentVersion").value("1.1.0"))
+                .andExpect(jsonPath("$.run.currentNode.nodeId").value("lineage.end"))
+                .andExpect(jsonPath("$.run.runVersion").value(3));
+
+        jdbcTemplate.update(
+                """
+                UPDATE fm_adventure_run
+                SET flags_json = JSON_SET(flags_json, '$."lineage.met"', true)
+                WHERE owner_id = ? AND id = ?
+                """,
+                user.id(),
+                runId);
+
+        action(csrf, runId, "lineage-new-chapter", Map.of(
+                "expectedVersion", 3,
+                "action", "complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("lineage.new.start"));
+        action(csrf, runId, "lineage-home", Map.of(
+                "expectedVersion", 4,
+                "action", "choose",
+                "choiceId", "home"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.currentNode.nodeId")
+                        .value("lineage.new.home"));
+        action(csrf, runId, "lineage-finish-v2", Map.of(
+                "expectedVersion", 5,
+                "action", "complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.run.status").value("completed"));
+
+        MvcResult completions = mockMvc.perform(get("/api/v1/adventures/completions")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andReturn();
+        List<String> completionIds = JsonPath.read(
+                completions.getResponse().getContentAsString(),
+                "$[?(@.endingId == 'homeward-letter')].id");
+        assertThat(completionIds).hasSize(1);
+        String completionId = completionIds.getFirst();
+
+        startWithCompletion(csrf, wrongSequel.id(), "lia", completionId, "wrong-ending")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ADVENTURE_REQUIREMENT_MISSING"));
+        startWithCompletion(
+                csrf,
+                rightSequel.id(),
+                "lia",
+                completionId,
+                "right-ending")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.run.sourceCompletionId").value(completionId))
+                .andExpect(jsonPath("$.run.contentHash").value(rightSequel.hash()))
+                .andExpect(jsonPath("$.run.flags['lineage.met']").value(true))
+                .andExpect(jsonPath("$.run.deck.length()").value(12));
+        String sequelRunId = jdbcTemplate.queryForObject(
+                "SELECT id FROM fm_adventure_run WHERE owner_id = ? AND installation_id = ?",
+                String.class,
+                user.id(),
+                rightSequel.id());
+        action(csrf, sequelRunId, "sequel-go", Map.of(
+                "expectedVersion", 0,
+                "action", "choose",
+                "choiceId", "go"))
+                .andExpect(status().isOk());
+        action(csrf, sequelRunId, "sequel-advance", Map.of(
+                "expectedVersion", 1,
+                "action", "advance"))
+                .andExpect(status().isOk());
+        action(csrf, sequelRunId, "sequel-end", Map.of(
+                "expectedVersion", 2,
+                "action", "complete"))
+                .andExpect(status().isOk());
+
+        int recollections = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM fm_adventure_recollection WHERE owner_id = ?",
+                Integer.class,
+                user.id());
+        startWithCompletion(
+                csrf,
+                rightSequel.id(),
+                "lia",
+                completionId,
+                "right-ending-replay")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.run.flags['lineage.met']").value(true));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM fm_adventure_recollection WHERE owner_id = ?",
+                Integer.class,
+                user.id())).isEqualTo(recollections);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM fm_adventure_completion WHERE owner_id = ?",
+                Integer.class,
+                user.id())).isEqualTo(3);
     }
 
     @Test
@@ -581,6 +747,24 @@ class AdventureApiIT {
                         "reduceMotion", true))));
     }
 
+    private org.springframework.test.web.servlet.ResultActions startWithCompletion(
+            Csrf csrf,
+            String installationId,
+            String companionKey,
+            String sourceCompletionId,
+            String actionId) throws Exception {
+        return mockMvc.perform(post("/api/v1/adventures")
+                .cookie(csrf.cookie())
+                .header(csrf.headerName(), csrf.token())
+                .header("Idempotency-Key", actionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of(
+                        "installationId", installationId,
+                        "companionKey", companionKey,
+                        "sourceCompletionId", sourceCompletionId,
+                        "reduceMotion", true))));
+    }
+
     private org.springframework.test.web.servlet.ResultActions action(
             Csrf csrf,
             String runId,
@@ -623,6 +807,28 @@ class AdventureApiIT {
                         .cookie(csrf.cookie())
                         .header(csrf.headerName(), csrf.token())
                         .header("Idempotency-Key", "install-" + variant))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String body = installed.getResponse().getContentAsString();
+        return new InstalledPackage(
+                JsonPath.read(body, "$.installation.id"),
+                JsonPath.read(body, "$.installation.contentHash"));
+    }
+
+    private InstalledPackage installNamedPackage(
+            Csrf csrf,
+            String idempotencyKey,
+            String fileName,
+            Map<String, byte[]> files) throws Exception {
+        MvcResult installed = mockMvc.perform(multipart("/api/v1/content-packages")
+                        .file(new MockMultipartFile(
+                                "file",
+                                fileName,
+                                "application/zip",
+                                zip(files)))
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("Idempotency-Key", idempotencyKey))
                 .andExpect(status().isCreated())
                 .andReturn();
         String body = installed.getResponse().getContentAsString();
@@ -826,6 +1032,136 @@ class AdventureApiIT {
                 {"encounters":[{"encounterId":"bridge-guardian",
                   "battleRulesVersion":"card-battle-v1","rewardCardIds":[]}]}
                 """.getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "characters.json",
+                "{\"characters\":[]}".getBytes(StandardCharsets.UTF_8));
+        files.put("assets.json", "{\"assets\":[]}".getBytes(StandardCharsets.UTF_8));
+        return files;
+    }
+
+    private Map<String, byte[]> lineagePrequel(String version) {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put(
+                "manifest.json",
+                """
+                {"schemaVersion":1,"namespace":"fm.demo","bookId":"lineage-book",
+                 "contentVersion":"%s","title":"传承书",
+                 "engineRange":{"minInclusive":"0.3.0","maxExclusive":"0.4.0"},
+                 "entryNodeId":"lineage.start","seriesId":"lineage-book",
+                 "capabilities":["card-battle-v1"],"requires":[]}
+                """.formatted(version).getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "vocabulary.tsv",
+                ("wordKey\tterm\tmeaning\tacceptedAnswers\thints\n"
+                        + "route\troute\t路线\t\"[\"\"route\"\"]\"\t\"[\"\"走法\"\"]\"\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "bindings.json",
+                """
+                {"bindings":[{"nodeId":"lineage.start","wordKeys":["route"]}]}
+                """.getBytes(StandardCharsets.UTF_8));
+        String story = version.equals("1.0.0")
+                ? """
+                  {"chapters":[{"chapterId":"lineage-1","title":"旧章","nodes":[
+                    {"nodeId":"lineage.start","type":"choice","title":"起点",
+                      "text":"整理旧路线。","choices":[
+                        {"choiceId":"go","label":"继续","targetNodeId":"lineage.end"}
+                      ]},
+                    {"nodeId":"lineage.end","type":"chapter-end","title":"旧结局",
+                      "text":"旧版本在这里结束。","endingId":"main"}
+                  ]}]}
+                  """
+                : """
+                  {"chapters":[
+                    {"chapterId":"lineage-1","title":"旧章","nodes":[
+                      {"nodeId":"lineage.start","type":"choice","title":"起点",
+                        "text":"整理旧路线。","choices":[
+                          {"choiceId":"go","label":"继续","targetNodeId":"lineage.end"}
+                        ]},
+                      {"nodeId":"lineage.end","type":"chapter-end","title":"旧结局",
+                        "text":"旧版本在这里结束。","endingId":"main",
+                        "nextNodeId":"lineage.new.start"}
+                    ]},
+                    {"chapterId":"lineage-2","title":"新章","nodes":[
+                      {"nodeId":"lineage.new.start","type":"choice","title":"新路线",
+                        "text":"选择下一段路。","choices":[
+                          {"choiceId":"stay","label":"留在风车边",
+                            "targetNodeId":"lineage.new.stay"},
+                          {"choiceId":"home","label":"送回回信",
+                            "targetNodeId":"lineage.new.home"}
+                        ]},
+                      {"nodeId":"lineage.new.stay","type":"chapter-end","title":"邮站留灯",
+                        "text":"诺拉留在邮站。","endingId":"station-keeper",
+                        "inheritedFlags":["lineage.met"]},
+                      {"nodeId":"lineage.new.home","type":"chapter-end","title":"回信归途",
+                        "text":"回信送回旅店。","endingId":"homeward-letter",
+                        "inheritedFlags":["lineage.met"]}
+                    ]}
+                  ]}
+                  """;
+        files.put("story.json", story.getBytes(StandardCharsets.UTF_8));
+        files.put("cards.json", "{\"cards\":[]}".getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "encounters.json",
+                "{\"encounters\":[]}".getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "characters.json",
+                "{\"characters\":[]}".getBytes(StandardCharsets.UTF_8));
+        files.put("assets.json", "{\"assets\":[]}".getBytes(StandardCharsets.UTF_8));
+        return files;
+    }
+
+    private Map<String, byte[]> lineageSequel(
+            String bookId,
+            String requiredEnding) {
+        String title = bookId.equals("lineage-dawn") ? "晨光续作" : "归途续作";
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put(
+                "manifest.json",
+                """
+                {"schemaVersion":1,"namespace":"fm.demo","bookId":"%s",
+                 "contentVersion":"1.0.0","title":"%s",
+                 "engineRange":{"minInclusive":"0.3.0","maxExclusive":"0.4.0"},
+                 "entryNodeId":"sequel.start","seriesId":"lineage-book",
+                 "capabilities":["card-battle-v1"],"requires":[
+                   {"bookId":"lineage-book","endingId":"%s",
+                    "endingTitle":"对应结局",
+                    "minContentVersion":"1.1.0",
+                    "maxContentVersionExclusive":"2.0.0"}
+                 ]}
+                """.formatted(bookId, title, requiredEnding)
+                        .getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "vocabulary.tsv",
+                ("wordKey\tterm\tmeaning\tacceptedAnswers\thints\n"
+                        + "letter\tletter\t信\t\"[\"\"letter\"\"]\"\t\"[\"\"信纸\"\"]\"\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "bindings.json",
+                """
+                {"bindings":[{"nodeId":"sequel.start","wordKeys":["letter"]}]}
+                """.getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "story.json",
+                """
+                {"chapters":[{"chapterId":"sequel-1","title":"%s","nodes":[
+                  {"nodeId":"sequel.start","type":"choice","title":"续作起点",
+                    "text":"继承前作结局。","recollectionId":"arrival",
+                    "recollectionTitle":"续作相遇","recollectionText":"来自锁定回执的续作开场。",
+                    "choices":[
+                      {"choiceId":"go","label":"继续","targetNodeId":"sequel.camp"}
+                    ]},
+                  {"nodeId":"sequel.camp","type":"camp","title":"续作营地",
+                    "speaker":"诺拉","text":"新的路线已经写好。",
+                    "nextNodeId":"sequel.end"},
+                  {"nodeId":"sequel.end","type":"chapter-end","title":"续作完成",
+                    "text":"这一份续作结局也已被保存。","endingId":"sequel-done"}
+                ]}]}
+                """.formatted(title).getBytes(StandardCharsets.UTF_8));
+        files.put("cards.json", "{\"cards\":[]}".getBytes(StandardCharsets.UTF_8));
+        files.put(
+                "encounters.json",
+                "{\"encounters\":[]}".getBytes(StandardCharsets.UTF_8));
         files.put(
                 "characters.json",
                 "{\"characters\":[]}".getBytes(StandardCharsets.UTF_8));

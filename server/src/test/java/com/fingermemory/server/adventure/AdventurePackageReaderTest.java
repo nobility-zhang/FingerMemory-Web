@@ -15,11 +15,24 @@ class AdventurePackageReaderTest {
 
     @Test
     void preservesCostumePortraitPathsFromCharacterDefinitions() throws Exception {
+        write("manifest.json", """
+                {"schemaVersion":1,"namespace":"fm.demo","bookId":"windmill-post",
+                 "contentVersion":"1.1.0","title":"风车邮路",
+                 "engineRange":{"minInclusive":"0.3.0","maxExclusive":"0.4.0"},
+                 "entryNodeId":"windmill.meet","seriesId":"windmill-post",
+                 "capabilities":["card-battle-v1"],"requires":[
+                   {"bookId":"warm-lantern","endingId":"main",
+                    "endingTitle":"主线结局",
+                    "minContentVersion":"1.0.0"}
+                 ]}
+                """);
         write("story.json", """
                 {"chapters":[{"chapterId":"windmill-post-chapter","title":"风车邮路",
                   "nodes":[{"nodeId":"windmill.meet","type":"dialogue",
                     "portraitCharacterId":"nora","costumeId":"wind-courier",
-                    "sceneId":"windmill-road","nextNodeId":null}]}]}
+                    "sceneId":"windmill-road","endingId":"station-keeper",
+                    "endingTitle":"邮站留灯",
+                    "inheritedFlags":["encounter.windmill-post-warden.resolved"]}]}]}
                 """);
         write(
                 "vocabulary.tsv",
@@ -52,6 +65,16 @@ class AdventurePackageReaderTest {
                 .isEqualTo("assets/characters/nora/wind-courier/cheer.png");
         assertThat(content.scenes().get("windmill-road").background())
                 .isEqualTo("assets/scenes/windmill-road.jpg");
+        assertThat(content.seriesId()).isEqualTo("windmill-post");
+        assertThat(content.requirements()).singleElement()
+                .satisfies(requirement -> {
+                    assertThat(requirement.bookId()).isEqualTo("warm-lantern");
+                    assertThat(requirement.endingId()).isEqualTo("main");
+                });
+        assertThat(content.nodes().get("windmill.meet").endingId())
+                .isEqualTo("station-keeper");
+        assertThat(content.nodes().get("windmill.meet").inheritedFlags())
+                .containsExactly("encounter.windmill-post-warden.resolved");
     }
 
     private void write(String name, String value) throws Exception {

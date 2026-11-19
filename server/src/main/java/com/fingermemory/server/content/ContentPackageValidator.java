@@ -258,11 +258,12 @@ public class ContentPackageValidator {
         String contentVersion = requiredVersion(manifest, "contentVersion");
         String title = requiredText(manifest, "title", 200);
         String entryNodeId = requiredIdentifier(manifest, "entryNodeId");
+        requiredIdentifier(manifest, "seriesId");
         JsonNode engineRange = requiredObjectField(manifest, "engineRange");
         String minInclusive = requiredVersion(engineRange, "minInclusive");
         String maxExclusive = requiredVersion(engineRange, "maxExclusive");
-        int compareMin = compareVersions(engineVersion, minInclusive);
-        int compareMax = compareVersions(engineVersion, maxExclusive);
+        int compareMin = ContentVersions.compare(engineVersion, minInclusive);
+        int compareMax = ContentVersions.compare(engineVersion, maxExclusive);
         if (compareMin < 0 || compareMax >= 0) {
             throw invalid(
                     "内容包不支持当前引擎版本 "
@@ -286,10 +287,28 @@ public class ContentPackageValidator {
         if (!hasBattle) {
             throw invalid("内容包必须声明 card-battle-v1 能力");
         }
-        if (manifest.path("requires").isArray()) {
-            for (JsonNode requirement : manifest.path("requires")) {
-                requiredIdentifier(requirement, "bookId");
-                requiredText(requirement, "endingId", 128);
+        JsonNode requirements = requiredArray(manifest, "requires");
+        Set<String> requirementKeys = new HashSet<>();
+        for (JsonNode requirement : requirements) {
+            String requiredBookId = requiredIdentifier(requirement, "bookId");
+            String endingId = requiredText(requirement, "endingId", 128);
+            requiredText(requirement, "endingTitle", 200);
+            String minimum = requirement.has("minContentVersion")
+                    ? requiredVersion(requirement, "minContentVersion")
+                    : null;
+            String maximum = requirement.has("maxContentVersionExclusive")
+                    ? requiredVersion(requirement, "maxContentVersionExclusive")
+                    : null;
+            if (minimum != null
+                    && maximum != null
+                    && ContentVersions.compare(minimum, maximum) >= 0) {
+                throw invalid("前作版本范围必须满足 minContentVersion < maxContentVersionExclusive");
+            }
+            String key = requiredBookId + ":" + endingId + ":"
+                    + (minimum == null ? "" : minimum) + ":"
+                    + (maximum == null ? "" : maximum);
+            if (!requirementKeys.add(key)) {
+                throw invalid("前作要求重复：" + requiredBookId + "/" + endingId);
             }
         }
         return new PackageIdentity(
@@ -364,6 +383,7 @@ public class ContentPackageValidator {
         Set<String> nodeIds = new HashSet<>();
         Map<String, Set<String>> transitions = new HashMap<>();
         Map<String, String> encounterByNode = new HashMap<>();
+        Set<String> endingIds = new HashSet<>();
         boolean hasEnding = false;
         for (JsonNode chapter : chapters) {
             requiredIdentifier(chapter, "chapterId");
@@ -414,6 +434,14 @@ public class ContentPackageValidator {
                     requiredText(node, "encounterDescription", 2000);
                 }
                 validateRecollectionFields(node);
+                if (node.has("inheritedFlags")) {
+                    JsonNode inheritedFlags = requiredArray(node, "inheritedFlags");
+                    for (JsonNode flag : inheritedFlags) {
+                        identifier(
+                                requireTextNode(flag, "inheritedFlags"),
+                                "inheritedFlags");
+                    }
+                }
                 hasEnding |= "chapter-end".equals(type);
                 Set<String> targets = transitions.computeIfAbsent(
                         nodeId,
@@ -423,6 +451,16 @@ public class ContentPackageValidator {
                 }
                 if (node.has("nextNodeId") && !node.path("nextNodeId").isNull()) {
                     targets.add(requiredIdentifier(node, "nextNodeId"));
+                } else if ("chapter-end".equals(type)) {
+                    String endingId = node.has("endingId")
+                            ? requiredIdentifier(node, "endingId")
+                            : "main";
+                    if (!endingIds.add(endingId)) {
+                        throw invalid("结局 ID 重复：" + endingId);
+                    }
+                    if (node.has("endingTitle")) {
+                        requiredText(node, "endingTitle", 200);
+                    }
                 }
                 if (node.has("choices")) {
                     JsonNode choices = requiredArray(node, "choices");
@@ -459,7 +497,8 @@ public class ContentPackageValidator {
                 chapters.size(),
                 nodeIds,
                 transitions,
-                encounterByNode);
+                encounterByNode,
+                endingIds);
     }
 
     private void validateBindings(
@@ -1093,20 +1132,6 @@ public class ContentPackageValidator {
         return node.stringValue();
     }
 
-    private static int compareVersions(String left, String right) {
-        String[] leftParts = left.split("\\.");
-        String[] rightParts = right.split("\\.");
-        for (int index = 0; index < 3; index += 1) {
-            int compare = Integer.compare(
-                    Integer.parseInt(leftParts[index]),
-                    Integer.parseInt(rightParts[index]));
-            if (compare != 0) {
-                return compare;
-            }
-        }
-        return 0;
-    }
-
     private static boolean startsWith(byte[] bytes, int[] prefix) {
         if (bytes.length < prefix.length) {
             return false;
@@ -1154,7 +1179,8 @@ public class ContentPackageValidator {
             int chapterCount,
             Set<String> nodeIds,
             Map<String, Set<String>> transitions,
-            Map<String, String> encounterByNode) {
+            Map<String, String> encounterByNode,
+            Set<String> endingIds) {
     }
 
     private record CardSummary(Set<String> cardIds) {

@@ -15,7 +15,12 @@ public final class AdventureDtos {
     public record StartRequest(
             @NotBlank @Size(max = 36) String installationId,
             @NotBlank @Size(max = 128) String companionKey,
+            @Size(max = 36) String sourceCompletionId,
             boolean reduceMotion) {
+    }
+
+    public record UpgradeRequest(
+            @NotBlank @Size(max = 36) String installationId) {
     }
 
     public record ActionRequest(
@@ -107,6 +112,7 @@ public final class AdventureDtos {
             String contentVersion,
             String contentHash,
             String title,
+            String seriesId,
             String companionKey,
             String status,
             long runVersion,
@@ -117,6 +123,7 @@ public final class AdventureDtos {
             List<String> unlockedCharacters,
             List<Character> characters,
             List<Scene> scenes,
+            String sourceCompletionId,
             RewardOffer rewardOffer,
             Map<String, Boolean> flags,
             long createdAtMs,
@@ -129,6 +136,11 @@ public final class AdventureDtos {
     }
 
     public record ActionResult(
+            String outcome,
+            Run run) {
+    }
+
+    public record UpgradeResult(
             String outcome,
             Run run) {
     }
@@ -149,5 +161,20 @@ public final class AdventureDtos {
             String speaker,
             String text,
             long unlockedAtMs) {
+    }
+
+    public record Completion(
+            String id,
+            String runId,
+            String namespace,
+            String bookId,
+            String seriesId,
+            String contentVersion,
+            String contentHash,
+            String endingId,
+            String endingTitle,
+            String endingText,
+            Map<String, Boolean> inheritedFlags,
+            long completedAtMs) {
     }
 }

@@ -1021,6 +1021,7 @@ components:
         - contentVersion
         - contentHash
         - title
+        - seriesId
         - companionKey
         - status
         - runVersion
@@ -1046,6 +1047,8 @@ components:
           type: string
           pattern: '^[a-f0-9]{64}$'
         title:
+          type: string
+        seriesId:
           type: string
         companionKey:
           type: string
@@ -1081,6 +1084,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AdventureScene'
+        sourceCompletionId:
+          type: string
         rewardOffer:
           $ref: '#/components/schemas/AdventureRewardOffer'
         flags:
@@ -1104,6 +1109,9 @@ components:
         companionKey:
           type: string
           maxLength: 128
+        sourceCompletionId:
+          type: string
+          maxLength: 36
         reduceMotion:
           type: boolean
     AdventureStartResult:
@@ -1192,6 +1200,87 @@ components:
         unlockedAtMs:
           type: integer
           minimum: 0
+    AdventureCompletion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - runId
+        - namespace
+        - bookId
+        - seriesId
+        - contentVersion
+        - contentHash
+        - endingId
+        - endingTitle
+        - endingText
+        - inheritedFlags
+        - completedAtMs
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        namespace:
+          type: string
+        bookId:
+          type: string
+        seriesId:
+          type: string
+        contentVersion:
+          type: string
+        contentHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        endingId:
+          type: string
+        endingTitle:
+          type: string
+        endingText:
+          type: string
+        inheritedFlags:
+          type: object
+          additionalProperties:
+            type: boolean
+        completedAtMs:
+          type: integer
+          minimum: 0
+    AdventureUpgrade:
+      type: object
+      additionalProperties: false
+      required: [installationId]
+      properties:
+        installationId:
+          type: string
+          maxLength: 36
+    AdventureUpgradeResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, run]
+      properties:
+        outcome:
+          type: string
+          enum: [upgraded]
+        run:
+          $ref: '#/components/schemas/AdventureRun'
+    ContentRequirement:
+      type: object
+      additionalProperties: false
+      required: [bookId, endingId, endingTitle]
+      properties:
+        bookId:
+          type: string
+        endingId:
+          type: string
+        endingTitle:
+          type: string
+          maxLength: 200
+        minContentVersion:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+        maxContentVersionExclusive:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
     ContentPackagePreview:
       type: object
       additionalProperties: false
@@ -1204,6 +1293,8 @@ components:
         - contentHash
         - engineVersion
         - entryNodeId
+        - seriesId
+        - requirements
         - wordCount
         - chapterCount
         - nodeCount
@@ -1230,6 +1321,12 @@ components:
           type: string
         entryNodeId:
           type: string
+        seriesId:
+          type: string
+        requirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentRequirement'
         wordCount:
           type: integer
           minimum: 1
@@ -1266,6 +1363,8 @@ components:
         - contentHash
         - title
         - entryNodeId
+        - seriesId
+        - requirements
         - status
         - wordCount
         - chapterCount
@@ -1292,6 +1391,12 @@ components:
           type: string
         entryNodeId:
           type: string
+        seriesId:
+          type: string
+        requirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentRequirement'
         status:
           type: string
           enum: [installed]
@@ -2858,6 +2963,29 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AdventureCharacter'
+  /adventures/completions:
+    get:
+      summary: 列出账号级不可变结局完成回执
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: 可用于续作前置匹配的完成回执
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdventureCompletion'
   /adventures/recollections:
     get:
       summary: 列出账号级去重的剧情回忆
@@ -2898,6 +3026,33 @@ paths:
                 $ref: '#/components/schemas/AdventureRun'
         '404':
           $ref: '#/components/responses/NotFound'
+  /adventures/{runId}/upgrade:
+    post:
+      summary: 从已通关安全检查点显式开启同书新版本章节
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AdventureRunId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdventureUpgrade'
+      responses:
+        '200':
+          description: 旧 run 已固定到更高版本并恢复为 active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdventureUpgradeResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /adventures/{runId}/encounters:
     post:
       summary: 为当前遭遇节点创建唯一 card-battle-v1 并绑定学习会话

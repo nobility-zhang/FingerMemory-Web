@@ -12,7 +12,8 @@ public interface AdventureMapper {
     @Select("""
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
-                   session_id, companion_key, status, active_slot, run_version,
+                   session_id, companion_key, status, active_slot,
+                   source_completion_id, run_version,
                    flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND active_slot = #{installationId}
@@ -24,7 +25,8 @@ public interface AdventureMapper {
     @Select("""
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
-                   session_id, companion_key, status, active_slot, run_version,
+                   session_id, companion_key, status, active_slot,
+                   source_completion_id, run_version,
                    flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND id = #{runId}
@@ -37,7 +39,8 @@ public interface AdventureMapper {
     @Select("""
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
-                   session_id, companion_key, status, active_slot, run_version,
+                   session_id, companion_key, status, active_slot,
+                   source_completion_id, run_version,
                    flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND id = #{runId}
@@ -49,7 +52,8 @@ public interface AdventureMapper {
     @Select("""
             SELECT owner_id, id, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
-                   session_id, companion_key, status, active_slot, run_version,
+                   session_id, companion_key, status, active_slot,
+                   source_completion_id, run_version,
                    flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             FROM fm_adventure_run
             WHERE owner_id = #{ownerId} AND active_slot IS NOT NULL
@@ -64,13 +68,14 @@ public interface AdventureMapper {
             INSERT INTO fm_adventure_run (
               owner_id, id, installation_id, namespace_id, book_id,
               content_version, content_hash, entry_node_id, current_node_id,
-              session_id, companion_key, status, active_slot, run_version,
+              session_id, companion_key, status, active_slot,
+              source_completion_id, run_version,
               flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             ) VALUES (
               #{ownerId}, #{id}, #{installationId}, #{namespaceId}, #{bookId},
               #{contentVersion}, #{contentHash}, #{entryNodeId}, #{currentNodeId},
               #{sessionId}, #{companionKey}, #{status}, #{activeSlot},
-              #{runVersion}, CAST(#{flagsJson} AS JSON),
+              #{sourceCompletionId}, #{runVersion}, CAST(#{flagsJson} AS JSON),
               CAST(#{deckJson} AS JSON), #{battleId},
               #{createdAtMs}, #{updatedAtMs}
             )
@@ -79,9 +84,17 @@ public interface AdventureMapper {
 
     @Update("""
             UPDATE fm_adventure_run
-            SET current_node_id = #{row.currentNodeId},
+            SET installation_id = #{row.installationId},
+                namespace_id = #{row.namespaceId},
+                book_id = #{row.bookId},
+                content_version = #{row.contentVersion},
+                content_hash = #{row.contentHash},
+                entry_node_id = #{row.entryNodeId},
+                current_node_id = #{row.currentNodeId},
+                session_id = #{row.sessionId},
                 status = #{row.status},
                 active_slot = #{row.activeSlot},
+                source_completion_id = #{row.sourceCompletionId},
                 companion_key = #{row.companionKey},
                 run_version = #{row.runVersion},
                 flags_json = CAST(#{row.flagsJson} AS JSON),
@@ -114,6 +127,48 @@ public interface AdventureMapper {
             @Param("runVersion") long runVersion,
             @Param("battleId") String battleId,
             @Param("updatedAtMs") long updatedAtMs);
+
+    @Select("""
+            SELECT owner_id, id, run_id, namespace_id, book_id, series_id,
+                   content_version, content_hash, ending_id, ending_title,
+                   ending_text, source_node_id, inherited_flags_json,
+                   completed_at_ms
+            FROM fm_adventure_completion
+            WHERE owner_id = #{ownerId} AND id = #{completionId}
+            """)
+    AdventureCompletionRow findCompletion(
+            @Param("ownerId") String ownerId,
+            @Param("completionId") String completionId);
+
+    @Select("""
+            SELECT owner_id, id, run_id, namespace_id, book_id, series_id,
+                   content_version, content_hash, ending_id, ending_title,
+                   ending_text, source_node_id, inherited_flags_json,
+                   completed_at_ms
+            FROM fm_adventure_completion
+            WHERE owner_id = #{ownerId}
+            ORDER BY completed_at_ms DESC, id ASC
+            LIMIT #{limit}
+            """)
+    List<AdventureCompletionRow> listCompletions(
+            @Param("ownerId") String ownerId,
+            @Param("limit") int limit);
+
+    @Insert("""
+            INSERT IGNORE INTO fm_adventure_completion (
+              owner_id, id, run_id, namespace_id, book_id, series_id,
+              content_version, content_hash, ending_id, ending_title,
+              ending_text, source_node_id, inherited_flags_json,
+              completed_at_ms
+            ) VALUES (
+              #{row.ownerId}, #{row.id}, #{row.runId}, #{row.namespaceId},
+              #{row.bookId}, #{row.seriesId}, #{row.contentVersion},
+              #{row.contentHash}, #{row.endingId}, #{row.endingTitle},
+              #{row.endingText}, #{row.sourceNodeId},
+              CAST(#{row.inheritedFlagsJson} AS JSON), #{row.completedAtMs}
+            )
+            """)
+    int insertCompletion(@Param("row") AdventureCompletionRow row);
 
     @Select("""
             SELECT owner_id, run_id, node_id, encounter_id, battle_id, created_at_ms
