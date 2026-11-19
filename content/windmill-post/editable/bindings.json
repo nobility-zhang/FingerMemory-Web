@@ -1,0 +1,47 @@
+{
+  "bindings": [
+    {
+      "nodeId": "windmill.arrival",
+      "wordKeys": [
+        "wind",
+        "route",
+        "post",
+        "hill"
+      ]
+    },
+    {
+      "nodeId": "windmill.meet",
+      "wordKeys": [
+        "letter",
+        "satchel",
+        "chime",
+        "promise"
+      ]
+    },
+    {
+      "nodeId": "windmill.camp",
+      "wordKeys": [
+        "lantern",
+        "friend",
+        "courage"
+      ]
+    },
+    {
+      "nodeId": "windmill.post",
+      "wordKeys": [
+        "storm",
+        "path",
+        "bridge",
+        "deliver"
+      ]
+    },
+    {
+      "nodeId": "windmill.delivered",
+      "wordKeys": [
+        "arrive",
+        "home",
+        "remember"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "namespace": "fm.demo",
+  "bookId": "windmill-post",
+  "contentVersion": "1.0.0",
+  "title": "风车邮路",
+  "engineRange": {
+    "minInclusive": "0.3.0",
+    "maxExclusive": "0.4.0"
+  },
+  "entryNodeId": "windmill.arrival",
+  "seriesId": "windmill-post",
+  "capabilities": [
+    "card-battle-v1"
+  ],
+  "requires": []
+}

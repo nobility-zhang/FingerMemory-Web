@@ -1,0 +1,115 @@
+{
+  "chapters": [
+    {
+      "chapterId": "windmill-post-chapter",
+      "title": "风车邮路",
+      "nodes": [
+        {
+          "nodeId": "windmill.arrival",
+          "type": "choice",
+          "title": "风车下的旧邮筒",
+          "sceneId": "windmill-road",
+          "text": "旅店门口多了一只漆色斑驳的邮筒。里面只有一封没有署名的信，封蜡上刻着风车纹样。远处山丘的风车正被乌云推得飞快。",
+          "choices": [
+            {
+              "choiceId": "follow-route",
+              "label": "沿信上的路线前往风车邮站",
+              "targetNodeId": "windmill.meet"
+            }
+          ]
+        },
+        {
+          "nodeId": "windmill.meet",
+          "type": "dialogue",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-road",
+          "unlockCharacterId": "nora",
+          "recollectionId": "nora-meets",
+          "recollectionTitle": "逆风里的年轻信使",
+          "recollectionText": "诺拉在风车邮路上拦住你们，把一封被风吹散的信重新收进邮差包。她决定带你们去最后一班逆风邮站。",
+          "title": "路中央的信使",
+          "text": "深青短发的信使从麦田边跑来，邮差包上的风铃响得很急。她叫诺拉，已经追这封信追了整整一天。“最后一班逆风邮车要开了。如果愿意相信我，就跟我走这条路。”",
+          "nextNodeId": "windmill.camp"
+        },
+        {
+          "nodeId": "windmill.camp",
+          "type": "camp",
+          "speaker": "旅伴",
+          "sceneId": "windmill-camp",
+          "title": "风车营地",
+          "recollectionId": "wind-courier-oath",
+          "recollectionTitle": "邮差包里的约定",
+          "recollectionText": "诺拉把湿掉的信角压在灯旁烘干，答应无论风多大都把最后一封信送到山丘邮站。",
+          "text": "诺拉在背风的墙边点起小灯，把信封一枚枚摊平。她没有要求你们立刻赶路，只把今天的路线念了一遍。现在可以让她加入带队名单，也可以继续让原来的伙伴同行。",
+          "nextNodeId": "windmill.post"
+        },
+        {
+          "nodeId": "windmill.post",
+          "type": "encounter",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-post",
+          "encounterId": "windmill-post-warden",
+          "encounterName": "逆风邮差",
+          "encounterDescription": "风把散落的旧信卷成一名邮差模样的守卫。它守在最后一条石桥前，只肯让真正记得收件人话语的旅人通过。",
+          "victoryNodeId": "windmill.delivered",
+          "rescueNodeId": "windmill.sheltered",
+          "title": "逆风邮站",
+          "text": "狂风撞响邮站屋檐下的铜铃，满天旧信在石桥上聚成一名守卫。诺拉把邮差包护在胸前，等你们一起完成这一轮回忆。"
+        },
+        {
+          "nodeId": "windmill.delivered",
+          "type": "dialogue",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-post",
+          "recollectionId": "letter-delivered",
+          "recollectionTitle": "最后一封逆风信",
+          "recollectionText": "旧信上的名字在灯下重新显出来。诺拉把信交到山丘邮站，风暴第一次为一条清楚的路线让开。",
+          "title": "送达",
+          "text": "散落的旧信重新叠好，桥上的风也慢了下来。诺拉把最后一封信放进收件匣，轻声说：“原来收件人一直在等一句记得。”她没有催你们庆祝，只把回程的灯点亮。",
+          "nextNodeId": "windmill.camp-end"
+        },
+        {
+          "nodeId": "windmill.sheltered",
+          "type": "camp",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-camp",
+          "title": "避风的邮站",
+          "text": "你们退回邮站屋檐下。诺拉把没答好的词重新写进路线本，又把水壶递过来：“送信的人也会在暴风里休息。信还在，我们就还能再走一次。”",
+          "nextNodeId": "windmill.camp-end"
+        },
+        {
+          "nodeId": "windmill.camp-end",
+          "type": "camp",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-camp",
+          "title": "风停之后",
+          "text": "风车重新慢慢转动。诺拉把邮差包放到长椅上，和你们一起核对今天的路线。她已经成为旅团名单中的一位伙伴，而她的风铃也留在了这盏灯旁。",
+          "nextNodeId": "windmill.end"
+        },
+        {
+          "nodeId": "windmill.end",
+          "type": "chapter-end",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-camp",
+          "title": "风车邮路完成",
+          "text": "最后一封信已经送达。诺拉在回程地图上画下一盏小灯，约定下一次风暴来时，仍从这条清楚的路线出发。",
+          "recollectionId": "windmill-ending",
+          "recollectionTitle": "风车邮路的回程灯",
+          "recollectionText": "风暴退去后，诺拉与旅团在风车下约定：每封被认真记住的信，都会找到回程的路。"
+        }
+      ]
+    }
+  ]
+}

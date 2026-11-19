@@ -1,6 +1,9 @@
 # 系统架构概览
 
-FingerMemory 包含可独立运行的本地学习模式，以及 Java 服务提供的多用户账号模式。当前已有旅店与伙伴呈现；标准翻面卡片、Phaser 卡牌战斗和可导入冒险包仍按 [开发路线](../development/roadmap.md) 实施。
+FingerMemory 包含可独立运行的本地学习模式，以及 Java 服务提供的多用户账号模式。
+当前已有旅店与伙伴、标准翻面卡片、Phaser/Vue 卡牌战斗、可安装 `.fmbook` 冒险、
+动态内容包角色，以及受权 GM 与隔离 sandbox；续作依赖、CLI 新版和完整故事备份仍按
+[开发路线](../development/roadmap.md) 实施。
 
 ## 系统边界
 
@@ -11,7 +14,7 @@ Vue Web / Node CLI
                     └─ 固定 FSRS worker（纯计算，内部网络）
 
 Vue/DOM（输入、对话、评分、可访问控件）
-  ↔ Phaser 最小音频桥（战斗 Scene 待实施）
+  ↔ Phaser 表现与音频桥
   ↔ 游戏应用服务与只读状态快照
 ```
 
@@ -26,7 +29,7 @@ Vue/DOM（输入、对话、评分、可访问控件）
 | 学习调度 | 固定 ts-fsrs / FSRS-7 | 复用成熟算法，见 [兼容决策](fsrs.md) |
 | 账号服务 | Java 21、Spring Boot、MyBatis | 认证、资源归属、会话、版本检查与事务 |
 | 数据库 | MySQL、Flyway、Spring Session JDBC | 用户与学习数据、版本化迁移、会话持久化 |
-| 游戏（最小音频桥 + 纯规则） | Phaser + Vue | 已接入单 Game 生命周期、翻面音效和 `card-battle-v1` 纯规则；Java 命令与战斗 Scene 待实施 |
+| 游戏与冒险 | Phaser + Vue + Java | 单一 Game 生命周期、音效桥、`card-battle-v1`、Java 战斗命令、安装 run、奖励/回忆和内容包角色/场景注册 |
 | CLI（待迭代） | Node.js + TypeScript | 在线学习、文字冒险与独立本地模式 |
 
 具体依赖版本以 [Web 清单](../../web/package.json)、锁文件与 [Java POM](../../server/pom.xml) 为准；文档不维护另一张容易过期的补丁版本表。新依赖检查维护、许可、真实用途与工具链兼容，避免浮动 latest 或运行时 CDN。
@@ -38,7 +41,8 @@ Vue/DOM（输入、对话、评分、可访问控件）
 | `web/src/app` | 应用壳、账号和词库/数据工作区 |
 | `web/src/core`、`session`、`scheduler` | 学习契约、会话状态与算法适配 |
 | `web/src/storage`、`import`、`api` | 本地持久化、词条解析、在线请求边界 |
-| `web/src/inn`、`companions`、`game` | 旅店、伙伴和已有在线训练外壳 |
+| `web/src/inn`、`companions`、`game` | 旅店、伙伴偏好与内容包角色注册、在线学习外壳 |
+| `web/src/adventure`、`battle`、`game-runtime` | 冒险检查点、可访问卡牌界面、Phaser 表现与音效边界 |
 | `web/src/modes` | 旧模式兼容；按计划逐步退出新建入口 |
 | `web/src/assets` | 成品角色/背景等素材及来源，二进制按 LFS 规则 |
 | `web/worker` | 与本地复用的固定 FSRS 纯计算入口 |

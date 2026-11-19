@@ -1,0 +1,13 @@
+{
+  "encounters": [
+    {
+      "encounterId": "windmill-post-warden",
+      "battleRulesVersion": "card-battle-v1",
+      "rewardCardIds": [
+        "herb-pouch",
+        "observe-signpost",
+        "party-strike"
+      ]
+    }
+  ]
+}

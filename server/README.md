@@ -87,6 +87,7 @@ docker compose up --build -d
 - `POST /api/v1/adventures/{runId}/encounters`
 - `POST /api/v1/adventures/{runId}/actions`
 - `GET /api/v1/adventures/companions`
+- `GET /api/v1/adventures/companions/definitions`
 - `GET /api/v1/adventures/recollections`
 
 正式复习以 `Idempotency-Key` 作为 submissionId；先查回执，再校验用户数据、会话和复习状态版本。请求只提交评分和证据，afterCard、reviewedAt 和奖励事件由服务端确定。
@@ -102,10 +103,14 @@ owner 范围、`Idempotency-Key`、请求指纹、`runVersion` 与不可变事�
 `card-battle-v1`，只有服务端战斗进入 victory/defeat 后才能推进到对应剧情节点。
 仓库内的主线三章加潮声海湾支线可编辑源与 LFS 成品包见 `content/warm-lantern/`；
 当前完整包为 `warm-lantern-3.0.0.fmbook`，旧 `1.0.0`/`2.0.0` 保留给固定版本 run。
+`content/windmill-post/` 提供独立故事“风车邮路”，用于验证内容包新增角色、场景、
+服装和伙伴技能无需修改应用角色枚举。
 
 遭遇胜利会固定三选一牌组奖励，奖励先保存再推进剧情；run 牌组限制 12–18 张且
 同定义最多三张。角色解锁与剧情回忆按 owner 去重，菲妮在第二章节点加入后可在
 后续营地切换，不依赖前端自行声明 `unlocked=true`。
+已安装包中的可陪伴角色由 `characters.json` 注册，`scenes.json` 可注册包内场景；
+账号只读取已解锁定义的立绘与技能，资源继续走 owner 范围的内容资产端点。
 
 ## 运维账号命令
 

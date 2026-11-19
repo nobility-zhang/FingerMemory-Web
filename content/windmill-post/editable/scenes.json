@@ -1,0 +1,22 @@
+{
+  "scenes": [
+    {
+      "sceneId": "windmill-road",
+      "name": "风车邮路",
+      "background": "assets/scenes/windmill-road.jpg",
+      "battleTheme": "bridge"
+    },
+    {
+      "sceneId": "windmill-post",
+      "name": "逆风邮站",
+      "background": "assets/scenes/windmill-post.jpg",
+      "battleTheme": "bridge"
+    },
+    {
+      "sceneId": "windmill-camp",
+      "name": "风车营地",
+      "background": "assets/scenes/windmill-camp.jpg",
+      "battleTheme": "bridge"
+    }
+  ]
+}
