@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "namespace": "fm.demo",
+  "bookId": "windmill-dawn",
+  "contentVersion": "1.0.0",
+  "title": "风车晨光",
+  "engineRange": {
+    "minInclusive": "0.3.0",
+    "maxExclusive": "0.4.0"
+  },
+  "entryNodeId": "dawn.arrival",
+  "seriesId": "windmill-post",
+  "capabilities": [
+    "card-battle-v1"
+  ],
+  "requires": [
+    {
+      "bookId": "windmill-post",
+      "endingId": "station-keeper",
+      "endingTitle": "邮站留灯",
+      "minContentVersion": "1.1.0",
+      "maxContentVersionExclusive": "2.0.0"
+    }
+  ]
+}

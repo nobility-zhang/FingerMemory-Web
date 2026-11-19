@@ -1,0 +1,36 @@
+{
+  "bindings": [
+    {
+      "nodeId": "dawn.arrival",
+      "wordKeys": [
+        "dawn",
+        "postcard",
+        "mail"
+      ]
+    },
+    {
+      "nodeId": "dawn.choice",
+      "wordKeys": [
+        "route",
+        "signal",
+        "bridge"
+      ]
+    },
+    {
+      "nodeId": "dawn.camp",
+      "wordKeys": [
+        "courage",
+        "promise",
+        "deliver"
+      ]
+    },
+    {
+      "nodeId": "dawn.end",
+      "wordKeys": [
+        "village",
+        "bell",
+        "home"
+      ]
+    }
+  ]
+}

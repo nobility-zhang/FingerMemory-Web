@@ -1,0 +1,27 @@
+{
+  "bindings": [
+    {
+      "nodeId": "return.arrival",
+      "wordKeys": [
+        "return",
+        "hearth",
+        "warm"
+      ]
+    },
+    {
+      "nodeId": "return.letter",
+      "wordKeys": [
+        "letter",
+        "welcome",
+        "rest"
+      ]
+    },
+    {
+      "nodeId": "return.end",
+      "wordKeys": [
+        "remember",
+        "together"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "chapters": [
+    {
+      "chapterId": "windmill-dawn-chapter",
+      "title": "风车晨光",
+      "nodes": [
+        {
+          "nodeId": "dawn.arrival",
+          "type": "dialogue",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "dawn-road",
+          "title": "第一班晨邮",
+          "text": "黎明刚越过风车叶片，诺拉就收到一张没有寄件地址的明信片。背面只写着：“请把今天的信号送到还愿意等信的人手里。”",
+          "nextNodeId": "dawn.choice"
+        },
+        {
+          "nodeId": "dawn.choice",
+          "type": "choice",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "dawn-road",
+          "title": "晨间岔路",
+          "text": "路标一指向山谷村庄，一指向旧石桥。诺拉把两张路线图并排铺开，等你们决定先追哪一束风里的纸带。",
+          "choices": [
+            {
+              "choiceId": "follow-bridge",
+              "label": "沿旧石桥追踪纸带",
+              "targetNodeId": "dawn.bridge"
+            },
+            {
+              "choiceId": "follow-village",
+              "label": "先去山谷打听收件人",
+              "targetNodeId": "dawn.bridge"
+            }
+          ]
+        },
+        {
+          "nodeId": "dawn.bridge",
+          "type": "encounter",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "dawn-road",
+          "encounterId": "dawn-gust",
+          "encounterName": "晨风信使",
+          "encounterDescription": "被晨雾卷起的纸带聚成一名信使，它要求旅人先证明自己记得昨夜的路线。",
+          "victoryNodeId": "dawn.camp",
+          "rescueNodeId": "dawn.rescue",
+          "title": "晨雾石桥",
+          "text": "纸带在桥面盘旋成清亮的轮廓。诺拉把邮差包抱稳，提醒你先完成这一轮回忆，再决定往哪里投递。"
+        },
+        {
+          "nodeId": "dawn.camp",
+          "type": "camp",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "dawn-camp",
+          "title": "晨光营地",
+          "text": "第一班邮车停在风车下。诺拉把明信片交给山谷来的孩子，也把新的回程路线折进你的旅记。",
+          "recollectionId": "dawn-delivery",
+          "recollectionTitle": "第一班晨邮",
+          "recollectionText": "诺拉在黎明后送出第一班晨邮，新的路线从风车邮路延伸出去。",
+          "nextNodeId": "dawn.end"
+        },
+        {
+          "nodeId": "dawn.rescue",
+          "type": "camp",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "dawn-camp",
+          "title": "晨风避处",
+          "text": "你们退到背风的石墙后。诺拉重新整理纸带，没有责怪你，只把没记住的词和下一班邮车一起留到今天。",
+          "nextNodeId": "dawn.end"
+        },
+        {
+          "nodeId": "dawn.end",
+          "type": "chapter-end",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "dawn-camp",
+          "endingId": "morning-route",
+          "endingTitle": "晨风新路线",
+          "recollectionId": "dawn-ending",
+          "recollectionTitle": "风车晨光",
+          "recollectionText": "诺拉把新的晨间路线钉在邮站墙上，风车前的第一盏灯也随黎明熄下。",
+          "title": "晨风新路线",
+          "text": "晨邮已经送出，新的路线被钉在邮站墙上。诺拉在风车下抬起头，知道下一封信会沿着今天记住的路抵达。"
+        }
+      ]
+    }
+  ]
+}

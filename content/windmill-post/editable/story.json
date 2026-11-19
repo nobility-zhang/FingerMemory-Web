@@ -107,7 +107,72 @@
           "text": "最后一封信已经送达。诺拉在回程地图上画下一盏小灯，约定下一次风暴来时，仍从这条清楚的路线出发。",
           "recollectionId": "windmill-ending",
           "recollectionTitle": "风车邮路的回程灯",
-          "recollectionText": "风暴退去后，诺拉与旅团在风车下约定：每封被认真记住的信，都会找到回程的路。"
+          "recollectionText": "风暴退去后，诺拉与旅团在风车下约定：每封被认真记住的信，都会找到回程的路。",
+          "nextNodeId": "windmill.new.start"
+        }
+      ]
+    },
+    {
+      "chapterId": "windmill-post-afterword",
+      "title": "风车之后",
+      "nodes": [
+        {
+          "nodeId": "windmill.new.start",
+          "type": "choice",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-camp",
+          "title": "下一班邮车",
+          "text": "第二天的风比昨夜轻。诺拉把新的路线铺在长椅上：一边是继续守着逆风邮站，一边是把回信亲手送回暖灯旅店。她等你决定这封信最后的去处。",
+          "choices": [
+            {
+              "choiceId": "keep-post",
+              "label": "留在邮站，守住这条逆风路线",
+              "targetNodeId": "windmill.new.stay"
+            },
+            {
+              "choiceId": "return-letter",
+              "label": "带着回信返回暖灯旅店",
+              "targetNodeId": "windmill.new.return"
+            }
+          ]
+        },
+        {
+          "nodeId": "windmill.new.stay",
+          "type": "chapter-end",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-camp",
+          "endingId": "station-keeper",
+          "endingTitle": "邮站留灯",
+          "inheritedFlags": [
+            "encounter.windmill-post-warden.resolved"
+          ],
+          "recollectionId": "station-keeper-ending",
+          "recollectionTitle": "逆风邮站的新灯",
+          "recollectionText": "诺拉选择留在风车邮站，把每一封逆风而来的信都收进新的路线册。",
+          "title": "邮站留灯",
+          "text": "诺拉把风铃挂回邮站门口。你们没有把这次告别说得很重，只约好下一条新路线出现时，要把第一封信寄回暖灯旅店。"
+        },
+        {
+          "nodeId": "windmill.new.return",
+          "type": "chapter-end",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "windmill-camp",
+          "endingId": "homeward-letter",
+          "endingTitle": "回信归途",
+          "inheritedFlags": [
+            "encounter.windmill-post-warden.resolved"
+          ],
+          "recollectionId": "homeward-letter-ending",
+          "recollectionTitle": "回信与归途",
+          "recollectionText": "诺拉带着最后一封回信返回暖灯旅店，风车邮路第一次有了明确的归途。",
+          "title": "回信归途",
+          "text": "诺拉把回信放进内袋，朝来时的路标望了一眼。风车在身后慢慢转动，暖灯旅店的方向第一次像一条写完的句子那样清楚。"
         }
       ]
     }

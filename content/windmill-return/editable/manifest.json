@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "namespace": "fm.demo",
+  "bookId": "windmill-return",
+  "contentVersion": "1.0.0",
+  "title": "回信归途",
+  "engineRange": {
+    "minInclusive": "0.3.0",
+    "maxExclusive": "0.4.0"
+  },
+  "entryNodeId": "return.arrival",
+  "seriesId": "windmill-post",
+  "capabilities": [
+    "card-battle-v1"
+  ],
+  "requires": [
+    {
+      "bookId": "windmill-post",
+      "endingId": "homeward-letter",
+      "endingTitle": "回信归途",
+      "minContentVersion": "1.1.0",
+      "maxContentVersionExclusive": "2.0.0"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "chapters": [
+    {
+      "chapterId": "windmill-return-chapter",
+      "title": "回信归途",
+      "nodes": [
+        {
+          "nodeId": "return.arrival",
+          "type": "dialogue",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "inn-warm-lantern",
+          "title": "暖灯旅店门口",
+          "text": "诺拉把最后一封回信放到暖灯旅店的门边。门内传来杯盏轻碰的声音，炉火烧得和第一次出发时一样暖。",
+          "nextNodeId": "return.letter"
+        },
+        {
+          "nodeId": "return.letter",
+          "type": "choice",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "inn-warm-lantern",
+          "title": "把信交给谁",
+          "text": "收件人没有留下名字。诺拉把信放在桌边，等你们一起决定，是把它交给旅店保管，还是等下一个风雪夜再读。",
+          "choices": [
+            {
+              "choiceId": "keep-at-inn",
+              "label": "把回信留在暖灯旅店",
+              "targetNodeId": "return.camp"
+            },
+            {
+              "choiceId": "read-together",
+              "label": "和伙伴们一起读回信",
+              "targetNodeId": "return.camp"
+            }
+          ]
+        },
+        {
+          "nodeId": "return.camp",
+          "type": "camp",
+          "speaker": "旅伴",
+          "sceneId": "camp-fire",
+          "title": "暖灯旁的休息",
+          "text": "炉边留出了几张椅子。诺拉把邮差包放好，终于承认这趟路比地图上画的更长，也比任何一条近路更值得。",
+          "recollectionId": "return-rest",
+          "recollectionTitle": "炉边的回信",
+          "recollectionText": "最后一封回信在暖灯旅店被好好收起，风车邮路和暖灯主线第一次坐在同一张桌旁。",
+          "nextNodeId": "return.end"
+        },
+        {
+          "nodeId": "return.end",
+          "type": "chapter-end",
+          "speaker": "诺拉",
+          "portraitCharacterId": "nora",
+          "costumeId": "wind-courier",
+          "sceneId": "camp-fire",
+          "endingId": "warm-return",
+          "endingTitle": "暖灯归途",
+          "recollectionId": "return-ending",
+          "recollectionTitle": "回信归途",
+          "recollectionText": "诺拉把回信留在暖灯旅店，也把自己的新路线留在了旅团的下一页。",
+          "title": "回信归途",
+          "text": "回信被放进暖灯旁的木匣。诺拉收起风铃，知道下一次出发时，自己已经有可以回来复述的故事。"
+        }
+      ]
+    }
+  ]
+}

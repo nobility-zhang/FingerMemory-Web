@@ -1,0 +1,87 @@
+{
+  "cards": [
+    {
+      "cardId": "traveler-strike",
+      "name": "旅人突刺",
+      "cost": 1,
+      "target": "enemy",
+      "effects": [
+        {
+          "type": "damage",
+          "amount": 6
+        }
+      ],
+      "description": "造成 6 点伤害。"
+    },
+    {
+      "cardId": "companion-guard",
+      "name": "同伴守护",
+      "cost": 1,
+      "target": "none",
+      "effects": [
+        {
+          "type": "block",
+          "amount": 5
+        }
+      ],
+      "description": "获得 5 点格挡。"
+    },
+    {
+      "cardId": "ember-rune",
+      "name": "余烬符文",
+      "cost": 1,
+      "target": "enemy",
+      "effects": [
+        {
+          "type": "damage",
+          "amount": 3
+        },
+        {
+          "type": "apply-burn",
+          "remainingTurns": 2,
+          "damagePerTurn": 2
+        }
+      ],
+      "description": "造成 3 点伤害并施加 2 回合灼烧。"
+    },
+    {
+      "cardId": "herb-pouch",
+      "name": "采药包",
+      "cost": 1,
+      "target": "none",
+      "effects": [
+        {
+          "type": "heal",
+          "amount": 4
+        }
+      ],
+      "description": "回复 4 点生命。"
+    },
+    {
+      "cardId": "observe-signpost",
+      "name": "观察路标",
+      "cost": 0,
+      "target": "none",
+      "effects": [
+        {
+          "type": "draw",
+          "amount": 1
+        }
+      ],
+      "description": "抽 1 张牌。"
+    },
+    {
+      "cardId": "party-strike",
+      "name": "旅团合击",
+      "cost": 2,
+      "target": "enemy",
+      "effects": [
+        {
+          "type": "damage",
+          "amount": 10
+        }
+      ],
+      "description": "造成 10 点伤害。"
+    }
+  ]
+}

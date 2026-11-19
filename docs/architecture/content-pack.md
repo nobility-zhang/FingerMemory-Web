@@ -5,13 +5,15 @@
 内容寻址媒体存储；H5-02 已落地固定安装 run、剧情选择、学习卡牌遭遇、胜利/救援
 分支、伙伴对白、营火与检查点恢复。H5-03 已落地三章故事、遭遇三选一牌组奖励、
 账号级角色解锁/营地切换和按内容 ID 去重的剧情回忆。H5-04 已落地潮声海湾可选支线、
-场景/服装节点字段、潮汐遭遇和海湾环境音绑定。完整续作依赖、章节迁移和 GM 发布
-仍按路线后续实施。内容包是可移植的游戏内容，个人存档与学习记录的备份规则见
+场景/服装节点字段、潮汐遭遇和海湾环境音绑定。H5-05 落地动态角色/场景注册；
+H5-06 落地不可变结局完成回执、同书安全检查点续章和按结局匹配的续作启动。
+GM 发布和更完整的声明式章节迁移仍按路线后续实施。内容包是可移植的游戏内容，
+个人存档与学习记录的备份规则见
 [数据迁移](../operations/data-migration.md)。
 
 当前服务端使用 Flyway V8 保存不可变安装、安装回执和资源元数据，V9 保存 owner
 范围内的冒险 run、命令回执、战斗绑定和不可变事件，V10 保存牌组、奖励候选、
-角色解锁和剧情回忆。资源文件放在
+角色解锁和剧情回忆，V11 保存结局完成回执和续作来源锁定。资源文件放在
 `CONTENT_PACKAGE_ROOT` 指向的 owner/内容哈希目录；生产 Compose 使用独立
 `content-data` 卷，不能把媒体 base64 写入 `fm_user_data`。Web 账号页先预览再确认
 安装，预览不写数据库或资源。
@@ -88,18 +90,23 @@ H5-05 已用 `content/windmill-post/` 验证第二条独立冒险路线：内容
 Web 与 Java 只消费定义注册表，没有按 `nora` 或该书章节增加业务分叉。内置角色仍由
 应用定义并作为初始可用名单，`fina` 继续按暖灯主线节点解锁。
 
+H5-06 的 `windmill-post-1.1.0` 在旧最终检查点新增双结局章节；旧 `1.0.0` 已完成
+run 只有在该节点仍存在且新版本明确提供后续节点时才能升级。`windmill-dawn` 与
+`windmill-return` 分别要求 `station-keeper`、`homeward-letter` 结局和安全的版本
+范围，开始续作时必须绑定一条 owner 范围完成回执。
+
 | 内容变化 | 身份与依赖 | 安装和存档行为 |
 | --- | --- | --- |
 | 新章节 | 同一 namespace/bookId，新 contentVersion，稳定旧 nodeId/wordKey | 新安装直接使用新版本；旧 run 在非战斗检查点预览映射后升级，已完成 run 可进入新增章节，旧完成回执不撤销 |
 | 独立新故事 | 新 bookId，requires 为空 | 自己的 entryNode、角色、牌组和章节，不读取其他 run 的 flags |
-| 同系列续作 | 新 bookId、相同 seriesId，requires 声明前作 bookId/endingId 和允许版本范围 | 安装允许，开始前显示依赖条件；只读取本用户正常模式的 CompletionReceipt |
+| 同系列续作 | 新 bookId、相同 seriesId，requires 声明前作 bookId/endingId/endingTitle 和允许版本范围 | 安装允许，开始前显示依赖条件；只读取本用户正常模式的 CompletionReceipt |
 | 新伙伴/外观 | characters.json 中的 namespaced characterKey 与新 definitionVersion/costumeId | 内容校验后加入定义注册表，是否可选由解锁事件和本书支持列表决定，不改应用中的角色枚举 |
 
 名称与显示语言不是身份。`namespace` 是本地作者标识，不是可信签名；同名空间不能自动覆盖已安装人物定义。内置 `fm.core:lia/serin/fina` 的标准定义由应用/官方内容清单提供，其他包只能引用一致版本或声明自己的新角色，不能靠同 ID 替换脸、年龄或技能。私有包内容依旧有 owner 边界。
 
 `requires` 首版只支持显式书籍/结局前置条件，不隐式下载依赖。缺前作、版本不支持或循环前置时拒绝开始并提供具体原因；不会阻止独立闪卡访问已经合法导入的词库。
 
-完成一本书产生不可变 `CompletionReceipt`：owner、bookId/contentVersion、runId、endingId、允许继承的分支 facts、角色解锁来源、完成事件 ID。不同周目有不同回执；续作开始时选择其中一份符合条件的回执并固定为 sourceCompletionId，后续前作重玩不会改变正在进行的续作。
+完成一本书产生不可变 `CompletionReceipt`：owner、bookId/seriesId/contentVersion/contentHash、runId、endingId、显示标题、白名单继承 facts 和完成时间。不同周目有不同回执；续作开始时选择其中一份符合条件的回执并固定为 `sourceCompletionId`，后续前作重玩不会改变正在进行的续作。
 
 继承只有作者明确白名单的 branch facts、正常角色解锁和可用友情回忆，不复制前作敌人/牌序/整套牌组、凭据、笔记或隐私数据。技能牌组默认新书重新构筑；共享的英语学习目标仍依据显式 wordKey→studyItemId 映射复用。继承条件还需验证每种合法前作结局都有入口或明确不适用提示。
 

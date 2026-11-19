@@ -1,0 +1,68 @@
+{
+  "assets": [
+    {
+      "path": "assets/characters/nora/wind-courier/neutral.png",
+      "sha256": "5e787920199332e69b4ec772bd7d3ab4bb350af2f3212b82923fce29dafd402e",
+      "mime": "image/png",
+      "byteSize": 226986,
+      "kind": "character-portrait",
+      "license": "Project original; reused from windmill-post"
+    },
+    {
+      "path": "assets/characters/nora/wind-courier/welcome.png",
+      "sha256": "b188fb4bc762b24788794c5e435efa08ffd8f87e445ce8e2e953efbd1658db6c",
+      "mime": "image/png",
+      "byteSize": 236216,
+      "kind": "character-portrait",
+      "license": "Project original; reused from windmill-post"
+    },
+    {
+      "path": "assets/characters/nora/wind-courier/cheer.png",
+      "sha256": "5198fe267585e1805a1268d274477a95f32cace6193b29effbec437242a8454f",
+      "mime": "image/png",
+      "byteSize": 235283,
+      "kind": "character-portrait",
+      "license": "Project original; reused from windmill-post"
+    },
+    {
+      "path": "assets/characters/nora/wind-courier/concern.png",
+      "sha256": "ceaa9b746a549039e912f4ed3804d4ec4fde64ceacbc35255fedd24285df89f8",
+      "mime": "image/png",
+      "byteSize": 234606,
+      "kind": "character-portrait",
+      "license": "Project original; reused from windmill-post"
+    },
+    {
+      "path": "assets/characters/nora/wind-courier/relief.png",
+      "sha256": "f7a5d5aafc0159fef6340fd6f4c095805053469c354f0cfe98409bd1de4fb4a5",
+      "mime": "image/png",
+      "byteSize": 238575,
+      "kind": "character-portrait",
+      "license": "Project original; reused from windmill-post"
+    },
+    {
+      "path": "assets/characters/nora/wind-courier/surprise.png",
+      "sha256": "6bc0c1887311f3586e8c1af8a3ea4f19b60b59d165e7f3d8607fd671002d5555",
+      "mime": "image/png",
+      "byteSize": 234004,
+      "kind": "character-portrait",
+      "license": "Project original; reused from windmill-post"
+    },
+    {
+      "path": "assets/scenes/dawn-road.jpg",
+      "sha256": "d716a5bfdc0f5584ed5fb32d950be3d0562baed280af9ae1eb58cf1128e47c8c",
+      "mime": "image/jpeg",
+      "byteSize": 533443,
+      "kind": "scene-background",
+      "license": "Project original; reused from windmill-post"
+    },
+    {
+      "path": "assets/scenes/dawn-camp.jpg",
+      "sha256": "5622986d97728e3ba5dc7fb7ad21158306b6d5809df64d10a7f88ce182b8c621",
+      "mime": "image/jpeg",
+      "byteSize": 484066,
+      "kind": "scene-background",
+      "license": "Project original; reused from windmill-post"
+    }
+  ]
+}

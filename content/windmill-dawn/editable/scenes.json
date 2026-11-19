@@ -1,0 +1,16 @@
+{
+  "scenes": [
+    {
+      "sceneId": "dawn-road",
+      "name": "晨风邮路",
+      "background": "assets/scenes/dawn-road.jpg",
+      "battleTheme": "bridge"
+    },
+    {
+      "sceneId": "dawn-camp",
+      "name": "晨光营地",
+      "background": "assets/scenes/dawn-camp.jpg",
+      "battleTheme": "bridge"
+    }
+  ]
+}

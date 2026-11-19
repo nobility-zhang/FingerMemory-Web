@@ -1,0 +1,38 @@
+{
+  "characters": [
+    {
+      "characterKey": "nora",
+      "definitionVersion": "1.0.0",
+      "name": "诺拉",
+      "epithet": "逆风邮路的年轻信使",
+      "description": "十五岁的风车邮路信使，继续把新的来信送到愿意等待的人手中。",
+      "age": 15,
+      "availability": "companion",
+      "defaultCostumeId": "wind-courier",
+      "costumes": {
+        "wind-courier": {
+          "neutral": "assets/characters/nora/wind-courier/neutral.png",
+          "welcome": "assets/characters/nora/wind-courier/welcome.png",
+          "cheer": "assets/characters/nora/wind-courier/cheer.png",
+          "concern": "assets/characters/nora/wind-courier/concern.png",
+          "relief": "assets/characters/nora/wind-courier/relief.png",
+          "surprise": "assets/characters/nora/wind-courier/surprise.png"
+        }
+      },
+      "dialogue": {
+        "welcome": "第一班邮车已经套好，今天的路线也从黎明开始。",
+        "again": "这条路还没记牢，下一班邮车前我们再走一次。",
+        "rest": "风车还转着，先喝水，再看下一张明信片。",
+        "training": "先确认路标，再把路线写进旅记。",
+        "practice": "已经看过答案，就把它当作熟悉路线。",
+        "result": "晨邮送达，新的路线也留在了邮站墙上。"
+      },
+      "skill": {
+        "name": "顺风投递",
+        "description": "借助晨风，对首个敌人造成 6 点伤害。",
+        "type": "damage",
+        "amount": 6
+      }
+    }
+  ]
+}

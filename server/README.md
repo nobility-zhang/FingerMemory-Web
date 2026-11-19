@@ -84,11 +84,13 @@ docker compose up --build -d
 - `GET /api/v1/content-packages/{id}/assets/{assetPath}`
 - `GET/POST /api/v1/adventures`
 - `GET /api/v1/adventures/{runId}`
+- `POST /api/v1/adventures/{runId}/upgrade`
 - `POST /api/v1/adventures/{runId}/encounters`
 - `POST /api/v1/adventures/{runId}/actions`
 - `GET /api/v1/adventures/companions`
 - `GET /api/v1/adventures/companions/definitions`
 - `GET /api/v1/adventures/recollections`
+- `GET /api/v1/adventures/completions`
 
 正式复习以 `Idempotency-Key` 作为 submissionId；先查回执，再校验用户数据、会话和复习状态版本。请求只提交评分和证据，afterCard、reviewedAt 和奖励事件由服务端确定。
 
@@ -105,12 +107,16 @@ owner 范围、`Idempotency-Key`、请求指纹、`runVersion` 与不可变事�
 当前完整包为 `warm-lantern-3.0.0.fmbook`，旧 `1.0.0`/`2.0.0` 保留给固定版本 run。
 `content/windmill-post/` 提供独立故事“风车邮路”，用于验证内容包新增角色、场景、
 服装和伙伴技能无需修改应用角色枚举。
+`windmill-post-1.1.0.fmbook` 在同一检查点增加双结局章节；
+`content/windmill-dawn/` 与 `content/windmill-return/` 分别要求不同结局完成回执。
 
 遭遇胜利会固定三选一牌组奖励，奖励先保存再推进剧情；run 牌组限制 12–18 张且
 同定义最多三张。角色解锁与剧情回忆按 owner 去重，菲妮在第二章节点加入后可在
 后续营地切换，不依赖前端自行声明 `unlocked=true`。
 已安装包中的可陪伴角色由 `characters.json` 注册，`scenes.json` 可注册包内场景；
 账号只读取已解锁定义的立绘与技能，资源继续走 owner 范围的内容资产端点。
+结局完成回执保存在 Flyway V11；续作只继承回执中作者白名单的 facts，牌组与战斗状态
+不跨书复制。旧 run 只能通过显式 upgrade 端点固定到同书更高版本。
 
 ## 运维账号命令
 

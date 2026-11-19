@@ -1,0 +1,38 @@
+{
+  "characters": [
+    {
+      "characterKey": "nora",
+      "definitionVersion": "1.0.0",
+      "name": "诺拉",
+      "epithet": "逆风邮路的年轻信使",
+      "description": "十五岁的风车邮路信使，带着最后一封回信回到暖灯旅店。",
+      "age": 15,
+      "availability": "companion",
+      "defaultCostumeId": "wind-courier",
+      "costumes": {
+        "wind-courier": {
+          "neutral": "assets/characters/nora/wind-courier/neutral.png",
+          "welcome": "assets/characters/nora/wind-courier/welcome.png",
+          "cheer": "assets/characters/nora/wind-courier/cheer.png",
+          "concern": "assets/characters/nora/wind-courier/concern.png",
+          "relief": "assets/characters/nora/wind-courier/relief.png",
+          "surprise": "assets/characters/nora/wind-courier/surprise.png"
+        }
+      },
+      "dialogue": {
+        "welcome": "回信送到了，炉边也正好有一个位置。",
+        "again": "这封信还有没记住的段落，留着下次再读。",
+        "rest": "先坐一会儿。回信不会因为休息而变旧。",
+        "training": "把路线读一遍，再把回信放进旅记。",
+        "practice": "这次已经看过答案，就当作熟悉回信里的句子。",
+        "result": "回信已经收好，新的路线也写完了。"
+      },
+      "skill": {
+        "name": "顺风投递",
+        "description": "借助回程风，对首个敌人造成 6 点伤害。",
+        "type": "damage",
+        "amount": 6
+      }
+    }
+  ]
+}

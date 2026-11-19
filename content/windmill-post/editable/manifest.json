@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "namespace": "fm.demo",
   "bookId": "windmill-post",
-  "contentVersion": "1.0.0",
+  "contentVersion": "1.1.0",
   "title": "风车邮路",
   "engineRange": {
     "minInclusive": "0.3.0",
