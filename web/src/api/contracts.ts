@@ -439,13 +439,18 @@ export interface BackupPreview {
   rewardEvents: number;
   migrationReceipts: number;
   idMappings: number;
+  serverTables: Record<string, number>;
+  contentResources: number;
 }
 
 export interface BackupRestoreResult {
   outcome: 'restored';
   fingerprint: string;
   dataVersion: number;
+  dataEpoch: string;
   counts: Record<string, number>;
+  serverTables: Record<string, number>;
+  contentResources: number;
 }
 
 export interface GmContext {

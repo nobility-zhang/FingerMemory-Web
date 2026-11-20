@@ -111,6 +111,37 @@ const isOnlineFlashcardMode = computed(
 const isOnlineTypingMode = computed(
   () => onlineSession.value?.session.modeId === 'keyboard-recall',
 );
+const accountBackupCountRows = computed<Array<[string, number]>>(() => {
+  const preview = accountBackupPreview.value;
+  if (preview === undefined) {
+    return [];
+  }
+  const serverLabels: Record<string, string> = {
+    contentInstallations: '内容安装',
+    contentInstallationReceipts: '内容安装回执',
+    contentAssets: '内容资源元数据',
+    battles: '战斗快照',
+    battleLearningTasks: '战斗学习任务',
+    battleReceipts: '战斗回执',
+    battleEvents: '战斗事件',
+    adventureRuns: '冒险存档',
+    adventureReceipts: '冒险回执',
+    adventureBattleBindings: '冒险战斗绑定',
+    adventureEvents: '冒险事件',
+    adventureRewardOffers: '牌组奖励',
+    adventureCharacterUnlocks: '角色解锁',
+    adventureRecollections: '剧情回忆',
+    adventureCompletions: '结局回执',
+  };
+  return [
+    ...Object.entries(preview.counts),
+    ...Object.entries(preview.serverTables).map(([name, count]) => [
+      serverLabels[name] ?? name,
+      count,
+    ] as [string, number]),
+    ['私有内容文件', preview.contentResources],
+  ];
+});
 const onlineRatingLabels = computed((): Partial<Record<
   'again' | 'hard' | 'good' | 'easy',
   string
@@ -673,8 +704,8 @@ async function handleAccountBackupFile(event: Event): Promise<void> {
   accountBackupBusy.value = true;
   accountBackupNotice.value = null;
   try {
-    if (file.size > 20 * 1024 * 1024) {
-      throw new Error('备份文件超过 20 MiB 上限。');
+    if (file.size > 350 * 1024 * 1024) {
+      throw new Error('备份文件超过 350 MiB 上限。');
     }
     accountBackup.value = JSON.parse(await file.text()) as AccountBackup;
     accountBackupFileName.value = file.name;
@@ -707,7 +738,13 @@ async function restoreAccountBackup(): Promise<void> {
       accountBackupRestoreKey.value,
       accountBackup.value,
     );
-    accountBackupNotice.value = `账号备份已恢复，数据版本 ${result.dataVersion}。`;
+    accountBackupNotice.value =
+      `账号备份已恢复，数据版本 ${result.dataVersion}，`
+      + `epoch ${result.dataEpoch.slice(0, 8)}，`
+      + `游戏表 ${Object.values(result.serverTables).reduce(
+        (total, count) => total + count,
+        0,
+      )} 行，内容资源 ${result.contentResources} 个。`;
     lexicons.value = await props.api.listLexicons();
     await refreshOnline();
   } catch (cause) {
@@ -1142,7 +1179,7 @@ onBeforeUnmount(() => {
             {{ accountBackupPreview.sourceDataVersion }}
           </p>
           <ul>
-            <li v-for="[name, count] in Object.entries(accountBackupPreview.counts)" :key="name">
+            <li v-for="[name, count] in accountBackupCountRows" :key="name">
               {{ name }}: {{ count }}
             </li>
           </ul>
