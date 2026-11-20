@@ -61,7 +61,9 @@ docker compose up --build -d
 
 数据库迁移由 Flyway 在应用启动时执行。当前没有自动备份或恢复；生产部署前必须另行实现和验证数据库备份。
 
-当前提供用户级 JSON 备份 `GET /api/v1/backup/export` 与预览/原子恢复接口；它不能替代 MySQL 数据库级备份。
+当前提供用户级 JSON 备份 v2 `GET /api/v1/backup/export` 与预览/原子恢复接口。
+备份包含学习快照、战斗、冒险、结局回执、内容安装和私有媒体；恢复会校验并从
+Base64 重建资源，同时切换用户 dataEpoch。它仍不能替代 MySQL 数据库级备份。
 
 ## 在线学习 API
 
