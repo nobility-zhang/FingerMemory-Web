@@ -82,6 +82,8 @@ docker compose up --build -d
 - `GET/POST /api/v1/content-packages`
 - `GET /api/v1/content-packages/{id}`
 - `GET /api/v1/content-packages/{id}/assets/{assetPath}`
+- `GET /api/v1/content-packages/catalog`
+- `POST /api/v1/content-packages/catalog/{contentId}/install`
 - `GET/POST /api/v1/adventures`
 - `GET /api/v1/adventures/{runId}`
 - `POST /api/v1/adventures/{runId}/upgrade`
@@ -117,6 +119,9 @@ owner 范围、`Idempotency-Key`、请求指纹、`runVersion` 与不可变事�
 账号只读取已解锁定义的立绘与技能，资源继续走 owner 范围的内容资产端点。
 结局完成回执保存在 Flyway V11；续作只继承回执中作者白名单的 facts，牌组与战斗状态
 不跨书复制。旧 run 只能通过显式 upgrade 端点固定到同书更高版本。
+GM 内容生命周期保存在 Flyway V12，预览媒体登记在 V13。未发布草稿只允许创建管理员
+读取和操作；发布动作重新校验登记归档，共享安装也按发布 hash 再校验。归档会隐藏
+共享目录并阻止新安装/开局，但已固定版本的 run、回执和资源继续可恢复。
 
 ## 运维账号命令
 
@@ -141,8 +146,8 @@ docker compose run --rm app \
   同名普通账号不会被自动提升。
 - 首次登录必须改密。管理员可创建普通/测试账号、授予或撤销角色、启停账号并查看
   脱敏审计；测试账号不能持有 ADMIN 角色。
-- 已实现账号管理、审计基础和本人隔离测试沙盒；GM 内容草稿预览、发布与归档仍按
-  [开发路线](../docs/development/roadmap.md) 在后续任务实现。
+- 已实现账号管理、审计基础、本人隔离测试 sandbox、GM 内容草稿预览、不可变发布与
+  归档保护。详细操作见 [GM 管理与测试](../docs/operations/gm.md)。
 
 
 ## 相关规范

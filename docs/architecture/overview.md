@@ -2,7 +2,7 @@
 
 FingerMemory 包含可独立运行的本地学习模式，以及 Java 服务提供的多用户账号模式。
 当前已有旅店与伙伴、标准翻面卡片、Phaser/Vue 卡牌战斗、可安装 `.fmbook` 冒险、
-动态内容包角色，以及受权 GM 与隔离 sandbox；续作依赖、CLI 新版和完整故事备份仍按
+动态内容包角色、续章/续作，以及受权 GM 内容预览/发布与隔离 sandbox；CLI 新版和完整故事备份仍按
 [开发路线](../development/roadmap.md) 实施。
 
 ## 系统边界
