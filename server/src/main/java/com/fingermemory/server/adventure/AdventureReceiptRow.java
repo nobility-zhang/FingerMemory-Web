@@ -3,6 +3,7 @@ package com.fingermemory.server.adventure;
 public record AdventureReceiptRow(
         String ownerId,
         String runId,
+        String dataEpoch,
         String actionId,
         String requestFingerprint,
         String responseJson,

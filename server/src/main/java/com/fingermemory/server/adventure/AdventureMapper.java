@@ -10,7 +10,7 @@ import org.apache.ibatis.annotations.Update;
 @Mapper
 public interface AdventureMapper {
     @Select("""
-            SELECT owner_id, id, installation_id, namespace_id, book_id,
+            SELECT owner_id, id, data_epoch, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot,
                    source_completion_id, run_version,
@@ -23,7 +23,7 @@ public interface AdventureMapper {
             @Param("installationId") String installationId);
 
     @Select("""
-            SELECT owner_id, id, installation_id, namespace_id, book_id,
+            SELECT owner_id, id, data_epoch, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot,
                    source_completion_id, run_version,
@@ -37,7 +37,7 @@ public interface AdventureMapper {
             @Param("runId") String runId);
 
     @Select("""
-            SELECT owner_id, id, installation_id, namespace_id, book_id,
+            SELECT owner_id, id, data_epoch, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot,
                    source_completion_id, run_version,
@@ -50,7 +50,7 @@ public interface AdventureMapper {
             @Param("runId") String runId);
 
     @Select("""
-            SELECT owner_id, id, installation_id, namespace_id, book_id,
+            SELECT owner_id, id, data_epoch, installation_id, namespace_id, book_id,
                    content_version, content_hash, entry_node_id, current_node_id,
                    session_id, companion_key, status, active_slot,
                    source_completion_id, run_version,
@@ -66,13 +66,13 @@ public interface AdventureMapper {
 
     @Insert("""
             INSERT INTO fm_adventure_run (
-              owner_id, id, installation_id, namespace_id, book_id,
+              owner_id, id, data_epoch, installation_id, namespace_id, book_id,
               content_version, content_hash, entry_node_id, current_node_id,
               session_id, companion_key, status, active_slot,
               source_completion_id, run_version,
               flags_json, deck_json, battle_id, created_at_ms, updated_at_ms
             ) VALUES (
-              #{ownerId}, #{id}, #{installationId}, #{namespaceId}, #{bookId},
+              #{ownerId}, #{id}, #{dataEpoch}, #{installationId}, #{namespaceId}, #{bookId},
               #{contentVersion}, #{contentHash}, #{entryNodeId}, #{currentNodeId},
               #{sessionId}, #{companionKey}, #{status}, #{activeSlot},
               #{sourceCompletionId}, #{runVersion}, CAST(#{flagsJson} AS JSON),
@@ -84,7 +84,8 @@ public interface AdventureMapper {
 
     @Update("""
             UPDATE fm_adventure_run
-            SET installation_id = #{row.installationId},
+            SET data_epoch = #{row.dataEpoch},
+                installation_id = #{row.installationId},
                 namespace_id = #{row.namespaceId},
                 book_id = #{row.bookId},
                 content_version = #{row.contentVersion},
@@ -191,23 +192,25 @@ public interface AdventureMapper {
 
     @Select("""
             SELECT owner_id, run_id, action_id, request_fingerprint,
-                   response_json, run_version, created_at_ms
+                   data_epoch, response_json, run_version, created_at_ms
             FROM fm_adventure_receipt
             WHERE owner_id = #{ownerId}
               AND run_id = #{runId}
+              AND data_epoch = #{dataEpoch}
               AND action_id = #{actionId}
             """)
     AdventureReceiptRow findReceipt(
             @Param("ownerId") String ownerId,
             @Param("runId") String runId,
+            @Param("dataEpoch") String dataEpoch,
             @Param("actionId") String actionId);
 
     @Insert("""
             INSERT INTO fm_adventure_receipt (
-              owner_id, run_id, action_id, request_fingerprint,
+              owner_id, run_id, data_epoch, action_id, request_fingerprint,
               response_json, run_version, created_at_ms
             ) VALUES (
-              #{ownerId}, #{runId}, #{actionId}, #{requestFingerprint},
+              #{ownerId}, #{runId}, #{dataEpoch}, #{actionId}, #{requestFingerprint},
               CAST(#{responseJson} AS JSON), #{runVersion}, #{createdAtMs}
             )
             """)

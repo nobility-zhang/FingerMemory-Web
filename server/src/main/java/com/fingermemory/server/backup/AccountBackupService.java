@@ -1,6 +1,8 @@
 package com.fingermemory.server.backup;
 
 import com.fingermemory.server.backup.BackupDtos.BackupPreview;
+import com.fingermemory.server.battle.BattleState;
+import com.fingermemory.server.battle.BattleStateValidator;
 import com.fingermemory.server.common.ApiException;
 import com.fingermemory.server.common.JsonSupport;
 import com.fingermemory.server.learning.LockedUserData;
@@ -20,9 +22,12 @@ import com.fingermemory.server.migration.MigrationReceiptMapper;
 import com.fingermemory.server.migration.MigrationReceiptRow;
 import java.time.Clock;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -45,6 +50,10 @@ public class AccountBackupService {
     private final MigrationReceiptMapper migrationReceiptMapper;
     private final ImportIdMapMapper importIdMapMapper;
     private final BackupReceiptMapper backupReceiptMapper;
+    private final AccountBackupTableStore tableStore;
+    private final AccountBackupResourceService resourceService;
+    private final BattleStateValidator battleStateValidator;
+    private final AccountRecoveryEpochService recoveryEpochService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -57,6 +66,10 @@ public class AccountBackupService {
             MigrationReceiptMapper migrationReceiptMapper,
             ImportIdMapMapper importIdMapMapper,
             BackupReceiptMapper backupReceiptMapper,
+            AccountBackupTableStore tableStore,
+            AccountBackupResourceService resourceService,
+            BattleStateValidator battleStateValidator,
+            AccountRecoveryEpochService recoveryEpochService,
             ObjectMapper objectMapper,
             Clock clock) {
         this.userDataStore = userDataStore;
@@ -67,6 +80,10 @@ public class AccountBackupService {
         this.migrationReceiptMapper = migrationReceiptMapper;
         this.importIdMapMapper = importIdMapMapper;
         this.backupReceiptMapper = backupReceiptMapper;
+        this.tableStore = tableStore;
+        this.resourceService = resourceService;
+        this.battleStateValidator = battleStateValidator;
+        this.recoveryEpochService = recoveryEpochService;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }
@@ -75,7 +92,7 @@ public class AccountBackupService {
         UserDataRow row = userDataStore.read(ownerId);
         ObjectNode backup = JsonSupport.copyObject(
                 objectMapper.readTree(row.getPayloadJson()), "user data");
-        backup.put("backupVersion", 1);
+        backup.put("backupVersion", 2);
         backup.put("exportedAt", clock.instant().toEpochMilli());
         backup.put("sourceDataVersion", row.getDataVersion());
         ObjectNode tables = (ObjectNode) backup.get("tables");
@@ -87,21 +104,33 @@ public class AccountBackupService {
         backup.set("rewardEvents", rewardEvents(ownerId));
         backup.set("migrationReceipts", migrationReceipts(ownerId));
         backup.set("idMappings", idMappings(ownerId));
+        ObjectNode serverTables = tableStore.export(ownerId);
+        backup.set("serverTables", serverTables);
+        backup.set("resources", resourceService.export(ownerId, serverTables));
         return backup;
     }
 
     public BackupPreview preview(JsonNode input) {
         ObjectNode backup = requireBackup(input);
         ValidatedBackup validated = validate(backup);
-        return new BackupPreview(
-                validated.fingerprint(),
-                JsonSupport.requireTimestamp(backup, "exportedAt"),
-                JsonSupport.requireLong(backup, "sourceDataVersion"),
-                validated.counts(),
-                JsonSupport.requireArray(backup, "reviewReceipts").size(),
-                JsonSupport.requireArray(backup, "rewardEvents").size(),
-                JsonSupport.requireArray(backup, "migrationReceipts").size(),
-                JsonSupport.requireArray(backup, "idMappings").size());
+        AccountBackupResourceService.StagedResources staged =
+                resourceService.stage("backup-preview", validated.serverTables(),
+                        validated.resources());
+        try {
+            return new BackupPreview(
+                    validated.fingerprint(),
+                    JsonSupport.requireTimestamp(backup, "exportedAt"),
+                    JsonSupport.requireLong(backup, "sourceDataVersion"),
+                    validated.counts(),
+                    JsonSupport.requireArray(backup, "reviewReceipts").size(),
+                    JsonSupport.requireArray(backup, "rewardEvents").size(),
+                    JsonSupport.requireArray(backup, "migrationReceipts").size(),
+                    JsonSupport.requireArray(backup, "idMappings").size(),
+                    validated.serverTableCounts(),
+                    validated.contentResources());
+        } finally {
+            resourceService.cleanup(staged);
+        }
     }
 
     @Transactional
@@ -117,56 +146,79 @@ public class AccountBackupService {
             return receipt;
         }
         ValidatedBackup validated = validate(backup);
+        AccountBackupResourceService.StagedResources stagedResources =
+                resourceService.stage(
+                        ownerId,
+                        validated.serverTables(),
+                        validated.resources());
 
-        LockedUserData locked = userDataStore.lock(ownerId);
-        ObjectNode currentReceipt = findReceipt(ownerId, idempotencyKey, fingerprint);
-        if (currentReceipt != null) {
-            return currentReceipt;
-        }
-        validator.validate(locked.document(), lexiconIds(ownerId));
-
-        lexiconMapper.deleteAllByOwner(ownerId);
-        reviewReceiptMapper.deleteByOwner(ownerId);
-        rewardEventMapper.deleteByOwner(ownerId);
-        migrationReceiptMapper.deleteByOwner(ownerId);
-        importIdMapMapper.deleteByOwner(ownerId);
-        backupReceiptMapper.deleteByOwner(ownerId);
-
-        ObjectNode restoredDocument = restoreDocument(backup);
         try {
-            for (ObjectNode lexiconNode : JsonSupport.objectValues(
-                    JsonSupport.requireArray((ObjectNode) backup.get("tables"), "lexicons"),
-                    "lexicons")) {
-                lexiconMapper.insert(lexiconFromBackup(ownerId, lexiconNode));
+            LockedUserData locked = userDataStore.lock(ownerId);
+            ObjectNode currentReceipt = findReceiptForUpdate(
+                    ownerId,
+                    idempotencyKey,
+                    fingerprint);
+            if (currentReceipt != null) {
+                return currentReceipt;
             }
-        } catch (DuplicateKeyException exception) {
-            throw new ApiException(HttpStatus.CONFLICT, "BACKUP_ID_CONFLICT",
-                    "备份中的词库 ID 与其他账号范围冲突");
-        }
-        validator.validate(restoredDocument, lexiconIdsFromBackup(backup));
-        insertReceipts(ownerId, backup);
-        insertRewardEvents(ownerId, backup);
-        insertMigrationReceipts(ownerId, backup);
-        insertIdMappings(ownerId, backup);
-        userDataStore.save(locked, restoredDocument);
+            validator.validate(locked.document(), lexiconIds(ownerId));
 
-        long now = clock.instant().toEpochMilli();
-        ObjectNode response = objectMapper.createObjectNode();
-        response.put("outcome", "restored");
-        response.put("fingerprint", fingerprint);
-        response.put("dataVersion", locked.row().getDataVersion());
-        response.set("counts", objectMapper.valueToTree(validated.counts()));
-        backupReceiptMapper.insert(
-                ownerId,
-                idempotencyKey,
-                fingerprint,
-                objectMapper.writeValueAsString(response),
-                now);
-        return response;
+            tableStore.deleteOwner(ownerId);
+            lexiconMapper.deleteAllByOwner(ownerId);
+            reviewReceiptMapper.deleteByOwner(ownerId);
+            rewardEventMapper.deleteByOwner(ownerId);
+            migrationReceiptMapper.deleteByOwner(ownerId);
+            importIdMapMapper.deleteByOwner(ownerId);
+            backupReceiptMapper.deleteByOwner(ownerId);
+
+            ObjectNode restoredDocument = restoreDocument(backup);
+            try {
+                for (ObjectNode lexiconNode : JsonSupport.objectValues(
+                        JsonSupport.requireArray((ObjectNode) backup.get("tables"), "lexicons"),
+                        "lexicons")) {
+                    lexiconMapper.insert(lexiconFromBackup(ownerId, lexiconNode));
+                }
+            } catch (DuplicateKeyException exception) {
+                throw new ApiException(HttpStatus.CONFLICT, "BACKUP_ID_CONFLICT",
+                        "备份中的词库 ID 与其他账号范围冲突");
+            }
+            validator.validate(restoredDocument, lexiconIdsFromBackup(backup));
+            tableStore.restoreOwner(ownerId, validated.serverTables());
+            insertReceipts(ownerId, backup);
+            insertRewardEvents(ownerId, backup);
+            insertMigrationReceipts(ownerId, backup);
+            insertIdMappings(ownerId, backup);
+            resourceService.publish(stagedResources);
+            String newEpoch = UUID.randomUUID().toString();
+            recoveryEpochService.activateRestoredGameplay(ownerId, newEpoch);
+            userDataStore.saveWithNewEpoch(locked, restoredDocument, newEpoch);
+
+            long now = clock.instant().toEpochMilli();
+            ObjectNode response = objectMapper.createObjectNode();
+            response.put("outcome", "restored");
+            response.put("fingerprint", fingerprint);
+            response.put("dataVersion", locked.row().getDataVersion());
+            response.put("dataEpoch", newEpoch);
+            response.set("counts", objectMapper.valueToTree(validated.counts()));
+            response.set(
+                    "serverTables",
+                    objectMapper.valueToTree(validated.serverTableCounts()));
+            response.put("contentResources", validated.contentResources());
+            backupReceiptMapper.insert(
+                    ownerId,
+                    idempotencyKey,
+                    fingerprint,
+                    objectMapper.writeValueAsString(response),
+                    now);
+            return response;
+        } finally {
+            resourceService.cleanup(stagedResources);
+        }
     }
 
     private ValidatedBackup validate(ObjectNode backup) {
-        if (JsonSupport.requireInt(backup, "backupVersion") != 1) {
+        int backupVersion = JsonSupport.requireInt(backup, "backupVersion");
+        if (backupVersion != 1 && backupVersion != 2) {
             throw JsonSupport.validation("不支持的用户备份版本");
         }
         JsonSupport.requireTimestamp(backup, "exportedAt");
@@ -209,6 +261,38 @@ public class AccountBackupService {
         validateMigrationReceipts(JsonSupport.requireArray(backup, "migrationReceipts"));
         validateRewardEvents(JsonSupport.requireArray(backup, "rewardEvents"));
         validateIdMappings(JsonSupport.requireArray(backup, "idMappings"));
+        ObjectNode serverTables;
+        JsonNode resources;
+        if (backupVersion == 1) {
+            serverTables = tableStore.emptySnapshot();
+            resources = objectMapper.createArrayNode();
+        } else {
+            serverTables = tableStore.validateSnapshot(backup.get("serverTables"));
+            resources = backup.get("resources");
+            if (resources == null || !resources.isArray()) {
+                throw JsonSupport.validation("备份缺少 resources");
+            }
+        }
+        Map<String, Integer> serverTableCounts = new LinkedHashMap<>();
+        for (String key : List.of(
+                "contentInstallations",
+                "contentInstallationReceipts",
+                "contentAssets",
+                "battles",
+                "battleLearningTasks",
+                "battleReceipts",
+                "battleEvents",
+                "adventureRuns",
+                "adventureReceipts",
+                "adventureBattleBindings",
+                "adventureEvents",
+                "adventureRewardOffers",
+                "adventureCharacterUnlocks",
+                "adventureRecollections",
+                "adventureCompletions")) {
+            serverTableCounts.put(key, tableStore.count(serverTables, key));
+        }
+        validateGameplayRelations(serverTables, tables);
         SnapshotCounts counts = new SnapshotCounts(
                 lexicons.size(),
                 JsonSupport.requireArray(tables, "words").size(),
@@ -219,7 +303,313 @@ public class AccountBackupService {
                 JsonSupport.requireArray(tables, "practiceSessions").size(),
                 JsonSupport.requireArray(tables, "reviewStates").size(),
                 JsonSupport.requireArray(tables, "reviewLogs").size());
-        return new ValidatedBackup(JsonSupport.fingerprint(objectMapper, backup), counts);
+        return new ValidatedBackup(
+                JsonSupport.fingerprint(objectMapper, backup),
+                counts,
+                serverTables,
+                resources,
+                Map.copyOf(serverTableCounts),
+                resourceService.count(resources));
+    }
+
+    private void validateGameplayRelations(
+            ObjectNode serverTables,
+            ObjectNode userTables) {
+        Set<String> installationIds = new HashSet<>();
+        Set<String> installationHashes = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "contentInstallations"),
+                "contentInstallations")) {
+            requireUnique(installationIds, JsonSupport.requireIdentifier(row, "id"),
+                    "备份内容安装 ID 重复");
+            requireUnique(installationHashes, JsonSupport.requireText(row, "content_hash", 64),
+                    "备份内容安装 hash 重复");
+            JsonSupport.requireText(row, "namespace_id", 128);
+            JsonSupport.requireText(row, "book_id", 128);
+            JsonSupport.requireText(row, "content_version", 32);
+            JsonSupport.requireText(row, "title", 200);
+            if (!row.path("manifest_json").isObject()) {
+                throw JsonSupport.validation("备份内容 manifest 无效");
+            }
+        }
+
+        Set<String> assetKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "contentAssets"),
+                "contentAssets")) {
+            String installationId = JsonSupport.requireIdentifier(row, "installation_id");
+            if (!installationIds.contains(installationId)) {
+                throw JsonSupport.validation("备份内容资源引用未知安装");
+            }
+            requireUnique(assetKeys, key(row, "installation_id", "asset_path"),
+                    "备份内容资源路径重复");
+            JsonSupport.requireText(row, "content_hash", 64);
+            JsonSupport.requireText(row, "mime", 128);
+            JsonSupport.requireLong(row, "byte_size");
+        }
+        Set<String> installationReceiptKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(
+                        serverTables,
+                        "contentInstallationReceipts"),
+                "contentInstallationReceipts")) {
+            if (!installationIds.contains(
+                    JsonSupport.requireIdentifier(row, "installation_id"))) {
+                throw JsonSupport.validation("备份内容安装回执引用未知安装");
+            }
+            requireUnique(installationReceiptKeys, key(row, "data_epoch", "idempotency_key"),
+                    "备份内容安装回执重复");
+            requireDatabaseFingerprint(row);
+            if (!row.path("response_json").isObject()) {
+                throw JsonSupport.validation("备份内容安装回执响应无效");
+            }
+        }
+
+        Set<String> battleIds = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "battles"),
+                "battles")) {
+            String battleId = JsonSupport.requireIdentifier(row, "battle_id");
+            requireUnique(battleIds, battleId, "备份战斗 ID 重复");
+            BattleState state = objectMapper.treeToValue(row.get("state_json"), BattleState.class);
+            battleStateValidator.validate(state);
+            if (!battleId.equals(state.battleId())
+                    || JsonSupport.requireLong(row, "state_version") != state.stateVersion()
+                    || JsonSupport.requireInt(row, "turn_id") != state.turnId()
+                    || !JsonSupport.requireText(row, "phase", 32).equals(state.phase())) {
+                throw JsonSupport.validation("备份战斗索引与状态快照不一致");
+            }
+        }
+
+        Set<String> taskIds = new HashSet<>();
+        Set<String> taskKeys = new HashSet<>();
+        Set<String> sessionIds = new HashSet<>();
+        for (ObjectNode session : JsonSupport.objectValues(
+                JsonSupport.requireArray(userTables, "practiceSessions"),
+                "practiceSessions")) {
+            sessionIds.add(JsonSupport.requireIdentifier(session, "id"));
+        }
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "battleLearningTasks"),
+                "battleLearningTasks")) {
+            requireUnique(taskIds, JsonSupport.requireIdentifier(row, "task_id"),
+                    "备份战斗学习任务 ID 重复");
+            requireUnique(taskKeys, key(row, "battle_id", "turn_id"),
+                    "备份战斗学习任务回合重复");
+            if (!battleIds.contains(JsonSupport.requireIdentifier(row, "battle_id"))
+                    || !sessionIds.contains(JsonSupport.requireIdentifier(row, "session_id"))) {
+                throw JsonSupport.validation("备份战斗学习任务引用无效");
+            }
+        }
+
+        Set<String> battleReceiptKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "battleReceipts"),
+                "battleReceipts")) {
+            if (!battleIds.contains(JsonSupport.requireIdentifier(row, "battle_id"))) {
+                throw JsonSupport.validation("备份战斗回执引用未知战斗");
+            }
+            requireUnique(battleReceiptKeys, key(row, "battle_id", "action_id"),
+                    "备份战斗回执重复");
+            requireDatabaseFingerprint(row);
+            if (!row.path("response_json").isObject()) {
+                throw JsonSupport.validation("备份战斗回执响应无效");
+            }
+        }
+
+        Set<String> battleEventKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "battleEvents"),
+                "battleEvents")) {
+            if (!battleIds.contains(JsonSupport.requireIdentifier(row, "battle_id"))) {
+                throw JsonSupport.validation("备份战斗事件引用未知战斗");
+            }
+            requireUnique(battleEventKeys, key(row, "battle_id", "event_sequence"),
+                    "备份战斗事件序号重复");
+            if (!row.path("event_json").isObject()) {
+                throw JsonSupport.validation("备份战斗事件内容无效");
+            }
+        }
+
+        Set<String> runIds = new HashSet<>();
+        java.util.Map<String, String> installationHashesById = new java.util.HashMap<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "contentInstallations"),
+                "contentInstallations")) {
+            installationHashesById.put(
+                    JsonSupport.requireIdentifier(row, "id"),
+                    JsonSupport.requireText(row, "content_hash", 64));
+        }
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureRuns"),
+                "adventureRuns")) {
+            String runId = JsonSupport.requireIdentifier(row, "id");
+            requireUnique(runIds, runId, "备份冒险 run ID 重复");
+            if (!installationIds.contains(
+                    JsonSupport.requireIdentifier(row, "installation_id"))
+                    || !sessionIds.contains(JsonSupport.requireIdentifier(row, "session_id"))) {
+                throw JsonSupport.validation("备份冒险 run 引用无效");
+            }
+            String installationId = JsonSupport.requireIdentifier(row, "installation_id");
+            if (!installationHashesById.get(installationId)
+                    .equals(JsonSupport.requireText(row, "content_hash", 64))) {
+                throw JsonSupport.validation("备份冒险 run 与内容安装 hash 不一致");
+            }
+            String battleId = nullableText(row, "battle_id");
+            if (battleId != null && !battleIds.contains(battleId)) {
+                throw JsonSupport.validation("备份冒险 run 引用未知战斗");
+            }
+            if (!row.path("flags_json").isObject()
+                    || (!row.path("deck_json").isNull()
+                    && !row.path("deck_json").isArray())) {
+                throw JsonSupport.validation("备份冒险 run 状态无效");
+            }
+        }
+
+        Set<String> completionIds = new HashSet<>();
+        Set<String> completionVersions = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureCompletions"),
+                "adventureCompletions")) {
+            requireUnique(completionIds, JsonSupport.requireIdentifier(row, "id"),
+                    "备份结局回执 ID 重复");
+            if (!runIds.contains(JsonSupport.requireIdentifier(row, "run_id"))) {
+                throw JsonSupport.validation("备份结局回执引用未知 run");
+            }
+            requireUnique(completionVersions, key(row, "run_id", "content_hash"),
+                    "备份结局回执重复");
+            if (!row.path("inherited_flags_json").isObject()) {
+                throw JsonSupport.validation("备份结局继承 flags 无效");
+            }
+        }
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureRuns"),
+                "adventureRuns")) {
+            String sourceCompletionId = nullableText(row, "source_completion_id");
+            if (sourceCompletionId != null && !completionIds.contains(sourceCompletionId)) {
+                throw JsonSupport.validation("备份冒险 run 引用未知结局回执");
+            }
+        }
+
+        Set<String> adventureReceiptKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureReceipts"),
+                "adventureReceipts")) {
+            if (!runIds.contains(JsonSupport.requireIdentifier(row, "run_id"))) {
+                throw JsonSupport.validation("备份冒险回执引用未知 run");
+            }
+            requireUnique(adventureReceiptKeys, key(row, "run_id", "action_id"),
+                    "备份冒险回执重复");
+            requireDatabaseFingerprint(row);
+            if (!row.path("response_json").isObject()) {
+                throw JsonSupport.validation("备份冒险回执响应无效");
+            }
+        }
+
+        Set<String> bindingIds = new HashSet<>();
+        Set<String> bindingNodes = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureBattleBindings"),
+                "adventureBattleBindings")) {
+            String battleId = JsonSupport.requireIdentifier(row, "battle_id");
+            if (!runIds.contains(JsonSupport.requireIdentifier(row, "run_id"))
+                    || !battleIds.contains(battleId)) {
+                throw JsonSupport.validation("备份冒险战斗绑定引用无效");
+            }
+            requireUnique(bindingIds, battleId, "备份冒险战斗绑定重复");
+            requireUnique(bindingNodes, key(row, "run_id", "node_id"),
+                    "备份冒险节点绑定重复");
+        }
+
+        Set<String> adventureEventKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureEvents"),
+                "adventureEvents")) {
+            if (!runIds.contains(JsonSupport.requireIdentifier(row, "run_id"))) {
+                throw JsonSupport.validation("备份冒险事件引用未知 run");
+            }
+            requireUnique(adventureEventKeys, key(row, "run_id", "event_sequence"),
+                    "备份冒险事件序号重复");
+            if (!row.path("payload_json").isObject()) {
+                throw JsonSupport.validation("备份冒险事件内容无效");
+            }
+        }
+
+        Set<String> rewardKeys = new HashSet<>();
+        Set<String> rewardNodes = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureRewardOffers"),
+                "adventureRewardOffers")) {
+            if (!runIds.contains(JsonSupport.requireIdentifier(row, "run_id"))) {
+                throw JsonSupport.validation("备份冒险奖励引用未知 run");
+            }
+            requireUnique(rewardKeys, key(row, "run_id", "offer_id"),
+                    "备份冒险奖励回执重复");
+            requireUnique(rewardNodes, key(row, "run_id", "node_id"),
+                    "备份冒险节点奖励重复");
+            if (!row.path("candidates_json").isArray()) {
+                throw JsonSupport.validation("备份冒险奖励候选无效");
+            }
+        }
+
+        Set<String> unlockKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureCharacterUnlocks"),
+                "adventureCharacterUnlocks")) {
+            requireUnique(unlockKeys, JsonSupport.requireIdentifier(row, "character_key"),
+                    "备份角色解锁重复");
+            if (!runIds.contains(JsonSupport.requireIdentifier(row, "source_run_id"))) {
+                throw JsonSupport.validation("备份角色解锁引用未知 run");
+            }
+        }
+
+        Set<String> recollectionKeys = new HashSet<>();
+        for (ObjectNode row : JsonSupport.objectValues(
+                JsonSupport.requireArray(serverTables, "adventureRecollections"),
+                "adventureRecollections")) {
+            requireUnique(recollectionKeys,
+                    JsonSupport.requireText(row, "recollection_key", 255),
+                    "备份剧情回忆重复");
+            if (!runIds.contains(JsonSupport.requireIdentifier(row, "source_run_id"))) {
+                throw JsonSupport.validation("备份剧情回忆引用未知 run");
+            }
+            JsonSupport.requireText(row, "namespace_id", 128);
+            JsonSupport.requireText(row, "book_id", 128);
+            JsonSupport.requireText(row, "chapter_id", 128);
+            JsonSupport.requireText(row, "title", 200);
+            JsonSupport.requireText(row, "speaker", 120);
+            JsonSupport.requireText(row, "text", 20_000);
+        }
+    }
+
+    private void requireUnique(Set<String> values, String value, String message) {
+        if (!values.add(value)) {
+            throw JsonSupport.validation(message);
+        }
+    }
+
+    private String key(ObjectNode row, String... fields) {
+        StringBuilder key = new StringBuilder();
+        for (String field : fields) {
+            JsonNode value = row.get(field);
+            if (value == null || value.isNull()) {
+                throw JsonSupport.validation("备份关联字段不能为空：" + field);
+            }
+            key.append(value);
+            key.append('\u0000');
+        }
+        return key.toString();
+    }
+
+    private String nullableText(ObjectNode row, String field) {
+        JsonNode value = row.get(field);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isTextual()) {
+            throw JsonSupport.validation("备份字段类型无效：" + field);
+        }
+        return value.stringValue();
     }
 
     private ObjectNode restoreDocument(ObjectNode backup) {
@@ -255,6 +645,21 @@ public class AccountBackupService {
 
     private ObjectNode findReceipt(String ownerId, String key, String fingerprint) {
         BackupReceiptRow receipt = backupReceiptMapper.find(ownerId, key);
+        return receiptResponse(receipt, fingerprint);
+    }
+
+    private ObjectNode findReceiptForUpdate(
+            String ownerId,
+            String key,
+            String fingerprint) {
+        BackupReceiptRow receipt =
+                backupReceiptMapper.findForUpdate(ownerId, key);
+        return receiptResponse(receipt, fingerprint);
+    }
+
+    private ObjectNode receiptResponse(
+            BackupReceiptRow receipt,
+            String fingerprint) {
         if (receipt == null) {
             return null;
         }
@@ -461,6 +866,14 @@ public class AccountBackupService {
         return fingerprint;
     }
 
+    private String requireDatabaseFingerprint(ObjectNode value) {
+        String fingerprint = JsonSupport.requireText(value, "request_fingerprint", 64);
+        if (!fingerprint.matches("^[0-9a-f]{64}$")) {
+            throw JsonSupport.validation("备份请求指纹无效");
+        }
+        return fingerprint;
+    }
+
     private Set<String> lexiconIds(String ownerId) {
         Set<String> ids = new HashSet<>();
         lexiconMapper.listAllByOwner(ownerId).forEach(lexicon -> ids.add(lexicon.getId()));
@@ -477,6 +890,12 @@ public class AccountBackupService {
         return ids;
     }
 
-    private record ValidatedBackup(String fingerprint, SnapshotCounts counts) {
+    private record ValidatedBackup(
+            String fingerprint,
+            SnapshotCounts counts,
+            ObjectNode serverTables,
+            JsonNode resources,
+            Map<String, Integer> serverTableCounts,
+            int contentResources) {
     }
 }

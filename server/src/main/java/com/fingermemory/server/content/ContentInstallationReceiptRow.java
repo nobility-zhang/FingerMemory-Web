@@ -2,6 +2,7 @@ package com.fingermemory.server.content;
 
 public record ContentInstallationReceiptRow(
         String ownerId,
+        String dataEpoch,
         String idempotencyKey,
         String requestFingerprint,
         String installationId,

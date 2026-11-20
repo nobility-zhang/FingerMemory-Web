@@ -268,6 +268,149 @@ class AdventureApiIT {
     }
 
     @Test
+    void restoresContentRunAndBattleCheckpointWithPrivateResources() throws Exception {
+        RegisteredUser user = registerAndLogin("adventure-backup");
+        Csrf csrf = csrf(user.session());
+        InstalledPackage installed = install(
+                csrf,
+                "可恢复的邮路",
+                "1.0.0",
+                "backup");
+        MvcResult started = start(
+                csrf,
+                installed.id(),
+                "serin",
+                "backup-start")
+                .andExpect(status().isCreated())
+                .andReturn();
+        String runId = JsonPath.read(
+                started.getResponse().getContentAsString(),
+                "$.run.id");
+        action(csrf, runId, "backup-choice", Map.of(
+                "expectedVersion", 0,
+                "action", "choose",
+                "choiceId", "prepare"))
+                .andExpect(status().isOk());
+        action(csrf, runId, "backup-advance", Map.of(
+                "expectedVersion", 1,
+                "action", "advance"))
+                .andExpect(status().isOk());
+        action(csrf, runId, "backup-cross", Map.of(
+                "expectedVersion", 2,
+                "action", "choose",
+                "choiceId", "cross"))
+                .andExpect(status().isOk());
+        String battleId = JsonPath.read(mockMvc.perform(post(
+                                "/api/v1/adventures/{runId}/encounters",
+                                runId)
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("Idempotency-Key", "backup-encounter"))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+                "$.battleId");
+        String epochBefore = jdbcTemplate.queryForObject(
+                "SELECT data_epoch FROM fm_user_data WHERE owner_id = ?",
+                String.class,
+                user.id());
+
+        MvcResult exported = mockMvc.perform(get("/api/v1/backup/export")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.backupVersion").value(2))
+                .andExpect(jsonPath("$.serverTables.contentInstallations.length()").value(1))
+                .andExpect(jsonPath("$.serverTables.adventureRuns.length()").value(1))
+                .andExpect(jsonPath("$.serverTables.battles.length()").value(1))
+                .andExpect(jsonPath("$.resources.length()").value(
+                        org.hamcrest.Matchers.greaterThan(0)))
+                .andReturn();
+        ObjectNode backup = (ObjectNode) objectMapper.readTree(
+                exported.getResponse().getContentAsString());
+        String restoredManifestPath = backup.path("resources").get(0).path("path").asText();
+
+        jdbcTemplate.update(
+                "DELETE FROM fm_adventure_completion WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_adventure_recollection WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_adventure_character_unlock WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_adventure_reward_offer WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_adventure_event WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_adventure_battle_binding WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_adventure_receipt WHERE owner_id = ?", user.id());
+        jdbcTemplate.update("DELETE FROM fm_adventure_run WHERE owner_id = ?", user.id());
+        jdbcTemplate.update("DELETE FROM fm_battle_event WHERE owner_id = ?", user.id());
+        jdbcTemplate.update("DELETE FROM fm_battle_receipt WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_battle_learning_task WHERE owner_id = ?", user.id());
+        jdbcTemplate.update("DELETE FROM fm_battle WHERE owner_id = ?", user.id());
+        jdbcTemplate.update("DELETE FROM fm_content_asset WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_content_installation_receipt WHERE owner_id = ?", user.id());
+        jdbcTemplate.update(
+                "DELETE FROM fm_content_installation WHERE owner_id = ?", user.id());
+        deleteRecursively(Path.of(appProperties.content().packageRoot())
+                .resolve(user.id()));
+
+        MvcResult restored = restoreBackup(
+                user.session(),
+                "backup-restore-adventure",
+                backup,
+                201)
+                .andExpect(jsonPath("$.serverTables.contentInstallations").value(1))
+                .andExpect(jsonPath("$.serverTables.adventureRuns").value(1))
+                .andExpect(jsonPath("$.serverTables.battles").value(1))
+                .andReturn();
+        String restoredEpoch = JsonPath.read(
+                restored.getResponse().getContentAsString(),
+                "$.dataEpoch");
+        assertThat(restoredEpoch).isNotEqualTo(epochBefore);
+        mockMvc.perform(get("/api/v1/adventures/{runId}", runId)
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.runVersion").value(1_000_004))
+                .andExpect(jsonPath("$.battleId").value(battleId));
+        mockMvc.perform(get("/api/v1/battles/{battleId}", battleId)
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.battle.battleId").value(battleId))
+                .andExpect(jsonPath("$.stateVersion").value(1_000_000));
+        action(csrf, runId, "backup-choice", Map.of(
+                "expectedVersion", 0,
+                "action", "choose",
+                "choiceId", "prepare"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ADVENTURE_VERSION_CONFLICT"));
+        mockMvc.perform(post("/api/v1/battles/{battleId}/cards", battleId)
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("Idempotency-Key", "stale-battle-command")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "expectedStateVersion", 0,
+                                "cardInstanceId", "card-01",
+                                "targetId", "bridge-guardian"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("BATTLE_VERSION_CONFLICT"));
+        restoreBackup(
+                user.session(),
+                "backup-restore-adventure-reuse",
+                backup,
+                201);
+        assertThat(Path.of(appProperties.content().packageRoot())
+                .resolve(user.id())
+                .resolve(installed.hash())
+                .resolve(restoredManifestPath))
+                .isRegularFile();
+    }
+
+    @Test
     void upgradesCompletedRunAndSelectsSequelByEnding() throws Exception {
         RegisteredUser user = registerAndLogin("adventure-lineage");
         Csrf csrf = csrf(user.session());
@@ -797,6 +940,23 @@ class AdventureApiIT {
                 .getResponse()
                 .getContentAsString(),
                 "$.battleId");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions restoreBackup(
+            SessionCookie session,
+            String idempotencyKey,
+            ObjectNode backup,
+            int expectedStatus) throws Exception {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.set("backup", backup);
+        Csrf csrf = csrf(session);
+        return mockMvc.perform(post("/api/v1/backup/import")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().is(expectedStatus));
     }
 
     private InstalledPackage install(

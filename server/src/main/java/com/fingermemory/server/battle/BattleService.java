@@ -118,6 +118,7 @@ public class BattleService {
         battleMapper.insertBattle(
                 ownerId,
                 request.battleId(),
+                locked.row().getDataEpoch(),
                 transition.state().battleRulesVersion(),
                 transition.state().stateVersion(),
                 transition.state().phase(),
@@ -397,7 +398,11 @@ public class BattleService {
             String battleId,
             String actionId,
             String fingerprint) {
-        BattleReceiptRow receipt = battleMapper.findReceipt(ownerId, battleId, actionId);
+        BattleReceiptRow receipt = battleMapper.findReceipt(
+                ownerId,
+                battleId,
+                userDataStore.currentEpoch(ownerId),
+                actionId);
         if (receipt == null) {
             return null;
         }
@@ -418,6 +423,7 @@ public class BattleService {
         battleMapper.insertReceipt(
                 ownerId,
                 battleId,
+                userDataStore.currentEpoch(ownerId),
                 actionId,
                 fingerprint,
                 objectMapper.writeValueAsString(response),
@@ -480,6 +486,7 @@ public class BattleService {
         if (!BattleCatalog.RULES_VERSION.equals(row.getRulesVersion())) {
             throw conflict("BATTLE_RULES_UNSUPPORTED", "战斗规则版本不受支持");
         }
+        requireEpoch(ownerId, row);
         return row;
     }
 
@@ -492,7 +499,16 @@ public class BattleService {
         if (!BattleCatalog.RULES_VERSION.equals(row.getRulesVersion())) {
             throw conflict("BATTLE_RULES_UNSUPPORTED", "战斗规则版本不受支持");
         }
+        requireEpoch(ownerId, row);
         return row;
+    }
+
+    private void requireEpoch(String ownerId, BattleRow row) {
+        if (!userDataStore.currentEpoch(ownerId).equals(row.getDataEpoch())) {
+            throw conflict(
+                    "BATTLE_RECOVERY_EPOCH_CONFLICT",
+                    "战斗属于恢复前数据 epoch，不能继续执行");
+        }
     }
 
     private void requireVersion(BattleRow row, long expectedVersion) {

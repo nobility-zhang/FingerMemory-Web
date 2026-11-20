@@ -3,6 +3,7 @@ package com.fingermemory.server.battle;
 public class BattleRow {
     private String ownerId;
     private String battleId;
+    private String dataEpoch;
     private String rulesVersion;
     private long stateVersion;
     private String phase;
@@ -26,6 +27,14 @@ public class BattleRow {
 
     public void setBattleId(String battleId) {
         this.battleId = battleId;
+    }
+
+    public String getDataEpoch() {
+        return dataEpoch;
+    }
+
+    public void setDataEpoch(String dataEpoch) {
+        this.dataEpoch = dataEpoch;
     }
 
     public String getRulesVersion() {

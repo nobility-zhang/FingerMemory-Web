@@ -128,21 +128,24 @@ public interface ContentPackageMapper {
             @Param("assetPath") String assetPath);
 
     @Select("""
-            SELECT owner_id, idempotency_key, request_fingerprint, installation_id,
+            SELECT owner_id, data_epoch, idempotency_key, request_fingerprint, installation_id,
                    response_json, created_at_ms
             FROM fm_content_installation_receipt
-            WHERE owner_id = #{ownerId} AND idempotency_key = #{idempotencyKey}
+            WHERE owner_id = #{ownerId}
+              AND data_epoch = #{dataEpoch}
+              AND idempotency_key = #{idempotencyKey}
             """)
     ContentInstallationReceiptRow findReceipt(
             @Param("ownerId") String ownerId,
+            @Param("dataEpoch") String dataEpoch,
             @Param("idempotencyKey") String idempotencyKey);
 
     @Insert("""
             INSERT INTO fm_content_installation_receipt (
-              owner_id, idempotency_key, request_fingerprint,
+              owner_id, data_epoch, idempotency_key, request_fingerprint,
               installation_id, response_json, created_at_ms
             ) VALUES (
-              #{ownerId}, #{idempotencyKey}, #{requestFingerprint},
+              #{ownerId}, #{dataEpoch}, #{idempotencyKey}, #{requestFingerprint},
               #{installationId}, CAST(#{responseJson} AS JSON), #{createdAtMs}
             )
             """)

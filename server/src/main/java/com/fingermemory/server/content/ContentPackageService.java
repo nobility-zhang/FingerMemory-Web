@@ -2,6 +2,7 @@ package com.fingermemory.server.content;
 
 import com.fingermemory.server.common.ApiException;
 import com.fingermemory.server.config.AppProperties;
+import com.fingermemory.server.learning.UserDataStore;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -31,6 +32,7 @@ public class ContentPackageService {
 
     private final ContentPackageValidator validator;
     private final GmContentService gmContentService;
+    private final UserDataStore userDataStore;
     private final ContentPackageMapper mapper;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
@@ -41,6 +43,7 @@ public class ContentPackageService {
     public ContentPackageService(
             ContentPackageValidator validator,
             GmContentService gmContentService,
+            UserDataStore userDataStore,
             ContentPackageMapper mapper,
             ObjectMapper objectMapper,
             TransactionTemplate transactionTemplate,
@@ -48,6 +51,7 @@ public class ContentPackageService {
             AppProperties appProperties) {
         this.validator = validator;
         this.gmContentService = gmContentService;
+        this.userDataStore = userDataStore;
         this.mapper = mapper;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
@@ -142,7 +146,10 @@ public class ContentPackageService {
             final ValidatedContentPackage packageData = validated;
             fingerprint = validated.contentHash();
             ContentInstallationReceiptRow existingReceipt =
-                    mapper.findReceipt(ownerId, idempotencyKey);
+                    mapper.findReceipt(
+                            ownerId,
+                            userDataStore.currentEpoch(ownerId),
+                            idempotencyKey);
             if (existingReceipt != null) {
                 if (!fingerprint.equals(existingReceipt.requestFingerprint())) {
                     throw conflict(
@@ -232,7 +239,10 @@ public class ContentPackageService {
         } catch (RuntimeException exception) {
             if (fingerprint != null) {
                 ContentInstallationReceiptRow receipt =
-                        mapper.findReceipt(ownerId, idempotencyKey);
+                        mapper.findReceipt(
+                                ownerId,
+                                userDataStore.currentEpoch(ownerId),
+                                idempotencyKey);
                 if (receipt != null && fingerprint.equals(receipt.requestFingerprint())) {
                     return objectMapper.readValue(
                             receipt.responseJson(),
@@ -495,6 +505,7 @@ public class ContentPackageService {
             ContentPackageDtos.InstallResult response) {
         mapper.insertReceipt(new ContentInstallationReceiptRow(
                 ownerId,
+                userDataStore.currentEpoch(ownerId),
                 idempotencyKey,
                 fingerprint,
                 installationId,

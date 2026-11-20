@@ -11,16 +11,17 @@ import org.apache.ibatis.annotations.Update;
 public interface BattleMapper {
     @Insert("""
             INSERT INTO fm_battle (
-              owner_id, battle_id, rules_version, state_version, phase, turn_id,
+              owner_id, battle_id, data_epoch, rules_version, state_version, phase, turn_id,
               next_event_sequence, state_json, created_at_ms, updated_at_ms
             ) VALUES (
-              #{ownerId}, #{battleId}, #{rulesVersion}, #{stateVersion}, #{phase}, #{turnId},
+              #{ownerId}, #{battleId}, #{dataEpoch}, #{rulesVersion}, #{stateVersion}, #{phase}, #{turnId},
               #{nextEventSequence}, CAST(#{stateJson} AS JSON), #{createdAtMs}, #{updatedAtMs}
             )
             """)
     int insertBattle(
             @Param("ownerId") String ownerId,
             @Param("battleId") String battleId,
+            @Param("dataEpoch") String dataEpoch,
             @Param("rulesVersion") String rulesVersion,
             @Param("stateVersion") long stateVersion,
             @Param("phase") String phase,
@@ -31,7 +32,8 @@ public interface BattleMapper {
             @Param("updatedAtMs") long updatedAtMs);
 
     @Select("""
-            SELECT owner_id AS ownerId, battle_id AS battleId, rules_version AS rulesVersion,
+            SELECT owner_id AS ownerId, battle_id AS battleId, data_epoch AS dataEpoch,
+                   rules_version AS rulesVersion,
                    state_version AS stateVersion, phase, turn_id AS turnId,
                    next_event_sequence AS nextEventSequence, state_json AS stateJson,
                    created_at_ms AS createdAtMs, updated_at_ms AS updatedAtMs
@@ -43,7 +45,8 @@ public interface BattleMapper {
             @Param("battleId") String battleId);
 
     @Select("""
-            SELECT owner_id AS ownerId, battle_id AS battleId, rules_version AS rulesVersion,
+            SELECT owner_id AS ownerId, battle_id AS battleId, data_epoch AS dataEpoch,
+                   rules_version AS rulesVersion,
                    state_version AS stateVersion, phase, turn_id AS turnId,
                    next_event_sequence AS nextEventSequence, state_json AS stateJson,
                    created_at_ms AS createdAtMs, updated_at_ms AS updatedAtMs
@@ -131,16 +134,17 @@ public interface BattleMapper {
 
     @Insert("""
             INSERT INTO fm_battle_receipt (
-              owner_id, battle_id, action_id, request_fingerprint, response_json,
+              owner_id, battle_id, data_epoch, action_id, request_fingerprint, response_json,
               state_version, created_at_ms
             ) VALUES (
-              #{ownerId}, #{battleId}, #{actionId}, #{fingerprint},
+              #{ownerId}, #{battleId}, #{dataEpoch}, #{actionId}, #{fingerprint},
               CAST(#{responseJson} AS JSON), #{stateVersion}, #{createdAtMs}
             )
             """)
     int insertReceipt(
             @Param("ownerId") String ownerId,
             @Param("battleId") String battleId,
+            @Param("dataEpoch") String dataEpoch,
             @Param("actionId") String actionId,
             @Param("fingerprint") String fingerprint,
             @Param("responseJson") String responseJson,
@@ -154,11 +158,13 @@ public interface BattleMapper {
             FROM fm_battle_receipt
             WHERE owner_id = #{ownerId}
               AND battle_id = #{battleId}
+              AND data_epoch = #{dataEpoch}
               AND action_id = #{actionId}
             """)
     BattleReceiptRow findReceipt(
             @Param("ownerId") String ownerId,
             @Param("battleId") String battleId,
+            @Param("dataEpoch") String dataEpoch,
             @Param("actionId") String actionId);
 
     @Insert("""

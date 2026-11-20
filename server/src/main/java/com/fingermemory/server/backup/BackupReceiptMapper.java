@@ -16,6 +16,16 @@ public interface BackupReceiptMapper {
     BackupReceiptRow find(@Param("ownerId") String ownerId,
                           @Param("idempotencyKey") String idempotencyKey);
 
+    @Select("""
+            SELECT request_fingerprint, response_json
+            FROM fm_backup_receipt
+            WHERE owner_id = #{ownerId} AND idempotency_key = #{idempotencyKey}
+            FOR UPDATE
+            """)
+    BackupReceiptRow findForUpdate(
+            @Param("ownerId") String ownerId,
+            @Param("idempotencyKey") String idempotencyKey);
+
     @Insert("""
             INSERT INTO fm_backup_receipt (
               owner_id, idempotency_key, request_fingerprint, response_json, created_at_ms

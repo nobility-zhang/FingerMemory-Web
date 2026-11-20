@@ -13,6 +13,7 @@ info:
     H5-03 已实现三章旅程、三选一牌组奖励、Fina 剧情解锁/营地切换和账号级回忆去重。
     H5-07 已实现 GM 草稿只读预览、不可变版本发布、共享安装和归档保护。
     H6-01 已停止新建歌词/弹幕/卡片雨会话；旧 modeId 继续用于历史、备份和显式迁移。
+    H7-01 已实现账号备份 v2、战斗/冒险/内容资源恢复和恢复后 dataEpoch 切换。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
   - url: /api/v1
@@ -1474,10 +1475,24 @@ components:
       type: object
       required: [backupVersion, schemaVersion, dataFormatVersion, exportedAt, tables]
       additionalProperties: true
+      properties:
+        backupVersion:
+          type: integer
+          enum: [1, 2]
+        serverTables:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+        resources:
+          type: array
+          items:
+            type: object
     BackupPreview:
       type: object
       required:
-        [fingerprint, exportedAt, sourceDataVersion, counts, reviewReceipts, rewardEvents, migrationReceipts, idMappings]
+        [fingerprint, exportedAt, sourceDataVersion, counts, reviewReceipts, rewardEvents, migrationReceipts, idMappings, serverTables, contentResources]
       properties:
         fingerprint:
           type: string
@@ -1494,6 +1509,12 @@ components:
         migrationReceipts:
           type: integer
         idMappings:
+          type: integer
+        serverTables:
+          type: object
+          additionalProperties:
+            type: integer
+        contentResources:
           type: integer
     Page:
       type: object
@@ -3594,7 +3615,8 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [outcome, fingerprint, dataVersion, counts]
+                required:
+                  [outcome, fingerprint, dataVersion, dataEpoch, counts, serverTables, contentResources]
                 properties:
                   outcome:
                     type: string
@@ -3603,8 +3625,16 @@ paths:
                     type: string
                   dataVersion:
                     type: integer
+                  dataEpoch:
+                    type: string
                   counts:
                     $ref: '#/components/schemas/SnapshotCounts'
+                  serverTables:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  contentResources:
+                    type: integer
         '409':
           $ref: '#/components/responses/Conflict'
   /content-packages/preview:

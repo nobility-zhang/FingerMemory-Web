@@ -3,6 +3,7 @@ package com.fingermemory.server.adventure;
 public record AdventureRunRow(
         String ownerId,
         String id,
+        String dataEpoch,
         String installationId,
         String namespaceId,
         String bookId,

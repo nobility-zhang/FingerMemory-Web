@@ -67,6 +67,30 @@ public class UserDataStore {
         locked.row().setPayloadJson(objectMapper.writeValueAsString(document));
     }
 
+    public void saveWithNewEpoch(
+            LockedUserData locked,
+            ObjectNode document,
+            String nextEpoch) {
+        long nextVersion = locked.row().getDataVersion() + 1;
+        int updated = mapper.updateWithEpoch(
+                locked.row().getOwnerId(),
+                locked.row().getDataVersion(),
+                nextVersion,
+                nextEpoch,
+                objectMapper.writeValueAsString(document),
+                clock.instant().toEpochMilli());
+        if (updated != 1) {
+            throw new IllegalStateException("User data version changed while row was locked");
+        }
+        locked.row().setDataVersion(nextVersion);
+        locked.row().setDataEpoch(nextEpoch);
+        locked.row().setPayloadJson(objectMapper.writeValueAsString(document));
+    }
+
+    public String currentEpoch(String ownerId) {
+        return read(ownerId).getDataEpoch();
+    }
+
     private void ensure(String ownerId) {
         mapper.insertDefault(
                 ownerId,

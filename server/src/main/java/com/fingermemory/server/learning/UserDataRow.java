@@ -3,6 +3,7 @@ package com.fingermemory.server.learning;
 public class UserDataRow {
     private String ownerId;
     private long dataVersion;
+    private String dataEpoch;
     private int schemaVersion;
     private int dataFormatVersion;
     private String payloadJson;
@@ -23,6 +24,14 @@ public class UserDataRow {
 
     public void setDataVersion(long dataVersion) {
         this.dataVersion = dataVersion;
+    }
+
+    public String getDataEpoch() {
+        return dataEpoch;
+    }
+
+    public void setDataEpoch(String dataEpoch) {
+        this.dataEpoch = dataEpoch;
     }
 
     public int getSchemaVersion() {

@@ -9,6 +9,7 @@ import com.fingermemory.server.content.ContentPackageService;
 import com.fingermemory.server.content.ContentRequirement;
 import com.fingermemory.server.content.ContentVersions;
 import com.fingermemory.server.learning.LearningDtos;
+import com.fingermemory.server.learning.LockedUserData;
 import com.fingermemory.server.learning.SessionService;
 import com.fingermemory.server.learning.UserDataStore;
 import java.nio.charset.StandardCharsets;
@@ -77,7 +78,8 @@ public class AdventureService {
             String actionId,
             AdventureDtos.StartRequest request) {
         validateActionId(actionId);
-        userDataStore.lock(ownerId);
+        LockedUserData locked = userDataStore.lock(ownerId);
+        String dataEpoch = locked.row().getDataEpoch();
         ContentPackageService.InstalledPackage installed =
                 contentPackageService.installedPackage(
                         ownerId,
@@ -95,6 +97,7 @@ public class AdventureService {
         AdventureReceiptRow receipt = adventureMapper.findReceipt(
                 ownerId,
                 deterministicRunId,
+                dataEpoch,
                 actionId);
         if (receipt != null) {
             if (!fingerprint.equals(receipt.requestFingerprint())) {
@@ -138,6 +141,7 @@ public class AdventureService {
         AdventureRunRow row = new AdventureRunRow(
                 ownerId,
                 deterministicRunId,
+                dataEpoch,
                 installed.installation().id(),
                 installed.installation().namespaceId(),
                 installed.installation().bookId(),
@@ -194,6 +198,7 @@ public class AdventureService {
         adventureMapper.insertReceipt(new AdventureReceiptRow(
                 ownerId,
                 row.id(),
+                dataEpoch,
                 actionId,
                 fingerprint,
                 objectMapper.writeValueAsString(result),
@@ -215,7 +220,9 @@ public class AdventureService {
         if (limit < 1 || limit > 50) {
             throw validation("limit 必须在 1 到 50 之间");
         }
+        String dataEpoch = userDataStore.currentEpoch(ownerId);
         return adventureMapper.listActive(ownerId, limit).stream()
+                .filter(row -> dataEpoch.equals(row.dataEpoch()))
                 .map(row -> {
                     ContentPackageService.InstalledPackage installed =
                             contentPackageService.installedPackage(
@@ -254,7 +261,11 @@ public class AdventureService {
         String targetInstallationId = request.installationId();
         String fingerprint = fingerprint("upgrade", runId, targetInstallationId);
         AdventureReceiptRow existingReceipt =
-                adventureMapper.findReceipt(ownerId, runId, actionId);
+                adventureMapper.findReceipt(
+                        ownerId,
+                        runId,
+                        userDataStore.currentEpoch(ownerId),
+                        actionId);
         if (existingReceipt != null) {
             if (!fingerprint.equals(existingReceipt.requestFingerprint())) {
                 throw conflict(
@@ -270,6 +281,7 @@ public class AdventureService {
                     "ADVENTURE_UPGRADE_UNSAFE",
                     "只能从已通关的安全检查点开启新增章节");
         }
+        requireEpoch(ownerId, row);
         ContentPackageService.InstalledPackage target =
                 contentPackageService.installedPackage(ownerId, targetInstallationId);
         contentPackageService.requireStartable(ownerId, targetInstallationId);
@@ -324,6 +336,7 @@ public class AdventureService {
         AdventureRunRow upgraded = new AdventureRunRow(
                 row.ownerId(),
                 row.id(),
+                row.dataEpoch(),
                 target.installation().id(),
                 target.installation().namespaceId(),
                 target.installation().bookId(),
@@ -372,6 +385,7 @@ public class AdventureService {
         adventureMapper.insertReceipt(new AdventureReceiptRow(
                 ownerId,
                 runId,
+                row.dataEpoch(),
                 actionId,
                 fingerprint,
                 objectMapper.writeValueAsString(response),
@@ -391,8 +405,15 @@ public class AdventureService {
             throw notFound();
         }
         String fingerprint = fingerprint("start-encounter", runId, row.currentNodeId());
+        if (!userDataStore.currentEpoch(ownerId).equals(row.dataEpoch())) {
+            throw recoveryEpochConflict();
+        }
         AdventureReceiptRow receipt =
-                adventureMapper.findReceipt(ownerId, runId, actionId);
+                adventureMapper.findReceipt(
+                        ownerId,
+                        runId,
+                        row.dataEpoch(),
+                        actionId);
         if (receipt != null) {
             if (!fingerprint.equals(receipt.requestFingerprint())) {
                 throw conflict(
@@ -499,6 +520,7 @@ public class AdventureService {
         adventureMapper.insertReceipt(new AdventureReceiptRow(
                 ownerId,
                 runId,
+                row.dataEpoch(),
                 actionId,
                 fingerprint,
                 objectMapper.writeValueAsString(response),
@@ -526,8 +548,13 @@ public class AdventureService {
                 request.choiceId(),
                 request.battleId(),
                 request.companionKey());
+        requireEpoch(ownerId, row);
         AdventureReceiptRow receipt =
-                adventureMapper.findReceipt(ownerId, runId, actionId);
+                adventureMapper.findReceipt(
+                        ownerId,
+                        runId,
+                        row.dataEpoch(),
+                        actionId);
         if (receipt != null) {
             if (!fingerprint.equals(receipt.requestFingerprint())) {
                 throw conflict(
@@ -684,6 +711,7 @@ public class AdventureService {
         AdventureRunRow next = new AdventureRunRow(
                 row.ownerId(),
                 row.id(),
+                row.dataEpoch(),
                 row.installationId(),
                 row.namespaceId(),
                 row.bookId(),
@@ -734,6 +762,7 @@ public class AdventureService {
         adventureMapper.insertReceipt(new AdventureReceiptRow(
                 ownerId,
                 runId,
+                row.dataEpoch(),
                 actionId,
                 fingerprint,
                 objectMapper.writeValueAsString(response),
@@ -1236,7 +1265,21 @@ public class AdventureService {
         if (row == null) {
             throw notFound();
         }
+        requireEpoch(ownerId, row);
         return row;
+    }
+
+    private void requireEpoch(String ownerId, AdventureRunRow row) {
+        if (!userDataStore.currentEpoch(ownerId).equals(row.dataEpoch())) {
+            throw recoveryEpochConflict();
+        }
+    }
+
+    private AdventureException recoveryEpochConflict() {
+        return new AdventureException(
+                HttpStatus.CONFLICT,
+                "ADVENTURE_RECOVERY_EPOCH_CONFLICT",
+                "冒险属于恢复前数据 epoch，不能继续执行");
     }
 
     private Map<String, Boolean> readFlags(String raw) {

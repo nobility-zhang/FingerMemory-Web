@@ -11,6 +11,11 @@ import jakarta.servlet.http.Cookie;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -379,9 +384,12 @@ class OnlineLearningIT {
         MvcResult exported = mockMvc.perform(get("/api/v1/backup/export")
                         .cookie(alice.session().cookie()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.backupVersion").value(1))
+                .andExpect(jsonPath("$.backupVersion").value(2))
                 .andExpect(jsonPath("$.tables.lexicons").isArray())
                 .andExpect(jsonPath("$.tables.lexicons.length()").value(1))
+                .andExpect(jsonPath("$.serverTables.battles").isArray())
+                .andExpect(jsonPath("$.serverTables.adventureRuns").isArray())
+                .andExpect(jsonPath("$.resources").isArray())
                 .andReturn();
         ObjectNode backup = (ObjectNode) objectMapper.readTree(
                 exported.getResponse().getContentAsString());
@@ -419,6 +427,12 @@ class OnlineLearningIT {
         restoreBackup(alice.session(), "backup-restore-1", backup, 201)
                 .andExpect(jsonPath("$.dataVersion").value(restoredVersion));
 
+        ObjectNode legacyBackup = backup.deepCopy();
+        legacyBackup.put("backupVersion", 1);
+        legacyBackup.remove(List.of("serverTables", "resources"));
+        restoreBackup(alice.session(), "backup-restore-v1", legacyBackup, 201)
+                .andExpect(jsonPath("$.serverTables.battles").value(0));
+
         ObjectNode invalid = backup.deepCopy();
         ((ObjectNode) invalid.path("tables").path("studyItems").get(0))
                 .put("wordEntryId", "missing-word");
@@ -436,6 +450,61 @@ class OnlineLearningIT {
         mockMvc.perform(get("/api/v1/lexicons").cookie(bob.session().cookie()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void restoresConcurrentlyWithTheSameIdempotencyReceipt() throws Exception {
+        RegisteredUser user = registerAndLogin("backup-concurrent");
+        importSnapshot(
+                user.session(),
+                "backup-concurrent-source",
+                loadSnapshot(),
+                201);
+        ObjectNode backup = (ObjectNode) objectMapper.readTree(
+                mockMvc.perform(get("/api/v1/backup/export")
+                                .cookie(user.session().cookie()))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString());
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<MvcResult> first = executor.submit(() -> {
+                start.await();
+                return restoreBackup(
+                        user.session(),
+                        "backup-concurrent-restore",
+                        backup,
+                        201)
+                        .andReturn();
+            });
+            Future<MvcResult> second = executor.submit(() -> {
+                start.await();
+                return restoreBackup(
+                        user.session(),
+                        "backup-concurrent-restore",
+                        backup,
+                        201)
+                        .andReturn();
+            });
+            start.countDown();
+            ObjectNode firstResponse = (ObjectNode) objectMapper.readTree(
+                    first.get(30, TimeUnit.SECONDS).getResponse().getContentAsString());
+            ObjectNode secondResponse = (ObjectNode) objectMapper.readTree(
+                    second.get(30, TimeUnit.SECONDS).getResponse().getContentAsString());
+            assertThat(firstResponse.path("dataVersion").asLong())
+                    .isEqualTo(secondResponse.path("dataVersion").asLong());
+            assertThat(firstResponse.path("dataEpoch").asText())
+                    .isEqualTo(secondResponse.path("dataEpoch").asText());
+        } finally {
+            executor.shutdownNow();
+        }
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM fm_backup_receipt WHERE owner_id = ?",
+                Integer.class,
+                user.id())).isEqualTo(1);
     }
 
     @Test

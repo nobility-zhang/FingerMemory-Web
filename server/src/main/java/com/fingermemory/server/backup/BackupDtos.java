@@ -1,6 +1,7 @@
 package com.fingermemory.server.backup;
 
 import com.fingermemory.server.migration.MigrationDtos.SnapshotCounts;
+import java.util.Map;
 
 public final class BackupDtos {
     private BackupDtos() {
@@ -14,13 +15,18 @@ public final class BackupDtos {
             int reviewReceipts,
             int rewardEvents,
             int migrationReceipts,
-            int idMappings) {
+            int idMappings,
+            Map<String, Integer> serverTables,
+            int contentResources) {
     }
 
     public record BackupRestoreResult(
             String outcome,
             String fingerprint,
             long dataVersion,
-            SnapshotCounts counts) {
+            String dataEpoch,
+            SnapshotCounts counts,
+            Map<String, Integer> serverTables,
+            int contentResources) {
     }
 }
