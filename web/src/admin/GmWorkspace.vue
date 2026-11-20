@@ -20,6 +20,7 @@ import {
   type UserView,
 } from '../api/client';
 import GmSandboxPanel from './GmSandboxPanel.vue';
+import GmContentPanel from './GmContentPanel.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -399,6 +400,12 @@ onMounted(() => {
 
       <GmSandboxPanel
         v-if="context.capabilities.includes('manage-sandboxes')"
+        :api="props.api"
+        @changed="loadGm"
+      />
+
+      <GmContentPanel
+        v-if="context.capabilities.includes('manage-content')"
         :api="props.api"
         @changed="loadGm"
       />

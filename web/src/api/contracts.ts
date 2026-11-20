@@ -590,6 +590,7 @@ export interface ContentPackagePreview {
 
 export interface ContentPackageInstallation {
   id: string;
+  catalogContentId?: string;
   namespace: string;
   bookId: string;
   contentVersion: string;
@@ -620,6 +621,134 @@ export interface ContentPackageRequirement {
 export interface ContentPackageInstallResult {
   outcome: 'installed' | 'duplicate';
   installation: ContentPackageInstallation;
+}
+
+export interface GmContent {
+  id: string;
+  namespace: string;
+  bookId: string;
+  contentVersion: string;
+  contentHash: string;
+  title: string;
+  seriesId: string;
+  entryNodeId: string;
+  wordCount: number;
+  chapterCount: number;
+  nodeCount: number;
+  characterCount: number;
+  cardCount: number;
+  encounterCount: number;
+  assetCount: number;
+  status: 'draft' | 'validated' | 'published' | 'archived';
+  issues: string[];
+  version: number;
+  createdAtMs: number;
+  updatedAtMs: number;
+  publishedAtMs?: number;
+  archivedAtMs?: number;
+}
+
+export interface GmContentPage {
+  items: GmContent[];
+  nextCursor: string | null;
+}
+
+export interface GmContentPreview {
+  content: GmContent;
+  chapters: GmContentChapter[];
+  characters: GmContentCharacter[];
+  scenes: GmContentScene[];
+  assets: GmContentAsset[];
+}
+
+export interface GmContentChapter {
+  chapterId: string;
+  title: string;
+  nodes: GmContentNode[];
+}
+
+export interface GmContentNode {
+  nodeId: string;
+  chapterId: string;
+  type: string;
+  title: string;
+  speaker?: string;
+  text: string;
+  nextNodeId?: string;
+  encounterId?: string;
+  encounterName?: string;
+  encounterDescription?: string;
+  portraitCharacterId?: string;
+  sceneId?: string;
+  costumeId?: string;
+  endingId: string;
+  endingTitle?: string;
+  inheritedFlags: string[];
+  choices: Array<{
+    choiceId: string;
+    label: string;
+    targetNodeId: string;
+  }>;
+}
+
+export interface GmContentCharacter {
+  characterKey: string;
+  name: string;
+  epithet: string;
+  description: string;
+  age: number;
+  defaultCostumeId: string;
+  costumes: Record<string, Record<string, string>>;
+  dialogue: {
+    welcome: string;
+    again: string;
+    rest: string;
+    training: string;
+    practice: string;
+    result: string;
+  };
+  skill?: {
+    name: string;
+    description: string;
+    type: string;
+    amount: number;
+  };
+}
+
+export interface GmContentScene {
+  sceneId: string;
+  name: string;
+  background: string;
+  battleTheme: string;
+  ambientKey?: string;
+}
+
+export interface GmContentAsset {
+  path: string;
+  mime: string;
+  byteSize: number;
+  kind: string;
+  license: string;
+  url: string;
+}
+
+export interface ContentCatalogEntry {
+  id: string;
+  title: string;
+  namespace: string;
+  bookId: string;
+  contentVersion: string;
+  contentHash: string;
+  seriesId: string;
+  entryNodeId: string;
+  wordCount: number;
+  chapterCount: number;
+  nodeCount: number;
+  characterCount: number;
+  cardCount: number;
+  encounterCount: number;
+  assetCount: number;
+  publishedAtMs: number;
 }
 
 export interface AccountClient {
@@ -802,6 +931,11 @@ export interface AccountClient {
     idempotencyKey: string,
   ): Promise<ContentPackageInstallResult>;
   listContentPackages(limit?: number): Promise<ContentPackageInstallation[]>;
+  listContentCatalog(limit?: number): Promise<ContentCatalogEntry[]>;
+  installCatalogContent(
+    contentId: string,
+    idempotencyKey: string,
+  ): Promise<ContentPackageInstallResult>;
   previewLocalMigration(snapshot: unknown): Promise<MigrationPreview>;
   importLocalMigration(
     batchId: string,
@@ -825,6 +959,22 @@ export interface AccountClient {
     input: GmUpdateUserInput,
   ): Promise<GmUser>;
   listGmAudit(limit?: number): Promise<GmAuditPage>;
+  listGmContent(limit?: number, cursor?: string): Promise<GmContentPage>;
+  getGmContentPreview(contentId: string): Promise<GmContentPreview>;
+  uploadGmContent(
+    file: File,
+    idempotencyKey: string,
+    reason: string,
+  ): Promise<GmContent>;
+  actGmContent(
+    contentId: string,
+    idempotencyKey: string,
+    input: {
+      action: 'validate' | 'publish' | 'archive';
+      expectedContentHash: string;
+      reason: string;
+    },
+  ): Promise<GmContent>;
   listGmSandboxes(limit?: number, cursor?: string): Promise<GmSandboxPage>;
   createGmSandbox(
     idempotencyKey: string,

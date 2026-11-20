@@ -60,6 +60,8 @@ afterEach(() => {
 function mountPanel(overrides: Partial<AccountClient> = {}) {
   const api = {
     listContentPackages: vi.fn(async () => []),
+    listContentCatalog: vi.fn(async () => []),
+    installCatalogContent: vi.fn(),
     previewContentPackage: vi.fn(async () => preview),
     installContentPackage: vi.fn(async () => ({
       outcome: 'installed' as const,
@@ -132,5 +134,71 @@ describe('ContentLibraryPanel', () => {
         .toContain('路径越界');
       expect(root.textContent).not.toContain('安装预览');
     });
+  });
+
+  it('installs a GM-published shared version from the catalog', async () => {
+    const catalogEntry = {
+      id: 'published-content-1',
+      title: '共享冒险',
+      namespace: 'fm.demo',
+      bookId: 'shared-book',
+      contentVersion: '1.0.0',
+      contentHash: 'd'.repeat(64),
+      seriesId: 'shared-book',
+      entryNodeId: 'shared.start',
+      wordCount: 10,
+      chapterCount: 1,
+      nodeCount: 5,
+      characterCount: 1,
+      cardCount: 6,
+      encounterCount: 1,
+      assetCount: 4,
+      publishedAtMs: 2,
+    };
+    const publishedInstallation: ContentPackageInstallation = {
+      ...installation,
+      id: 'installation-shared',
+      catalogContentId: catalogEntry.id,
+      title: catalogEntry.title,
+      namespace: catalogEntry.namespace,
+      bookId: catalogEntry.bookId,
+      contentVersion: catalogEntry.contentVersion,
+      contentHash: catalogEntry.contentHash,
+      wordCount: catalogEntry.wordCount,
+      chapterCount: catalogEntry.chapterCount,
+      nodeCount: catalogEntry.nodeCount,
+      characterCount: catalogEntry.characterCount,
+      cardCount: catalogEntry.cardCount,
+      encounterCount: catalogEntry.encounterCount,
+      assetCount: catalogEntry.assetCount,
+    };
+    const listContentPackages = vi.fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([publishedInstallation]);
+    const installCatalogContent = vi.fn(async () => ({
+      outcome: 'installed' as const,
+      installation: publishedInstallation,
+    }));
+    const { root, api } = mountPanel({
+      listContentPackages,
+      listContentCatalog: vi.fn(async () => [catalogEntry]),
+      installCatalogContent,
+    });
+
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('共享冒险书架');
+      expect(root.textContent).toContain('共享冒险');
+    });
+    const installButton = [...root.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes('安装共享版本'));
+    installButton?.click();
+    await vi.waitFor(() => {
+      expect(installCatalogContent).toHaveBeenCalledWith(
+        catalogEntry.id,
+        expect.stringMatching(/.+/),
+      );
+      expect(root.textContent).toContain('已安装');
+    });
+    expect(api.listContentPackages).toHaveBeenCalledTimes(2);
   });
 });

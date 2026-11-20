@@ -12,10 +12,14 @@ import type {
   BackupPreview,
   BackupRestoreResult,
   BattleEnvelopeView,
+  ContentCatalogEntry,
   ContentPackageInstallResult,
   ContentPackageInstallation,
   ContentPackagePreview,
   GmAuditPage,
+  GmContent,
+  GmContentPage,
+  GmContentPreview,
   GmContext,
   GmCommandReceipt,
   GmCreateSandboxInput,
@@ -585,6 +589,25 @@ export class AccountApi implements AccountClient {
     );
   }
 
+  async listContentCatalog(limit = 50): Promise<ContentCatalogEntry[]> {
+    return this.transport.request<ContentCatalogEntry[]>(
+      `/content-packages/catalog?limit=${encodeURIComponent(String(limit))}`,
+    );
+  }
+
+  async installCatalogContent(
+    contentId: string,
+    idempotencyKey: string,
+  ): Promise<ContentPackageInstallResult> {
+    return this.transport.request<ContentPackageInstallResult>(
+      `/content-packages/catalog/${encodeURIComponent(contentId)}/install`,
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+      },
+    );
+  }
+
   async previewLocalMigration(snapshot: unknown): Promise<MigrationPreview> {
     return this.transport.request<MigrationPreview>(
       '/migrations/local/preview',
@@ -686,6 +709,62 @@ export class AccountApi implements AccountClient {
   async listGmAudit(limit = 20): Promise<GmAuditPage> {
     return this.transport.request<GmAuditPage>(
       `/gm/audit?limit=${encodeURIComponent(String(limit))}`,
+    );
+  }
+
+  async listGmContent(limit = 20, cursor?: string): Promise<GmContentPage> {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (cursor !== undefined && cursor.length > 0) {
+      query.set('cursor', cursor);
+    }
+    return this.transport.request<GmContentPage>(
+      `/gm/content?${query.toString()}`,
+    );
+  }
+
+  async uploadGmContent(
+    file: File,
+    idempotencyKey: string,
+    reason: string,
+  ): Promise<GmContent> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const query = new URLSearchParams({ reason });
+    return this.transport.request<GmContent>(
+      `/gm/content/drafts?${query.toString()}`,
+      {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        body: form,
+      },
+    );
+  }
+
+  async getGmContentPreview(contentId: string): Promise<GmContentPreview> {
+    return this.transport.request<GmContentPreview>(
+      `/gm/content/${encodeURIComponent(contentId)}/preview`,
+    );
+  }
+
+  async actGmContent(
+    contentId: string,
+    idempotencyKey: string,
+    input: {
+      action: 'validate' | 'publish' | 'archive';
+      expectedContentHash: string;
+      reason: string;
+    },
+  ): Promise<GmContent> {
+    return this.transport.request<GmContent>(
+      `/gm/content/${encodeURIComponent(contentId)}/actions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(input),
+      },
     );
   }
 

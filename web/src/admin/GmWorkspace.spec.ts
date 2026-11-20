@@ -71,6 +71,8 @@ function baseApi(loadCurrentUser: () => Promise<UserView | null>): AccountClient
     previewContentPackage: vi.fn(),
     installContentPackage: vi.fn(),
     listContentPackages: vi.fn(async () => []),
+    listContentCatalog: vi.fn(async () => []),
+    installCatalogContent: vi.fn(),
     previewLocalMigration: vi.fn(),
     importLocalMigration: vi.fn(),
     exportAccountBackup: vi.fn(),
@@ -78,14 +80,23 @@ function baseApi(loadCurrentUser: () => Promise<UserView | null>): AccountClient
     restoreAccountBackup: vi.fn(),
     loadGmContext: vi.fn(async () => ({
       role: 'ADMIN' as const,
-      capabilities: ['manage-users', 'manage-sandboxes', 'read-audit'] as Array<
-        'manage-users' | 'manage-sandboxes' | 'read-audit'
+      capabilities: [
+        'manage-users',
+        'manage-content',
+        'manage-sandboxes',
+        'read-audit',
+      ] as Array<
+        'manage-users' | 'manage-content' | 'manage-sandboxes' | 'read-audit'
       >,
     })),
     listGmUsers: vi.fn(async () => ({ items: [managedUser], nextCursor: null })),
     createGmUser: vi.fn(),
     updateGmUser: vi.fn(),
     listGmAudit: vi.fn(async () => ({ items: [], nextCursor: null })),
+    listGmContent: vi.fn(async () => ({ items: [], nextCursor: null })),
+    getGmContentPreview: vi.fn(),
+    uploadGmContent: vi.fn(),
+    actGmContent: vi.fn(),
     listGmSandboxes: vi.fn(async () => ({ items: [], nextCursor: null })),
     createGmSandbox: vi.fn(),
     executeGmSandboxCommand: vi.fn(),
@@ -139,6 +150,7 @@ describe('GmWorkspace', () => {
       expect(root.textContent).toContain('ADMIN');
       expect(root.textContent).toContain('@admin');
       expect(root.textContent).toContain('TEST DATA ONLY');
+      expect(api.listGmContent).toHaveBeenCalled();
     });
   });
 

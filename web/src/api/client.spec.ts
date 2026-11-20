@@ -615,4 +615,108 @@ describe('AccountApi', () => {
       role: 'USER',
     });
   });
+
+  it('keeps CSRF and idempotency on GM content and shared catalog installs', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const content = {
+      id: 'content-1',
+      namespace: 'fm.demo',
+      bookId: 'managed-book',
+      contentVersion: '1.0.0',
+      contentHash: 'a'.repeat(64),
+      title: '管理冒险',
+      seriesId: 'managed-series',
+      entryNodeId: 'managed.start',
+      wordCount: 1,
+      chapterCount: 1,
+      nodeCount: 2,
+      characterCount: 0,
+      cardCount: 0,
+      encounterCount: 0,
+      assetCount: 0,
+      status: 'draft',
+      issues: [],
+      version: 0,
+      createdAtMs: 1,
+      updatedAtMs: 1,
+    };
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      if (String(url).endsWith('/auth/csrf')) {
+        return jsonResponse({
+          headerName: 'X-CSRF-TOKEN',
+          parameterName: '_csrf',
+          token: 'csrf-content',
+        });
+      }
+      if (String(url).includes('/content-packages/catalog?')) {
+        return jsonResponse([]);
+      }
+      if (String(url).includes('/gm/content?')) {
+        return jsonResponse({ items: [content], nextCursor: null });
+      }
+      if (String(url).endsWith('/gm/content/content-1/preview')) {
+        return jsonResponse({
+          content,
+          chapters: [],
+          characters: [],
+          scenes: [],
+          assets: [],
+        });
+      }
+      if (String(url).includes('/content-packages/catalog/content-2/install')) {
+        return jsonResponse({
+          outcome: 'installed',
+          installation: { id: 'installation-2' },
+        }, 201);
+      }
+      return jsonResponse(content, 201);
+    });
+    const api = new AccountApi(fetchMock as typeof fetch, '/api/v1');
+    const file = new File(['archive'], 'managed.fmbook', {
+      type: 'application/zip',
+    });
+
+    await api.listContentCatalog();
+    await api.installCatalogContent('content-2', 'catalog-install-1');
+    await api.listGmContent();
+    await api.getGmContentPreview('content-1');
+    await api.uploadGmContent(file, 'gm-content-upload', 'preview draft');
+    await api.actGmContent('content-1', 'gm-content-validate', {
+      action: 'validate',
+      expectedContentHash: 'a'.repeat(64),
+      reason: 'validate draft',
+    });
+
+    const uploadCall = calls.find(
+      (call) => call.url.includes('/gm/content/drafts?reason='),
+    );
+    expect(new Headers(uploadCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('gm-content-upload');
+    expect(new Headers(uploadCall?.init?.headers).get('X-CSRF-TOKEN'))
+      .toBe('csrf-content');
+    expect(uploadCall?.init?.body).toBeInstanceOf(FormData);
+
+    const actionCall = calls.find(
+      (call) => call.url.endsWith('/gm/content/content-1/actions'),
+    );
+    expect(new Headers(actionCall?.init?.headers).get('Idempotency-Key'))
+      .toBe('gm-content-validate');
+    expect(JSON.parse(String(actionCall?.init?.body))).toEqual({
+      action: 'validate',
+      expectedContentHash: 'a'.repeat(64),
+      reason: 'validate draft',
+    });
+    expect(calls.some(
+      (call) => call.url.endsWith('/gm/content/content-1/preview'),
+    )).toBe(true);
+
+    const catalogInstall = calls.find(
+      (call) => call.url.includes('/content-packages/catalog/content-2/install'),
+    );
+    expect(new Headers(catalogInstall?.init?.headers).get('Idempotency-Key'))
+      .toBe('catalog-install-1');
+    expect(new Headers(catalogInstall?.init?.headers).get('X-CSRF-TOKEN'))
+      .toBe('csrf-content');
+  });
 });

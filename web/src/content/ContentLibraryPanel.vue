@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BookOpen,
   CheckCircle2,
+  Download,
   FileArchive,
   Upload,
 } from '@lucide/vue';
@@ -11,6 +12,7 @@ import {
   accountApi,
   ApiClientError,
   type AccountClient,
+  type ContentCatalogEntry,
   type ContentPackageInstallation,
   type ContentPackagePreview,
 } from '../api/client';
@@ -25,6 +27,7 @@ const props = withDefaults(
 );
 
 const installations = ref<ContentPackageInstallation[]>([]);
+const catalog = ref<ContentCatalogEntry[]>([]);
 const selectedFile = ref<File>();
 const preview = ref<ContentPackagePreview>();
 const loading = ref(true);
@@ -61,7 +64,12 @@ function formatDate(timestamp: number): string {
 }
 
 async function loadInstallations(): Promise<void> {
-  installations.value = await props.api.listContentPackages();
+  const [nextInstallations, nextCatalog] = await Promise.all([
+    props.api.listContentPackages(),
+    props.api.listContentCatalog(),
+  ]);
+  installations.value = nextInstallations;
+  catalog.value = nextCatalog;
 }
 
 async function refresh(): Promise<void> {
@@ -120,6 +128,35 @@ async function install(): Promise<void> {
   } finally {
     busy.value = false;
   }
+}
+
+async function installShared(entry: ContentCatalogEntry): Promise<void> {
+  if (busy.value) {
+    return;
+  }
+  busy.value = true;
+  error.value = null;
+  notice.value = null;
+  try {
+    const result = await props.api.installCatalogContent(
+      entry.id,
+      newId(),
+    );
+    notice.value = result.outcome === 'duplicate'
+      ? `${entry.title} v${entry.contentVersion} 已在书架中。`
+      : `${entry.title} v${entry.contentVersion} 已安装。`;
+    await loadInstallations();
+  } catch (cause) {
+    error.value = errorMessage(cause);
+  } finally {
+    busy.value = false;
+  }
+}
+
+function isCatalogInstalled(entry: ContentCatalogEntry): boolean {
+  return installations.value.some(
+    (installation) => installation.contentHash === entry.contentHash,
+  );
 }
 
 function clearSelection(): void {
@@ -218,6 +255,37 @@ onMounted(() => {
       </div>
     </section>
 
+    <section v-if="catalog.length > 0" class="shared-catalog" aria-labelledby="shared-catalog-title">
+      <div class="content-heading">
+        <div>
+          <p class="section-label">GM 已发布</p>
+          <h4 id="shared-catalog-title">共享冒险书架</h4>
+        </div>
+        <span>{{ catalog.length }} 个版本</span>
+      </div>
+      <ul>
+        <li v-for="entry in catalog" :key="entry.id">
+          <BookOpen :size="20" aria-hidden="true" />
+          <div>
+            <strong>{{ entry.title }}</strong>
+            <span>{{ entry.bookId }} · v{{ entry.contentVersion }}</span>
+            <small>
+              {{ entry.wordCount }} 词 · {{ entry.chapterCount }} 章
+              · {{ entry.assetCount }} 媒体
+            </small>
+          </div>
+          <button
+            type="button"
+            :disabled="busy || isCatalogInstalled(entry)"
+            @click="installShared(entry)"
+          >
+            <Download :size="16" />
+            {{ isCatalogInstalled(entry) ? '已安装' : '安装共享版本' }}
+          </button>
+        </li>
+      </ul>
+    </section>
+
     <p v-if="!loading && installations.length === 0" class="content-state">
       当前账号还没有安装冒险内容包。
     </p>
@@ -274,7 +342,8 @@ onMounted(() => {
 }
 
 .content-heading h3,
-.content-preview h4 {
+.content-preview h4,
+.shared-catalog h4 {
   margin: 0;
   color: #263d34;
 }
@@ -413,6 +482,55 @@ dd {
   list-style: none;
 }
 
+.shared-catalog {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgb(69 103 80 / 25%);
+  padding: 14px;
+  background: #f8f7ef;
+}
+
+.shared-catalog ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shared-catalog li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #fffdf8;
+}
+
+.shared-catalog li > div {
+  display: grid;
+  gap: 3px;
+}
+
+.shared-catalog li span,
+.shared-catalog li small {
+  color: #6b776f;
+  font-size: 0.72rem;
+}
+
+.shared-catalog li button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #557565;
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: #fff;
+  color: #315443;
+  cursor: pointer;
+}
+
 .installation-list li {
   min-width: 0;
   padding: 12px;
@@ -459,9 +577,14 @@ button:focus-visible,
 
 @media (max-width: 720px) {
   .content-heading,
-  .installation-list li {
+  .installation-list li,
+  .shared-catalog li {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .shared-catalog li {
+    display: flex;
   }
 
   .content-preview dl {
