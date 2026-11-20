@@ -118,9 +118,10 @@ Phaser 负责 Scene、资源载入、精灵/卡牌表现、Tween、粒子和 Sou
 - 返回 `dispose()`，必须清理键盘监听、定时器、`requestAnimationFrame`、观察器、音频和 DOM 订阅。
 - 模式组件只负责呈现和选择目标；输入、提示、揭晓、跳过、评分提交、会话保存和资源清理由共享工作台统一处理。
 - `appMeta['practice.modePreferences']` 保存禁用的模式 ID，并保证至少一个模式可用；禁用后保留全部学习数据。
-- `SessionWorkbench` 在卸载时停止并销毁当前插件，移除 `visibilitychange` 监听并尽力暂停保存；歌词定位使用 CSS transition，不创建 interval 或 `requestAnimationFrame`。
-- 弹幕模式使用 CSS 横向漂移和点击选目标；减少动画时改为静态标签布局，不监听动画事件，也不把命中、离开屏幕或超时映射为评分。
-- 卡片雨模式使用 CSS 纵向下落和点击选目标；减少动画时改为静态卡片网格，等待、落地或消失均不产生作答，只有共享评分命令能推进 FSRS。
+- H6-01 已删除歌词、弹幕、卡片雨的新建注册和组件；服务端新会话也只接受
+  `flashcard`/`keyboard-recall`。旧 `modeId` 继续出现在历史会话、正式日志和备份
+  schema 中，未完成旧会话必须在练习大厅显式转为经典闪卡或归档。
+- `SessionWorkbench` 在卸载时停止并销毁当前插件，移除 `visibilitychange` 监听并尽力暂停保存；迁移不重算 FSRS、不删除练习/复习日志。
 
 远程安装、动态 `eval`、第三方脚本和跨站 iframe 不属于第一版。
 

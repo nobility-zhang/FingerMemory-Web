@@ -95,6 +95,9 @@ docker compose up --build -d
 - `GET /api/v1/adventures/completions`
 
 正式复习以 `Idempotency-Key` 作为 submissionId；先查回执，再校验用户数据、会话和复习状态版本。请求只提交评分和证据，afterCard、reviewedAt 和奖励事件由服务端确定。
+新在线会话只接受 `flashcard` 与 `keyboard-recall`；旧
+`lyrics-scroll`、`danmaku-stream`、`card-rain` 继续通过历史快照和备份校验读取，
+但不能用于创建新会话。
 
 `.fmbook` 安装使用 multipart 上传和 `Idempotency-Key`。预览与安装复用同一
 manifest/TSV/章节/角色/卡牌/遭遇/资源校验器；相同 owner 与 contentHash 重复安装

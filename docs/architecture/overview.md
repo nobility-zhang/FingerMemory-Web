@@ -43,7 +43,7 @@ Vue/DOM（输入、对话、评分、可访问控件）
 | `web/src/storage`、`import`、`api` | 本地持久化、词条解析、在线请求边界 |
 | `web/src/inn`、`companions`、`game` | 旅店、伙伴偏好与内容包角色注册、在线学习外壳 |
 | `web/src/adventure`、`battle`、`game-runtime` | 冒险检查点、可访问卡牌界面、Phaser 表现与音效边界 |
-| `web/src/modes` | 旧模式兼容；按计划逐步退出新建入口 |
+| `web/src/modes` | 经典闪卡与键盘呈现；旧模式只保留历史读取和显式迁移 |
 | `web/src/assets` | 成品角色/背景等素材及来源，二进制按 LFS 规则 |
 | `web/worker` | 与本地复用的固定 FSRS 纯计算入口 |
 | `server/src/main/java/com/fingermemory/server` | 按 auth、user、lexicon、learning、migration、backup 等业务分包 |
