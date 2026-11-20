@@ -61,7 +61,7 @@ public final class LearningDtos {
     }
 
     public record CreateSessionRequest(
-            @NotBlank @Pattern(regexp = "^(flashcard|keyboard-recall|lyrics-scroll|danmaku-stream|card-rain)$")
+            @NotBlank @Pattern(regexp = "^(flashcard|keyboard-recall)$")
             String modeId,
             @NotBlank @Size(max = 64) String timeZone,
             Integer newLimit,

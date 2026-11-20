@@ -12,6 +12,7 @@ info:
     H5-02 已实现已安装 .fmbook 的固定版本冒险、剧情动作、遭遇绑定和保存恢复。
     H5-03 已实现三章旅程、三选一牌组奖励、Fina 剧情解锁/营地切换和账号级回忆去重。
     H5-07 已实现 GM 草稿只读预览、不可变版本发布、共享安装和归档保护。
+    H6-01 已停止新建歌词/弹幕/卡片雨会话；旧 modeId 继续用于历史、备份和显式迁移。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
   - url: /api/v1
@@ -421,6 +422,9 @@ components:
     PracticeMode:
       type: string
       enum: [flashcard, keyboard-recall, lyrics-scroll, danmaku-stream, card-rain]
+    LaunchablePracticeMode:
+      type: string
+      enum: [flashcard, keyboard-recall]
     PracticeSession:
       type: object
       required:
@@ -499,7 +503,7 @@ components:
       required: [modeId, timeZone, reduceMotion]
       properties:
         modeId:
-          $ref: '#/components/schemas/PracticeMode'
+          $ref: '#/components/schemas/LaunchablePracticeMode'
         timeZone:
           type: string
         newLimit:

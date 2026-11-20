@@ -167,6 +167,30 @@ class OnlineLearningIT {
     }
 
     @Test
+    void rejectsRetiredPracticeModesForNewSessions() throws Exception {
+        RegisteredUser user = registerAndLogin("retired-mode-user");
+        String lexiconId = createLexicon(user.session(), "旧模式迁移词库");
+        createWord(user.session(), lexiconId, "memory", "记忆");
+
+        for (String modeId : List.of("lyrics-scroll", "danmaku-stream", "card-rain")) {
+            ObjectNode body = objectMapper.createObjectNode();
+            body.put("modeId", modeId);
+            body.put("timeZone", "UTC");
+            body.put("newLimit", 10);
+            body.put("reviewLimit", 50);
+            body.put("reduceMotion", false);
+            Csrf csrf = csrf(user.session());
+            mockMvc.perform(post("/api/v1/sessions")
+                            .cookie(csrf.cookie())
+                            .header(csrf.headerName(), csrf.token())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(body)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        }
+    }
+
+    @Test
     void completesAFlashcardReviewAfterRevealForCheckWithV2Evidence() throws Exception {
         RegisteredUser user = registerAndLogin("flashcard-user");
         String lexiconId = createLexicon(user.session(), "翻面卡片词库");
