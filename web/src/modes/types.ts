@@ -1,11 +1,11 @@
 import type { Component } from 'vue';
 import type {
   PracticeItem,
-  PracticeModeId,
   PracticeSessionQueueItem,
   PracticeSession,
   TimestampMs,
 } from '../core/domain';
+import type { LaunchablePracticeModeId } from '../session/practiceModeCompatibility';
 import type {
   PracticeAttemptInput,
   PracticeAttemptResult,
@@ -33,7 +33,7 @@ export interface PracticeModeConfig {
 }
 
 export interface PracticeModeManifest {
-  id: PracticeModeId;
+  id: LaunchablePracticeModeId;
   label: string;
   version: string;
   capabilities: readonly PracticeModeCapability[];

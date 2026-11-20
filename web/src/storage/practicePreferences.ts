@@ -4,6 +4,10 @@ import type {
   PracticeModePreferences,
   PracticeQueueSettings,
 } from '../core/repository';
+import {
+  isPracticeModeId,
+  isRetiredPracticeModeId,
+} from '../session/practiceModeCompatibility';
 import { APP_META_KEYS, type FingerMemoryDatabase } from './database';
 
 const DEFAULT_PRACTICE_QUEUE_SETTINGS: PracticeQueueSettings = {
@@ -32,11 +36,8 @@ const DEFAULT_IN_APP_REMINDER_RECORD: InAppReminderRecord = {
   },
 };
 
-const PRACTICE_MODE_IDS: readonly PracticeModeId[] = [
+const CONFIGURABLE_PRACTICE_MODE_IDS: readonly PracticeModeId[] = [
   'keyboard-recall',
-  'lyrics-scroll',
-  'danmaku-stream',
-  'card-rain',
 ];
 
 function isClockTime(value: string): boolean {
@@ -49,8 +50,8 @@ function assertTimestamp(value: number, label: string): void {
   }
 }
 
-function isPracticeModeId(value: string): value is PracticeModeId {
-  return PRACTICE_MODE_IDS.some((modeId) => modeId === value);
+function isConfigurablePracticeModeId(value: string): value is PracticeModeId {
+  return CONFIGURABLE_PRACTICE_MODE_IDS.some((modeId) => modeId === value);
 }
 
 function assertInAppReminderRecord(record: InAppReminderRecord): void {
@@ -155,12 +156,9 @@ function assertPracticeModePreferences(
     throw new TypeError('disabled mode ids must be unique');
   }
   for (const modeId of preferences.disabledModeIds) {
-    if (!isPracticeModeId(modeId)) {
+    if (!isConfigurablePracticeModeId(modeId)) {
       throw new TypeError(`unknown practice mode id: ${String(modeId)}`);
     }
-  }
-  if (preferences.disabledModeIds.length >= PRACTICE_MODE_IDS.length) {
-    throw new TypeError('at least one practice mode must remain enabled');
   }
 }
 
@@ -182,15 +180,19 @@ function readPracticeModePreferences(
       return { disabledModeIds: [] };
     }
 
-    const disabledModeIds: PracticeModeId[] = [];
+    const disabledModeIds = new Set<PracticeModeId>();
     for (const modeId of parsed.disabledModeIds) {
       if (typeof modeId !== 'string' || !isPracticeModeId(modeId)) {
         return { disabledModeIds: [] };
       }
-      disabledModeIds.push(modeId);
+      if (!isRetiredPracticeModeId(modeId)) {
+        disabledModeIds.add(modeId);
+      }
     }
 
-    const preferences: PracticeModePreferences = { disabledModeIds };
+    const preferences: PracticeModePreferences = {
+      disabledModeIds: [...disabledModeIds],
+    };
     assertPracticeModePreferences(preferences);
     return preferences;
   } catch {

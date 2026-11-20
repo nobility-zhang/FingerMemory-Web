@@ -1,11 +1,11 @@
 import type {
   PracticeInteractionState,
   PracticeItem,
-  PracticeModeId,
   PracticeSession,
   PracticeSessionQueueItem,
   TimestampMs,
 } from '../core/domain';
+import type { LaunchablePracticeModeId } from './practiceModeCompatibility';
 
 const DEFAULT_SPEED = 1;
 
@@ -41,7 +41,7 @@ function updateInteraction(
 
 export function createPracticeSession(input: {
   id: string;
-  modeId: PracticeModeId;
+  modeId: LaunchablePracticeModeId;
   items: PracticeItem[];
   sources?: Readonly<Record<string, 'new' | 'review'>>;
   now: TimestampMs;
@@ -203,7 +203,7 @@ export function abandonPracticeSession(
 
 export function switchSessionMode(
   session: PracticeSession,
-  modeId: PracticeModeId,
+  modeId: LaunchablePracticeModeId,
   now: TimestampMs,
 ): PracticeSession {
   return { ...session, modeId, updatedAt: now };

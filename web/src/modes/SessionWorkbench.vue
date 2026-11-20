@@ -13,7 +13,6 @@ import type {
   PendingAnswer,
   PracticeInteractionState,
   PracticeItem,
-  PracticeModeId,
   PracticeSession,
   ReviewRating,
   ReviewState,
@@ -38,11 +37,12 @@ import {
   revealSessionAnswer,
   revealSessionHint,
   selectSessionItem,
-  setSessionReduceMotion,
-  setSessionSpeed,
-  switchSessionMode,
   updateSessionDraft,
 } from '../session/practiceSession';
+import {
+  isRetiredPracticeModeId,
+  type LaunchablePracticeModeId,
+} from '../session/practiceModeCompatibility';
 import AnswerPanel from './AnswerPanel.vue';
 import {
   TRUSTED_MODE_PLUGINS,
@@ -55,7 +55,6 @@ const props = withDefaults(
     initialSession: PracticeSession;
     items: PracticeItem[];
     repository: FingerMemoryRepository;
-    enabledModeIds?: PracticeModeId[];
     enableAudio?: boolean;
     clock?: () => number;
     idFactory?: (prefix: string) => string;
@@ -63,7 +62,6 @@ const props = withDefaults(
   {
     clock: () => Date.now(),
     idFactory: (prefix: string) => `${prefix}:${crypto.randomUUID()}`,
-    enabledModeIds: () => TRUSTED_MODE_PLUGINS.map((plugin) => plugin.manifest.id),
     enableAudio: false,
   },
 );
@@ -108,23 +106,15 @@ const orderedItems = computed(() =>
     .filter((item): item is PracticeItem => item !== undefined),
 );
 const isFlashcardMode = computed(() => session.value.modeId === 'flashcard');
+const isRetiredMode = computed(() => isRetiredPracticeModeId(session.value.modeId));
 const activeMode = computed(() =>
   isFlashcardMode.value
     ? { label: '经典闪卡' }
+    : isRetiredMode.value
+      ? { label: '旧模式已停用' }
     : modeRegistry.get(session.value.modeId)?.manifest
       ?? TRUSTED_MODE_PLUGINS[0]!.manifest,
 );
-const availableModes = computed(() => {
-  if (isFlashcardMode.value) {
-    return [];
-  }
-  const enabled = new Set(props.enabledModeIds);
-  return TRUSTED_MODE_PLUGINS.filter(
-    (plugin) =>
-      enabled.has(plugin.manifest.id) ||
-      plugin.manifest.id === session.value.modeId,
-  );
-});
 const currentItem = computed(() => orderedItems.value[session.value.currentIndex]);
 const currentInteraction = computed<PracticeInteractionState>(() => {
   const studyItemId = session.value.currentStudyItemId;
@@ -209,28 +199,12 @@ async function persist(nextSession: PracticeSession): Promise<boolean> {
   }
 }
 
-async function changeMode(modeId: PracticeModeId): Promise<void> {
-  if (await persist(switchSessionMode(session.value, modeId, now()))) {
-    activateMode(modeId);
-  }
-}
-
 async function togglePause(): Promise<void> {
   const next =
     session.value.status === 'paused'
       ? resumePracticeSession(session.value, now())
       : pausePracticeSession(session.value, now());
   await persist(next);
-}
-
-async function changeSpeed(event: Event): Promise<void> {
-  const speed = Number((event.target as HTMLInputElement).value);
-  await persist(setSessionSpeed(session.value, speed, now()));
-}
-
-async function changeReduceMotion(event: Event): Promise<void> {
-  const reduceMotion = (event.target as HTMLInputElement).checked;
-  await persist(setSessionReduceMotion(session.value, reduceMotion, now()));
 }
 
 function updateDraft(draft: string): void {
@@ -389,7 +363,7 @@ function currentPluginContext() {
   };
 }
 
-function activateMode(modeId: PracticeModeId): void {
+function activateMode(modeId: LaunchablePracticeModeId): void {
   if (modeId === 'flashcard') {
     modeRegistry.deactivate();
     activeModeComponent.value = undefined;
@@ -661,7 +635,9 @@ function handleVisibilityChange(): void {
 
 onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange);
-  activateMode(session.value.modeId);
+  if (!isRetiredPracticeModeId(session.value.modeId)) {
+    activateMode(session.value.modeId);
+  }
   void loadReviewStates();
 });
 
@@ -746,46 +722,6 @@ watch(
       </div>
     </div>
 
-    <div v-if="!isFlashcardMode" class="mode-toolbar">
-      <div class="mode-switch" role="group" aria-label="练习模式">
-        <button
-          v-for="mode in availableModes"
-          :key="mode.manifest.id"
-          type="button"
-          :class="{ selected: mode.manifest.id === session.modeId }"
-          :aria-pressed="mode.manifest.id === session.modeId"
-          :disabled="busy"
-          @click="changeMode(mode.manifest.id)"
-        >
-          {{ mode.manifest.label }}
-        </button>
-      </div>
-
-      <label class="speed-control">
-        <span>滚动速度</span>
-        <input
-          type="range"
-          min="0.5"
-          max="2"
-          step="0.1"
-          :value="session.speed"
-          :disabled="busy"
-          @change="changeSpeed"
-        />
-        <output>{{ session.speed.toFixed(1) }}×</output>
-      </label>
-
-      <label class="motion-control">
-        <input
-          type="checkbox"
-          :checked="session.reduceMotion"
-          :disabled="busy"
-          @change="changeReduceMotion"
-        />
-        减少动画
-      </label>
-    </div>
-
     <section class="session-review-status" aria-labelledby="session-review-status-title">
       <div>
         <p id="session-review-status-title">正式复习状态</p>
@@ -803,7 +739,15 @@ watch(
       </details>
     </section>
 
-    <div v-if="session.status === 'completed'" class="complete-panel" role="status">
+    <div v-if="isRetiredMode" class="complete-panel" role="alert">
+      <p class="session-kicker">旧模式已停用</p>
+      <h3>请先迁移这个会话</h3>
+      <p>返回练习大厅后，可显式转为经典闪卡或归档；历史日志和 FSRS 状态不会被删除。</p>
+      <button type="button" class="primary-action" @click="emit('exit', session)">
+        返回练习大厅
+      </button>
+    </div>
+    <div v-else-if="session.status === 'completed'" class="complete-panel" role="status">
       <p class="session-kicker">本轮结束</p>
       <h3>这一轮已经完成</h3>
       <p>已处理 {{ session.queue.length }} 个目标。练习和正式复习仍保存在原来的学习目标下。</p>
@@ -917,25 +861,11 @@ watch(
   font-size: 0.78rem;
 }
 
-.session-actions,
-.mode-toolbar,
-.mode-switch {
+.session-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-}
-
-.mode-toolbar {
-  justify-content: space-between;
-  padding: 10px;
-  border: 1px solid #d3dcd6;
-  border-radius: 8px;
-  background: #f8faf9;
-}
-
-.mode-switch {
-  gap: 4px;
 }
 
 button {
@@ -955,12 +885,6 @@ button:disabled {
   opacity: 0.55;
 }
 
-button.selected {
-  border-color: #2e604b;
-  background: #e6efe9;
-  color: #18372a;
-}
-
 .danger-action {
   color: #9b4935;
   border-color: #dfc2b9;
@@ -970,28 +894,6 @@ button:focus-visible,
 input:focus-visible {
   outline: 3px solid rgb(45 113 83 / 28%);
   outline-offset: 2px;
-}
-
-.speed-control,
-.motion-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #637269;
-  font-size: 0.75rem;
-}
-
-.speed-control input {
-  width: 100px;
-}
-
-.speed-control output {
-  min-width: 34px;
-}
-
-.motion-control input {
-  width: 16px;
-  height: 16px;
 }
 
 .complete-panel {
@@ -1108,7 +1010,6 @@ input:focus-visible {
 
 @media (max-width: 720px) {
   .session-header,
-  .mode-toolbar,
   .abandon-confirm,
   .session-review-status {
     align-items: flex-start;
@@ -1121,17 +1022,11 @@ input:focus-visible {
     min-width: 0;
   }
 
-  .mode-toolbar {
-    gap: 13px;
-  }
-
-  .session-actions,
-  .mode-switch {
+  .session-actions {
     width: 100%;
   }
 
-  .session-actions button,
-  .mode-switch button {
+  .session-actions button {
     flex: 1;
   }
 }

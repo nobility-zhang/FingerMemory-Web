@@ -5,10 +5,8 @@ import {
   BookOpen,
   CircleHelp,
   Clock3,
-  Gamepad2,
   Keyboard,
   LockKeyhole,
-  Sparkles,
   Target,
   TriangleAlert,
 } from '@lucide/vue';
@@ -49,24 +47,6 @@ const modes = [
     description: '当前可用的主动回忆训练',
     icon: Keyboard,
     available: true,
-  },
-  {
-    name: '歌词滚动',
-    description: 'P4 接入在线游戏外壳',
-    icon: BookOpen,
-    available: false,
-  },
-  {
-    name: '弹幕流',
-    description: 'P4 接入在线游戏外壳',
-    icon: Gamepad2,
-    available: false,
-  },
-  {
-    name: '卡片雨',
-    description: 'P4 接入在线游戏外壳',
-    icon: Sparkles,
-    available: false,
   },
 ] as const;
 </script>

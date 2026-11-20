@@ -2,7 +2,6 @@ import 'fake-indexeddb/auto';
 import { createApp, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PracticeItem, PracticeSession } from '../core/domain';
-import { formatDueLabel } from '../core/due';
 import { createDefaultReviewScheduler } from '../scheduler/fsrsScheduler';
 import { createPracticeSession } from '../session/practiceSession';
 import {
@@ -102,7 +101,7 @@ beforeEach(async () => {
   await database.studyItems.bulkPut(items.map((item) => item.studyItem));
   session = createPracticeSession({
     id: 'session-mode',
-    modeId: 'lyrics-scroll',
+    modeId: 'keyboard-recall',
     items,
     now,
     reduceMotion: false,
@@ -178,155 +177,7 @@ describe('SessionWorkbench modes', () => {
     });
   });
 
-  it('keeps input ownership on the active lyric and preserves the draft after selection', async () => {
-    const { root } = await mountWorkbench();
-    const input = root.querySelector<HTMLInputElement>('#answer-input');
-    const lines = root.querySelectorAll<HTMLButtonElement>('.lyric-line');
-
-    expect(root.querySelector('#answer-title')?.textContent).toBe('记忆');
-    expect(lines[0]?.getAttribute('aria-current')).toBe('step');
-    expect(input).not.toBeNull();
-
-    input!.value = 'mem';
-    input!.dispatchEvent(new Event('input', { bubbles: true }));
-    lines[1]!.click();
-
-    await vi.waitFor(() => {
-      expect(root.querySelector('#answer-title')?.textContent).toBe('光标');
-      expect(lines[1]?.getAttribute('aria-current')).toBe('step');
-    });
-
-    lines[0]!.click();
-    await vi.waitFor(() => {
-      expect(root.querySelector<HTMLInputElement>('#answer-input')?.value).toBe('mem');
-    });
-  });
-
-  it('does not settle the answer when selecting another lyric or switching mode', async () => {
-    const { root } = await mountWorkbench();
-    const input = root.querySelector<HTMLInputElement>('#answer-input');
-    input!.value = 'mem';
-    input!.dispatchEvent(new Event('input', { bubbles: true }));
-    await nextTick();
-
-    root.querySelectorAll<HTMLButtonElement>('.lyric-line')[1]?.click();
-    await vi.waitFor(() => {
-      expect(root.querySelector('#answer-title')?.textContent).toBe('光标');
-    });
-    buttonByText(root, '键盘对照')?.click();
-    await vi.waitFor(() => {
-      expect(root.querySelector('#session-title')?.textContent).toBe('键盘对照');
-    });
-
-    await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
-      currentStudyItemId: 'study-cursor',
-      pendingAnswer: null,
-    });
-    await expect(repository.getStatus()).resolves.toMatchObject({
-      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
-    });
-  });
-
-  it('skips lyric transition for reduced motion without changing target input', async () => {
-    const { root } = await mountWorkbench();
-    const reduceMotion = root.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    reduceMotion!.click();
-
-    await vi.waitFor(() => {
-      expect(root.querySelector<HTMLElement>('.lyrics-track')?.style.transitionDuration).toBe(
-        '0ms',
-      );
-    });
-    expect(root.querySelector('#answer-title')?.textContent).toBe('记忆');
-    expect(root.querySelector<HTMLInputElement>('#answer-input')).not.toBeNull();
-    await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
-      reduceMotion: true,
-      currentStudyItemId: 'study-memory',
-    });
-  });
-
-  it('renders danmaku as presentation only and records explicit practice without review', async () => {
-    session = createPracticeSession({
-      id: 'session-danmaku',
-      modeId: 'danmaku-stream',
-      items,
-      now,
-      reduceMotion: false,
-    });
-    await repository.savePracticeSession(session);
-    const { root } = await mountWorkbench();
-
-    await vi.waitFor(() => {
-      expect(root.querySelector('#danmaku-title')?.textContent).toBe('记忆');
-      expect(root.querySelectorAll('.danmaku-bullet')).toHaveLength(2);
-    });
-    root.querySelectorAll<HTMLButtonElement>('.danmaku-bullet')[1]?.click();
-    await vi.waitFor(() => {
-      expect(root.querySelector('#danmaku-title')?.textContent).toBe('光标');
-    });
-    await expect(repository.getStatus()).resolves.toMatchObject({
-      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
-    });
-
-    buttonByText(root, '提示')?.click();
-    const input = root.querySelector<HTMLInputElement>('#answer-input');
-    input!.value = 'cursor';
-    input!.dispatchEvent(new Event('input', { bubbles: true }));
-    await nextTick();
-    buttonByText(root, '提交')?.click();
-    await vi.waitFor(() => {
-      expect(buttonByText(root, '记录练习并继续')).toBeDefined();
-    });
-    buttonByText(root, '记录练习并继续')?.click();
-    await vi.waitFor(async () => {
-      await expect(repository.getStatus()).resolves.toMatchObject({
-        counts: { practiceAttempts: 1, reviewStates: 0, reviewLogs: 0 },
-      });
-    });
-  });
-
-  it('waits in card rain without recording and advances only by explicit Good', async () => {
-    session = createPracticeSession({
-      id: 'session-card-rain',
-      modeId: 'card-rain',
-      items,
-      now,
-      reduceMotion: false,
-    });
-    await repository.savePracticeSession(session);
-    const { root } = await mountWorkbench();
-
-    await vi.waitFor(() => {
-      expect(root.querySelector('#card-rain-title')?.textContent).toBe('记忆');
-      expect(root.querySelectorAll('.falling-card')).toHaveLength(2);
-    });
-    await expect(repository.getStatus()).resolves.toMatchObject({
-      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
-    });
-
-    const input = root.querySelector<HTMLInputElement>('#answer-input');
-    input!.value = 'memory';
-    input!.dispatchEvent(new Event('input', { bubbles: true }));
-    await nextTick();
-    buttonByText(root, '提交')?.click();
-    await vi.waitFor(() => {
-      expect(buttonByText(root, 'Good')?.disabled).toBe(false);
-    });
-    buttonByText(root, 'Good')?.click();
-
-    await vi.waitFor(async () => {
-      await expect(repository.getStatus()).resolves.toMatchObject({
-        counts: { practiceAttempts: 0, reviewStates: 1, reviewLogs: 1 },
-      });
-    });
-    await expect(repository.getReviewLog('review:test')).resolves.toMatchObject({
-      modeId: 'card-rain',
-      rating: 'good',
-      afterCard: { cardId: 'study-memory' },
-    });
-  });
-
-  it('submits an explicit review in lyrics mode and reads the same state after switching to keyboard mode', async () => {
+  it('submits an explicit review in keyboard mode and reads the same state', async () => {
     const { root } = await mountWorkbench();
     const input = root.querySelector<HTMLInputElement>('#answer-input');
     input!.value = 'memory';
@@ -355,17 +206,8 @@ describe('SessionWorkbench modes', () => {
     if (reviewState === undefined) {
       throw new Error('review state missing');
     }
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-    const dueLabel = formatDueLabel(reviewState.dueAt, now + 1, timeZone);
     expect(root.textContent).toContain('已完成 1 / 2');
-
     await vi.waitFor(() => {
-      expect(buttonByText(root, '键盘对照')?.disabled).toBe(false);
-    });
-    buttonByText(root, '键盘对照')?.click();
-    await vi.waitFor(() => {
-      expect(root.querySelector('#session-title')?.textContent).toBe('键盘对照');
-      expect(root.querySelector('.session-review-status')?.textContent).toContain(dueLabel);
       expect(root.querySelector('.session-review-status')?.textContent).toContain('review');
     });
     await expect(repository.getStatus()).resolves.toMatchObject({
@@ -525,25 +367,6 @@ describe('SessionWorkbench modes', () => {
     });
     await expect(repository.getStatus()).resolves.toMatchObject({
       counts: { practiceSessions: 1, reviewStates: 0, reviewLogs: 0 },
-    });
-  });
-
-  it('persists speed and reduced-motion changes in the same session', async () => {
-    const { root } = await mountWorkbench();
-    const speed = root.querySelector<HTMLInputElement>('input[type="range"]');
-    const reduceMotion = root.querySelector<HTMLInputElement>('input[type="checkbox"]');
-
-    speed!.value = '1.6';
-    speed!.dispatchEvent(new Event('change', { bubbles: true }));
-    await vi.waitFor(async () => {
-      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({ speed: 1.6 });
-    });
-
-    reduceMotion!.click();
-    await vi.waitFor(async () => {
-      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
-        reduceMotion: true,
-      });
     });
   });
 

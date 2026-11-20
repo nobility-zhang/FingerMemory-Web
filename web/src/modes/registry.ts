@@ -1,8 +1,5 @@
 import type { Component } from 'vue';
-import CardRainMode from './CardRainMode.vue';
-import DanmakuMode from './DanmakuMode.vue';
 import KeyboardMode from './KeyboardMode.vue';
-import LyricsMode from './LyricsMode.vue';
 import type {
   PracticeModeCapability,
   PracticeModeConfig,
@@ -50,28 +47,10 @@ function createBuiltinPlugin(input: {
 
 export const TRUSTED_MODE_PLUGINS: readonly TrustedPracticeModePlugin[] = [
   createBuiltinPlugin({
-    id: 'lyrics-scroll',
-    label: '歌词滚动',
-    capabilities: ['target-selection', 'animated-presentation'],
-    component: LyricsMode,
-  }),
-  createBuiltinPlugin({
     id: 'keyboard-recall',
     label: '键盘对照',
     capabilities: ['keyboard-input'],
     component: KeyboardMode,
-  }),
-  createBuiltinPlugin({
-    id: 'danmaku-stream',
-    label: '弹幕模式',
-    capabilities: ['target-selection', 'animated-presentation'],
-    component: DanmakuMode,
-  }),
-  createBuiltinPlugin({
-    id: 'card-rain',
-    label: '卡片雨',
-    capabilities: ['target-selection', 'animated-presentation'],
-    component: CardRainMode,
   }),
 ];
 

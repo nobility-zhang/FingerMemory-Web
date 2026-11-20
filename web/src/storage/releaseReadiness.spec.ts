@@ -63,7 +63,7 @@ describe('release readiness at personal scale', () => {
 
     const session = createPracticeSession({
       id: 'release-session',
-      modeId: 'danmaku-stream',
+      modeId: 'keyboard-recall',
       items: plan.selected.map((entry) => entry.item),
       sources: Object.fromEntries(
         plan.selected.map((entry) => [entry.item.studyItem.id, entry.source]),

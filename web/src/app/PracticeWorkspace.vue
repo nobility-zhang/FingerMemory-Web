@@ -17,7 +17,13 @@ import ReminderSettings from './ReminderSettings.vue';
 import {
   abandonPracticeSession,
   createPracticeSession,
+  switchSessionMode,
 } from '../session/practiceSession';
+import {
+  isRetiredPracticeModeId,
+  retiredPracticeModeLabel,
+  type LaunchablePracticeModeId,
+} from '../session/practiceModeCompatibility';
 
 const props = defineProps<{
   repository: FingerMemoryRepository;
@@ -33,10 +39,33 @@ const activeSession = ref<PracticeSession>();
 const loading = ref(true);
 const busy = ref(false);
 const error = ref<string | null>(null);
+const migrationNotice = ref<string | null>(null);
 
-const resumableSession = computed(() => {
+const unfinishedSession = computed(() => {
   const session = latestSession.value;
   if (session === undefined || session.status === 'completed') {
+    return undefined;
+  }
+  return session;
+});
+const retiredSession = computed(() => {
+  const session = unfinishedSession.value;
+  return session !== undefined && isRetiredPracticeModeId(session.modeId)
+    ? session
+    : undefined;
+});
+const retiredSessionLabel = computed(() => {
+  const session = retiredSession.value;
+  return session !== undefined && isRetiredPracticeModeId(session.modeId)
+    ? retiredPracticeModeLabel(session.modeId)
+    : '';
+});
+const resumableSession = computed(() => {
+  const session = unfinishedSession.value;
+  if (
+    session === undefined ||
+    isRetiredPracticeModeId(session.modeId)
+  ) {
     return undefined;
   }
   const availableIds = new Set(
@@ -59,9 +88,6 @@ const enabledModePlugins = computed(() =>
   TRUSTED_MODE_PLUGINS.filter(
     (plugin) => !disabledModeIds.value.has(plugin.manifest.id),
   ),
-);
-const enabledModeIds = computed(() =>
-  enabledModePlugins.value.map((plugin) => plugin.manifest.id),
 );
 
 function currentTimeZone(): string {
@@ -122,7 +148,9 @@ async function loadStarterContent(): Promise<void> {
   }
 }
 
-async function startSession(modeId: PracticeModeId = 'flashcard'): Promise<void> {
+async function startSession(
+  modeId: LaunchablePracticeModeId = 'flashcard',
+): Promise<void> {
   busy.value = true;
   error.value = null;
   try {
@@ -183,12 +211,6 @@ async function updateModeEnabled(modeId: PracticeModeId, event: Event): Promise<
   } else {
     disabled.add(modeId);
   }
-  if (disabled.size >= TRUSTED_MODE_PLUGINS.length) {
-    (event.target as HTMLInputElement).checked = true;
-    error.value = '至少保留一个练习模式。';
-    return;
-  }
-
   busy.value = true;
   error.value = null;
   try {
@@ -218,7 +240,54 @@ function updateQueuePaused(event: Event): void {
 }
 
 function continueSession(): void {
-  activeSession.value = resumableSession.value;
+  const session = resumableSession.value;
+  if (session === undefined || isRetiredPracticeModeId(session.modeId)) {
+    return;
+  }
+  activeSession.value = session;
+}
+
+async function migrateRetiredSessionToClassic(): Promise<void> {
+  const current = retiredSession.value;
+  if (current === undefined) {
+    return;
+  }
+  busy.value = true;
+  error.value = null;
+  migrationNotice.value = null;
+  try {
+    const migrated = switchSessionMode(current, 'flashcard', Date.now());
+    latestSession.value = await props.repository.savePracticeSession(migrated);
+    latestSessionItems.value =
+      await props.repository.listPracticeItemsByStudyItemIds(
+        migrated.queue.map((item) => item.studyItemId),
+      );
+    migrationNotice.value = '旧会话已显式转为经典闪卡，学习日志与 FSRS 状态未改变。';
+  } catch {
+    error.value = '旧会话转换失败，当前会话未改变。';
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function archiveRetiredSession(): Promise<void> {
+  const current = retiredSession.value;
+  if (current === undefined) {
+    return;
+  }
+  busy.value = true;
+  error.value = null;
+  migrationNotice.value = null;
+  try {
+    const archived = abandonPracticeSession(current, Date.now());
+    latestSession.value = await props.repository.savePracticeSession(archived);
+    latestSessionItems.value = [];
+    migrationNotice.value = '旧会话已归档，已有练习、复习日志和 FSRS 状态保持不变。';
+  } catch {
+    error.value = '旧会话归档失败，当前会话未改变。';
+  } finally {
+    busy.value = false;
+  }
 }
 
 async function abandonResumableSession(): Promise<void> {
@@ -269,7 +338,6 @@ onMounted(() => {
     :initial-session="activeSession"
     :items="workbenchItems"
     :repository="repository"
-    :enabled-mode-ids="enabledModeIds"
     :enable-audio="enableAudio === true"
     @updated="handleSessionUpdated"
     @exit="handleSessionExit"
@@ -277,6 +345,9 @@ onMounted(() => {
   />
   <section v-else class="practice-lobby" aria-labelledby="practice-lobby-title">
     <p v-if="error" class="lobby-error" role="alert">{{ error }}</p>
+    <p v-if="migrationNotice" class="migration-notice" role="status">
+      {{ migrationNotice }}
+    </p>
     <div class="lobby-copy">
       <p class="lobby-kicker">经典闪卡</p>
       <h2 id="practice-lobby-title">先回忆，再翻面确认</h2>
@@ -285,6 +356,41 @@ onMounted(() => {
         记录真实回忆。模板、动画和伙伴对话不会替你评分。
       </p>
     </div>
+
+    <section
+      v-if="retiredSession"
+      class="legacy-session"
+      aria-labelledby="legacy-session-title"
+    >
+      <div>
+        <p class="lobby-kicker">旧模式迁移</p>
+        <h3 id="legacy-session-title">
+          {{ retiredSessionLabel }}会话不再启动
+        </h3>
+        <p>
+          该未完成会话可以显式转为经典闪卡继续，或归档退出。转换不会重算 FSRS、
+          删除练习记录或改写历史日志。
+        </p>
+      </div>
+      <div class="legacy-session-actions">
+        <button
+          type="button"
+          class="primary-action"
+          :disabled="busy"
+          @click="migrateRetiredSessionToClassic"
+        >
+          转为经典闪卡
+        </button>
+        <button
+          type="button"
+          class="danger-action"
+          :disabled="busy"
+          @click="archiveRetiredSession"
+        >
+          归档旧会话
+        </button>
+      </div>
+    </section>
 
     <div v-if="items.length === 0" class="empty-actions">
       <p>本地还没有可练习的词条。</p>
@@ -419,7 +525,10 @@ onMounted(() => {
       <div class="mode-policy-copy">
         <p class="lobby-kicker">练习模式</p>
         <h3 id="mode-policy-title">选择可启动的呈现方式</h3>
-        <p>当前启用 {{ enabledModePlugins.length }} 个模式。</p>
+        <p>
+          当前启用 {{ enabledModePlugins.length }} 个可选呈现模式；
+          经典闪卡始终独立可用。
+        </p>
       </div>
       <div class="mode-preferences">
         <label v-for="plugin in TRUSTED_MODE_PLUGINS" :key="plugin.manifest.id">
@@ -467,6 +576,15 @@ onMounted(() => {
   font-size: 0.8rem;
 }
 
+.migration-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #3f765c;
+  background: #edf6f0;
+  color: #315443;
+  font-size: 0.8rem;
+}
+
 .practice-lobby {
   display: grid;
   gap: 28px;
@@ -501,7 +619,8 @@ onMounted(() => {
 .empty-actions,
 .start-actions,
 .queue-policy,
-.mode-policy {
+.mode-policy,
+.legacy-session {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -509,6 +628,34 @@ onMounted(() => {
   gap: 16px;
   padding-top: 22px;
   border-top: 1px solid #d9e0dc;
+}
+
+.legacy-session {
+  align-items: flex-start;
+  padding: 18px;
+  border: 1px solid #d9b68d;
+  border-radius: 8px;
+  background: #fff7ec;
+}
+
+.legacy-session h3 {
+  margin: 0 0 6px;
+  color: #4c3827;
+  font-size: 1.05rem;
+}
+
+.legacy-session p:last-child {
+  max-width: 62ch;
+  margin: 0;
+  color: #705d4c;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.legacy-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .new-session-actions {
@@ -705,7 +852,8 @@ button:focus-visible {
   .empty-actions,
   .start-actions,
   .queue-policy,
-  .mode-policy {
+  .mode-policy,
+  .legacy-session {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -714,6 +862,11 @@ button:focus-visible {
   .new-session-actions button,
   .empty-actions button,
   .continue-action {
+    width: 100%;
+  }
+
+  .legacy-session-actions,
+  .legacy-session-actions button {
     width: 100%;
   }
 

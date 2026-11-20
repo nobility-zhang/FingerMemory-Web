@@ -1,6 +1,10 @@
 import { defineComponent } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
-import { TrustedModeRegistry, TRUSTED_MODE_PLUGINS } from './registry';
+import {
+  TrustedModeRegistry,
+  TRUSTED_MODE_PLUGINS,
+  createTrustedModeRegistry,
+} from './registry';
 import type {
   PracticeModeContext,
   TrustedPracticeModePlugin,
@@ -13,7 +17,7 @@ const DummyMode = defineComponent({
 function createContext(): PracticeModeContext {
   const session = {
     id: 'session-plugin',
-    modeId: 'lyrics-scroll' as const,
+    modeId: 'keyboard-recall' as const,
     status: 'active' as const,
     queue: [],
     currentIndex: 0,
@@ -41,7 +45,7 @@ function createContext(): PracticeModeContext {
 }
 
 function createPlugin(
-  id: 'lyrics-scroll' | 'keyboard-recall',
+  id: 'flashcard' | 'keyboard-recall',
   calls: string[],
 ): TrustedPracticeModePlugin {
   return {
@@ -71,22 +75,7 @@ describe('TrustedModeRegistry', () => {
   it('registers the built-in trusted plugins with manifests and defaults', () => {
     expect(TRUSTED_MODE_PLUGINS.map((plugin) => plugin.manifest)).toMatchObject([
       {
-        id: 'lyrics-scroll',
-        version: '1.0.0',
-        defaultConfig: { speed: 1, reduceMotion: false },
-      },
-      {
         id: 'keyboard-recall',
-        version: '1.0.0',
-        defaultConfig: { speed: 1, reduceMotion: false },
-      },
-      {
-        id: 'danmaku-stream',
-        version: '1.0.0',
-        defaultConfig: { speed: 1, reduceMotion: false },
-      },
-      {
-        id: 'card-rain',
         version: '1.0.0',
         defaultConfig: { speed: 1, reduceMotion: false },
       },
@@ -95,14 +84,14 @@ describe('TrustedModeRegistry', () => {
 
   it('rejects duplicate ids and invalid configuration', () => {
     const calls: string[] = [];
-    const plugin = createPlugin('lyrics-scroll', calls);
+    const plugin = createPlugin('keyboard-recall', calls);
     const registry = new TrustedModeRegistry([plugin]);
 
     expect(() => registry.register(plugin)).toThrow('Duplicate practice mode id');
-    expect(() => registry.configure('lyrics-scroll', { speed: 9 })).toThrow(
+    expect(() => registry.configure('keyboard-recall', { speed: 9 })).toThrow(
       'speed must be between',
     );
-    expect(registry.getConfig('lyrics-scroll')).toEqual({
+    expect(registry.getConfig('keyboard-recall')).toEqual({
       speed: 1,
       reduceMotion: false,
     });
@@ -111,18 +100,18 @@ describe('TrustedModeRegistry', () => {
   it('starts one plugin at a time and disposes the previous subscriptions', () => {
     const calls: string[] = [];
     const registry = new TrustedModeRegistry([
-      createPlugin('lyrics-scroll', calls),
+      createPlugin('flashcard', calls),
       createPlugin('keyboard-recall', calls),
     ]);
 
-    registry.activate('lyrics-scroll', createContext());
+    registry.activate('flashcard', createContext());
     registry.activate('keyboard-recall', createContext());
     registry.deactivate();
 
     expect(calls).toEqual([
-      'lyrics-scroll:start',
-      'lyrics-scroll:stop',
-      'lyrics-scroll:dispose',
+      'flashcard:start',
+      'flashcard:stop',
+      'flashcard:dispose',
       'keyboard-recall:start',
       'keyboard-recall:stop',
       'keyboard-recall:dispose',
@@ -131,9 +120,9 @@ describe('TrustedModeRegistry', () => {
 
   it('disposes a partially started plugin when start fails', () => {
     const calls: string[] = [];
-    const plugin = createPlugin('lyrics-scroll', calls);
+    const plugin = createPlugin('keyboard-recall', calls);
     plugin.setup = (context) => {
-      const instance = createPlugin('lyrics-scroll', calls).setup(context);
+      const instance = createPlugin('keyboard-recall', calls).setup(context);
       instance.start = () => {
         throw new Error('start failed');
       };
@@ -141,9 +130,17 @@ describe('TrustedModeRegistry', () => {
     };
     const registry = new TrustedModeRegistry([plugin]);
 
-    expect(() => registry.activate('lyrics-scroll', createContext())).toThrow(
+    expect(() => registry.activate('keyboard-recall', createContext())).toThrow(
       'start failed',
     );
-    expect(calls).toContain('lyrics-scroll:dispose');
+    expect(calls).toContain('keyboard-recall:dispose');
+  });
+
+  it('does not expose retired practice modes for new sessions', () => {
+    const registry = createTrustedModeRegistry();
+
+    expect(registry.get('lyrics-scroll')).toBeUndefined();
+    expect(registry.get('danmaku-stream')).toBeUndefined();
+    expect(registry.get('card-rain')).toBeUndefined();
   });
 });

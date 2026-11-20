@@ -84,12 +84,18 @@ describe('PracticeWorkspace', () => {
       hints: [],
       now: Date.now() + 1,
     });
-    await repository.savePracticeModePreferences(
-      {
-        disabledModeIds: ['card-rain', 'danmaku-stream', 'keyboard-recall'],
-      },
-      Date.now() + 2,
-    );
+    await database.appMeta.put({
+      key: 'practice.modePreferences',
+      value: JSON.stringify({
+        disabledModeIds: [
+          'card-rain',
+          'danmaku-stream',
+          'keyboard-recall',
+          'lyrics-scroll',
+        ],
+      }),
+      updatedAt: Date.now() + 2,
+    });
 
     const root = document.createElement('div');
     document.body.append(root);
@@ -98,27 +104,26 @@ describe('PracticeWorkspace', () => {
     app.mount(root);
 
     await vi.waitFor(() => {
-      expect(buttonByText(root, '开始歌词滚动')).toBeDefined();
+      expect(buttonByText(root, '开始经典闪卡')).toBeDefined();
       expect(buttonByText(root, '开始键盘对照')).toBeUndefined();
     });
-    const modeCheckboxes = root.querySelectorAll<HTMLInputElement>(
+    const keyboardPreference = root.querySelector<HTMLInputElement>(
       '.mode-preferences input[type="checkbox"]',
     );
-    modeCheckboxes[0]?.click();
+    keyboardPreference?.click();
     await vi.waitFor(() => {
-      expect(root.textContent).toContain('至少保留一个练习模式');
+      expect(buttonByText(root, '开始键盘对照')).toBeDefined();
     });
     await expect(repository.getPracticeModePreferences()).resolves.toEqual({
-      disabledModeIds: ['card-rain', 'danmaku-stream', 'keyboard-recall'],
+      disabledModeIds: [],
     });
 
     await vi.waitFor(() => {
-      expect(buttonByText(root, '开始歌词滚动')?.disabled).toBe(false);
+      expect(buttonByText(root, '开始键盘对照')?.disabled).toBe(false);
     });
-    buttonByText(root, '开始歌词滚动')?.click();
+    buttonByText(root, '开始键盘对照')?.click();
     await vi.waitFor(() => {
-      expect(root.querySelector('#session-title')?.textContent).toBe('歌词滚动');
-      expect(buttonByText(root, '键盘对照')).toBeUndefined();
+      expect(root.querySelector('#session-title')?.textContent).toBe('键盘对照');
     });
   });
 
@@ -159,7 +164,7 @@ describe('PracticeWorkspace', () => {
     await vi.waitFor(() => {
       expect(root.textContent).toContain('本次计划 2');
     });
-    buttonByText(root, '开始歌词滚动')?.click();
+    buttonByText(root, '开始键盘对照')?.click();
     await vi.waitFor(async () => {
       await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
         queue: [
@@ -176,7 +181,7 @@ describe('PracticeWorkspace', () => {
     root.querySelector<HTMLInputElement>('.queue-pause input')?.click();
     await vi.waitFor(() => {
       expect(root.textContent).toContain('当前计划为空');
-      expect(buttonByText(root, '开始歌词滚动')?.disabled).toBe(true);
+      expect(buttonByText(root, '开始键盘对照')?.disabled).toBe(true);
     });
     await expect(repository.getPracticeQueueSettings()).resolves.toMatchObject({
       paused: true,
@@ -212,9 +217,9 @@ describe('PracticeWorkspace', () => {
     app.mount(root);
 
     await vi.waitFor(() => {
-      expect(root.textContent).toContain('开始歌词滚动');
+      expect(root.textContent).toContain('开始键盘对照');
     });
-    buttonByText(root, '开始歌词滚动')?.click();
+    buttonByText(root, '开始键盘对照')?.click();
     await vi.waitFor(() => {
       expect(root.textContent).toContain('退出模式');
     });
@@ -232,7 +237,7 @@ describe('PracticeWorkspace', () => {
     });
   });
 
-  it('restores an unfinished session after its lexicon is deleted', async () => {
+  it('explicitly migrates a retired session to classic flashcards', async () => {
     await FingerMemoryDatabase.delete(databaseName);
     database = new FingerMemoryDatabase(databaseName);
     const repository = createFingerMemoryRepository(database, {
@@ -255,13 +260,16 @@ describe('PracticeWorkspace', () => {
       now: Date.now() + 1,
     });
     await repository.savePracticeSession(
-      createPracticeSession({
-        id: 'recoverable-session',
+      {
+        ...createPracticeSession({
+          id: 'recoverable-session',
+          modeId: 'keyboard-recall',
+          items: [created.practiceItem],
+          now: Date.now() + 2,
+          reduceMotion: false,
+        }),
         modeId: 'lyrics-scroll',
-        items: [created.practiceItem],
-        now: Date.now() + 2,
-        reduceMotion: false,
-      }),
+      },
     );
     await repository.deleteLexicon(lexicon.id);
 
@@ -272,18 +280,82 @@ describe('PracticeWorkspace', () => {
     app.mount(root);
 
     await vi.waitFor(() => {
+      expect(root.textContent).toContain('歌词滚动会话不再启动');
+    });
+    buttonByText(root, '转为经典闪卡')?.click();
+
+    await vi.waitFor(async () => {
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        modeId: 'flashcard',
+        status: 'active',
+      });
+      expect(root.textContent).toContain('旧会话已显式转为经典闪卡');
       expect(root.textContent).toContain('打开上次会话');
     });
-    const continueButton = [...root.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('打开上次会话'),
-    );
-    continueButton?.click();
+    buttonByText(root, '打开上次会话')?.click();
     await nextTick();
-
     await vi.waitFor(() => {
+      expect(root.textContent).toContain('经典闪卡');
       expect(root.textContent).toContain('记忆');
     });
-    expect(root.textContent).toContain('歌词滚动');
+    await expect(repository.getStatus()).resolves.toMatchObject({
+      counts: { practiceAttempts: 0, reviewStates: 0, reviewLogs: 0 },
+    });
+  });
+
+  it('explicitly archives a retired session without deleting history', async () => {
+    await FingerMemoryDatabase.delete(databaseName);
+    database = new FingerMemoryDatabase(databaseName);
+    const repository = createFingerMemoryRepository(database, {
+      scheduler,
+      clock: () => Date.now(),
+    });
+    await repository.initialize();
+    const lexicon = await repository.createLexicon({
+      name: '旧会话归档词库',
+      description: '',
+      now: Date.now(),
+    });
+    const created = await repository.createStudyItem({
+      lexiconId: lexicon.id,
+      term: 'memory',
+      meaning: '记忆',
+      acceptedAnswers: [],
+      hints: [],
+      now: Date.now() + 1,
+    });
+    await repository.savePracticeSession(
+      {
+        ...createPracticeSession({
+          id: 'retired-archive-session',
+          modeId: 'keyboard-recall',
+          items: [created.practiceItem],
+          now: Date.now() + 2,
+          reduceMotion: false,
+        }),
+        modeId: 'card-rain',
+      },
+    );
+
+    const root = document.createElement('div');
+    document.body.append(root);
+    const app = createApp(PracticeWorkspace, { repository });
+    mountedApp = app;
+    app.mount(root);
+
+    await vi.waitFor(() => {
+      expect(root.textContent).toContain('卡片雨会话不再启动');
+    });
+    buttonByText(root, '归档旧会话')?.click();
+    await vi.waitFor(async () => {
+      await expect(repository.getLatestPracticeSession()).resolves.toMatchObject({
+        modeId: 'card-rain',
+        status: 'completed',
+        endedReason: 'abandoned',
+      });
+      expect(root.textContent).toContain('旧会话已归档');
+      expect(root.textContent).not.toContain('打开上次会话');
+    });
   });
 });
 

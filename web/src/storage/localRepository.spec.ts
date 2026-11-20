@@ -365,7 +365,7 @@ describe('lexicon and study item management', () => {
     await repository.savePracticeSession(
       createPracticeSession({
         id: 'active-session',
-        modeId: 'lyrics-scroll',
+        modeId: 'keyboard-recall',
         items: [items[0]],
         now: INITIAL_TIME,
         reduceMotion: false,
@@ -407,7 +407,7 @@ describe('lexicon and study item management', () => {
     await repository.savePracticeSession(
       createPracticeSession({
         id: 'historical-session',
-        modeId: 'lyrics-scroll',
+        modeId: 'keyboard-recall',
         items: [created.practiceItem],
         now: INITIAL_TIME + 3,
         reduceMotion: false,
@@ -454,7 +454,7 @@ describe('practice session lifecycle', () => {
     const first = await repository.savePracticeSession(
       createPracticeSession({
         id: 'first-session',
-        modeId: 'lyrics-scroll',
+        modeId: 'keyboard-recall',
         items: [created.practiceItem],
         now: INITIAL_TIME + 2,
         reduceMotion: false,
@@ -1253,7 +1253,7 @@ describe('due filtering, recovery and backup import', () => {
     });
   });
 
-  it('persists enabled mode preferences and refuses to disable every mode', async () => {
+  it('persists active mode preferences and ignores retired ids on read', async () => {
     const database = createDatabase();
     const repository = createRepository(database);
     await repository.initialize();
@@ -1272,17 +1272,26 @@ describe('due filtering, recovery and backup import', () => {
     });
     await expect(
       repository.savePracticeModePreferences(
-        {
-          disabledModeIds: [
-            'card-rain',
-            'danmaku-stream',
-            'keyboard-recall',
-            'lyrics-scroll',
-          ],
-        },
+        { disabledModeIds: ['card-rain'] },
         INITIAL_TIME + 1,
       ),
-    ).rejects.toThrow('at least one practice mode');
+    ).rejects.toThrow('unknown practice mode id');
+
+    await database.appMeta.put({
+      key: 'practice.modePreferences',
+      value: JSON.stringify({
+        disabledModeIds: [
+          'card-rain',
+          'danmaku-stream',
+          'keyboard-recall',
+          'lyrics-scroll',
+        ],
+      }),
+      updatedAt: INITIAL_TIME + 2,
+    });
+    await expect(repository.getPracticeModePreferences()).resolves.toEqual({
+      disabledModeIds: ['keyboard-recall'],
+    });
   });
 
   it('persists and validates in-app reminder settings and state', async () => {
@@ -1350,13 +1359,16 @@ describe('due filtering, recovery and backup import', () => {
       throw new Error('seed data missing');
     }
     await sourceRepository.savePracticeSession(
-      createPracticeSession({
-        id: 'session-backup',
+      {
+        ...createPracticeSession({
+          id: 'session-backup',
+          modeId: 'keyboard-recall',
+          items: [{ wordEntry: seededWord, studyItem: seededStudyItem }],
+          now: INITIAL_TIME,
+          reduceMotion: true,
+        }),
         modeId: 'lyrics-scroll',
-        items: [{ wordEntry: seededWord, studyItem: seededStudyItem }],
-        now: INITIAL_TIME,
-        reduceMotion: true,
-      }),
+      },
     );
     const snapshot = await sourceRepository.exportSnapshot(INITIAL_TIME + 120_000);
     const serialized = JSON.parse(JSON.stringify(snapshot)) as unknown;
@@ -1398,13 +1410,16 @@ describe('due filtering, recovery and backup import', () => {
       throw new Error('seed data missing');
     }
     await sourceRepository.savePracticeSession(
-      createPracticeSession({
-        id: 'v3-backed-session',
+      {
+        ...createPracticeSession({
+          id: 'v3-backed-session',
+          modeId: 'keyboard-recall',
+          items: [{ wordEntry, studyItem }],
+          now: INITIAL_TIME,
+          reduceMotion: false,
+        }),
         modeId: 'lyrics-scroll',
-        items: [{ wordEntry, studyItem }],
-        now: INITIAL_TIME,
-        reduceMotion: false,
-      }),
+      },
     );
     const snapshot = await sourceRepository.exportSnapshot(INITIAL_TIME + 120_000);
     const legacy = structuredClone(snapshot);

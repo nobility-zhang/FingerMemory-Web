@@ -39,7 +39,7 @@ function createItems(): PracticeItem[] {
 function createSession(): PracticeSession {
   return createPracticeSession({
     id: 'session-1',
-    modeId: 'lyrics-scroll',
+    modeId: 'keyboard-recall',
     items: createItems(),
     now,
     reduceMotion: false,
