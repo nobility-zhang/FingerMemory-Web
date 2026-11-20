@@ -29,6 +29,7 @@ public final class ContentPackageDtos {
 
     public record Installation(
             String id,
+            String catalogContentId,
             String namespace,
             String bookId,
             String contentVersion,

@@ -1,0 +1,31 @@
+package com.fingermemory.server.content;
+
+public record GmContentRow(
+        String id,
+        String createdBy,
+        String namespaceId,
+        String bookId,
+        String contentVersion,
+        String contentHash,
+        String title,
+        String seriesId,
+        String entryNodeId,
+        String manifestJson,
+        String storageRelativePath,
+        int wordCount,
+        int chapterCount,
+        int nodeCount,
+        int characterCount,
+        int cardCount,
+        int encounterCount,
+        int assetCount,
+        String status,
+        String issuesJson,
+        long version,
+        String publishedBy,
+        String archivedBy,
+        long createdAtMs,
+        long updatedAtMs,
+        Long publishedAtMs,
+        Long archivedAtMs) {
+}

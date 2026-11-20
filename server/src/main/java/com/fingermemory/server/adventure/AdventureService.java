@@ -82,13 +82,6 @@ public class AdventureService {
                 contentPackageService.installedPackage(
                         ownerId,
                         request.installationId());
-        AdventurePackageReader.AdventurePackage content =
-                packageReader.read(installed.root());
-        requireCompanionAvailable(ownerId, request.companionKey(), content);
-        AdventureCompletionRow sourceCompletion = requireStartCompletion(
-                ownerId,
-                request.sourceCompletionId(),
-                content);
         String fingerprint = fingerprint(
                 "start",
                 request.installationId(),
@@ -121,8 +114,17 @@ public class AdventureService {
                     "existing",
                     active,
                     installed,
-                    content);
+                    packageReader.read(installed.root()));
         }
+
+        contentPackageService.requireStartable(ownerId, request.installationId());
+        AdventurePackageReader.AdventurePackage content =
+                packageReader.read(installed.root());
+        requireCompanionAvailable(ownerId, request.companionKey(), content);
+        AdventureCompletionRow sourceCompletion = requireStartCompletion(
+                ownerId,
+                request.sourceCompletionId(),
+                content);
 
         String sessionId = sessionImporter.importWordsAndCreateSession(
                 ownerId,
@@ -270,6 +272,7 @@ public class AdventureService {
         }
         ContentPackageService.InstalledPackage target =
                 contentPackageService.installedPackage(ownerId, targetInstallationId);
+        contentPackageService.requireStartable(ownerId, targetInstallationId);
         AdventurePackageReader.AdventurePackage content =
                 packageReader.read(target.root());
         if (!row.namespaceId().equals(target.installation().namespaceId())

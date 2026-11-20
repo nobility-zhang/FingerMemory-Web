@@ -3,6 +3,7 @@ package com.fingermemory.server.content;
 public record ContentInstallationRow(
         String ownerId,
         String id,
+        String catalogContentId,
         String namespaceId,
         String bookId,
         String contentVersion,

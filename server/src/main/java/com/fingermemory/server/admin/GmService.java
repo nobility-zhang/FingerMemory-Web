@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 public class GmService {
     private static final List<String> CAPABILITIES = List.of(
             "manage-users",
+            "manage-content",
             "manage-sandboxes",
             "read-audit");
 

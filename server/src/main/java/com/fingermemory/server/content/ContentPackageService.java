@@ -3,6 +3,7 @@ package com.fingermemory.server.content;
 import com.fingermemory.server.common.ApiException;
 import com.fingermemory.server.config.AppProperties;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,6 +19,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
@@ -28,6 +30,7 @@ public class ContentPackageService {
             Pattern.compile("^[A-Za-z0-9_.:-]{3,128}$");
 
     private final ContentPackageValidator validator;
+    private final GmContentService gmContentService;
     private final ContentPackageMapper mapper;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
@@ -37,12 +40,14 @@ public class ContentPackageService {
 
     public ContentPackageService(
             ContentPackageValidator validator,
+            GmContentService gmContentService,
             ContentPackageMapper mapper,
             ObjectMapper objectMapper,
             TransactionTemplate transactionTemplate,
             Clock clock,
             AppProperties appProperties) {
         this.validator = validator;
+        this.gmContentService = gmContentService;
         this.mapper = mapper;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
@@ -67,13 +72,73 @@ public class ContentPackageService {
             String ownerId,
             String idempotencyKey,
             MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw validation("请选择 .fmbook 内容包");
+        }
+        try (InputStream input = file.getInputStream()) {
+            return installArchive(
+                    ownerId,
+                    idempotencyKey,
+                    input,
+                    file.getSize(),
+                    safeFileName(file.getOriginalFilename()),
+                    null,
+                    null);
+        } catch (IOException exception) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "CONTENT_PACKAGE_INVALID",
+                    "无法读取上传内容包");
+        }
+    }
+
+    @Transactional
+    public ContentPackageDtos.InstallResult installCatalog(
+            String ownerId,
+            String idempotencyKey,
+            String contentId) {
+        GmContentRow publication = gmContentService.requirePublishedForUpdate(contentId);
+        Path archive = gmContentService.archivePath(publication);
+        try (InputStream input = Files.newInputStream(archive)) {
+            return installArchive(
+                    ownerId,
+                    idempotencyKey,
+                    input,
+                    Files.size(archive),
+                    publication.bookId() + "-" + publication.contentVersion() + ".fmbook",
+                    publication.id(),
+                    publication);
+        } catch (IOException exception) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CONTENT_CATALOG_UNAVAILABLE",
+                    "共享内容资源不可读取");
+        }
+    }
+
+    private ContentPackageDtos.InstallResult installArchive(
+            String ownerId,
+            String idempotencyKey,
+            InputStream input,
+            long declaredSize,
+            String fileName,
+            String catalogContentId,
+            GmContentRow expectedCatalogContent) {
         requireIdempotencyKey(idempotencyKey);
         Path workspace = createWorkspace();
         Path finalDirectory = null;
         String fingerprint = null;
         ValidatedContentPackage validated = null;
         try {
-            validated = validate(file, workspace);
+            validated = validator.validate(
+                    input,
+                    declaredSize,
+                    fileName,
+                    workspace,
+                    engineVersion);
+            if (expectedCatalogContent != null) {
+                requireCatalogMatch(validated, expectedCatalogContent);
+            }
             final ValidatedContentPackage packageData = validated;
             fingerprint = validated.contentHash();
             ContentInstallationReceiptRow existingReceipt =
@@ -92,6 +157,13 @@ public class ContentPackageService {
             ContentInstallationRow sameContent =
                     mapper.findByHash(ownerId, validated.contentHash());
             if (sameContent != null) {
+                if (catalogContentId != null && sameContent.catalogContentId() == null) {
+                    mapper.linkCatalogContent(
+                            ownerId,
+                            sameContent.id(),
+                            catalogContentId);
+                    sameContent = mapper.findById(ownerId, sameContent.id());
+                }
                 ContentPackageDtos.InstallResult duplicate = result(
                         "duplicate",
                         toView(sameContent));
@@ -130,6 +202,7 @@ public class ContentPackageService {
                     ownerId,
                     validated,
                     storageRelativePath,
+                    catalogContentId,
                     now);
             ContentPackageDtos.InstallResult installed = transactionTemplate.execute(status -> {
                 mapper.insert(row);
@@ -194,6 +267,23 @@ public class ContentPackageService {
             throw validation("limit 必须在 1 到 100 之间");
         }
         return mapper.listOwned(ownerId, limit).stream().map(this::toView).toList();
+    }
+
+    public List<GmContentDtos.Catalog> listCatalog(int limit) {
+        return gmContentService.catalog(limit);
+    }
+
+    public void requireStartable(String ownerId, String installationId) {
+        ContentInstallationRow row = mapper.findById(ownerId, installationId);
+        if (row == null) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "CONTENT_INSTALLATION_NOT_FOUND",
+                    "内容安装不存在");
+        }
+        if (row.catalogContentId() != null) {
+            gmContentService.requirePublished(row.catalogContentId());
+        }
     }
 
     public ContentPackageDtos.Installation getOwned(String ownerId, String installationId) {
@@ -306,10 +396,12 @@ public class ContentPackageService {
             String ownerId,
             ValidatedContentPackage validated,
             String storageRelativePath,
+            String catalogContentId,
             long now) {
         return new ContentInstallationRow(
                 ownerId,
                 UUID.randomUUID().toString(),
+                catalogContentId,
                 validated.namespace(),
                 validated.bookId(),
                 validated.contentVersion(),
@@ -336,6 +428,7 @@ public class ContentPackageService {
         InstallationMetadata metadata = metadata(row.manifestJson());
         return new ContentPackageDtos.Installation(
                 row.id(),
+                row.catalogContentId(),
                 row.namespaceId(),
                 row.bookId(),
                 row.contentVersion(),
@@ -373,6 +466,19 @@ public class ContentPackageService {
         return new InstallationMetadata(
                 manifest.path("seriesId").asText(""),
                 List.copyOf(requirements));
+    }
+
+    private void requireCatalogMatch(
+            ValidatedContentPackage validated,
+            GmContentRow expected) {
+        if (!expected.contentHash().equals(validated.contentHash())
+                || !expected.namespaceId().equals(validated.namespace())
+                || !expected.bookId().equals(validated.bookId())
+                || !expected.contentVersion().equals(validated.contentVersion())) {
+            throw conflict(
+                    "CONTENT_CATALOG_UNAVAILABLE",
+                    "共享内容资源与已发布版本不一致");
+        }
     }
 
     private ContentPackageDtos.InstallResult result(

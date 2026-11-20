@@ -3,7 +3,7 @@ package com.fingermemory.server.content;
 import java.nio.file.Path;
 import java.util.List;
 
-record ValidatedContentPackage(
+public record ValidatedContentPackage(
         String fileName,
         String title,
         String namespace,

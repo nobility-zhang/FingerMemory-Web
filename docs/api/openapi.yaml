@@ -11,6 +11,7 @@ info:
     H3-04 已实现本人隔离 GM sandbox、固定夹具命令、epoch/version 幂等和审计。
     H5-02 已实现已安装 .fmbook 的固定版本冒险、剧情动作、遭遇绑定和保存恢复。
     H5-03 已实现三章旅程、三选一牌组奖励、Fina 剧情解锁/营地切换和账号级回忆去重。
+    H5-07 已实现 GM 草稿只读预览、不可变版本发布、共享安装和归档保护。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
   - url: /api/v1
@@ -1378,6 +1379,9 @@ components:
         id:
           type: string
           maxLength: 36
+        catalogContentId:
+          type: string
+          maxLength: 36
         namespace:
           type: string
         bookId:
@@ -1959,13 +1963,29 @@ components:
       additionalProperties: false
       required:
       - id
+      - namespace
       - bookId
       - contentVersion
       - contentHash
+      - title
+      - seriesId
+      - entryNodeId
+      - wordCount
+      - chapterCount
+      - nodeCount
+      - characterCount
+      - cardCount
+      - encounterCount
+      - assetCount
       - status
       - issues
+      - version
+      - createdAtMs
+      - updatedAtMs
       properties:
         id:
+          type: string
+        namespace:
           type: string
         bookId:
           type: string
@@ -1973,6 +1993,26 @@ components:
           type: string
         contentHash:
           type: string
+        title:
+          type: string
+        seriesId:
+          type: string
+        entryNodeId:
+          type: string
+        wordCount:
+          type: integer
+        chapterCount:
+          type: integer
+        nodeCount:
+          type: integer
+        characterCount:
+          type: integer
+        cardCount:
+          type: integer
+        encounterCount:
+          type: integer
+        assetCount:
+          type: integer
         status:
           type: string
           enum:
@@ -1984,6 +2024,318 @@ components:
           type: array
           items:
             type: string
+        version:
+          type: integer
+          minimum: 0
+        createdAtMs:
+          type: integer
+        updatedAtMs:
+          type: integer
+        publishedAtMs:
+          type: integer
+        archivedAtMs:
+          type: integer
+    GmContentPreview:
+      type: object
+      additionalProperties: false
+      required:
+      - content
+      - chapters
+      - characters
+      - scenes
+      - assets
+      properties:
+        content:
+          "$ref": "#/components/schemas/GmContentStatus"
+        chapters:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmContentChapter"
+        characters:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmContentCharacter"
+        scenes:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmContentScene"
+        assets:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmContentAsset"
+    GmContentChapter:
+      type: object
+      additionalProperties: false
+      required:
+      - chapterId
+      - title
+      - nodes
+      properties:
+        chapterId:
+          type: string
+        title:
+          type: string
+        nodes:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmContentNode"
+    GmContentNode:
+      type: object
+      additionalProperties: false
+      required:
+      - nodeId
+      - chapterId
+      - type
+      - title
+      - text
+      - endingId
+      - inheritedFlags
+      - choices
+      properties:
+        nodeId:
+          type: string
+        chapterId:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        speaker:
+          type:
+          - string
+          - 'null'
+        text:
+          type: string
+        nextNodeId:
+          type:
+          - string
+          - 'null'
+        encounterId:
+          type:
+          - string
+          - 'null'
+        encounterName:
+          type:
+          - string
+          - 'null'
+        encounterDescription:
+          type:
+          - string
+          - 'null'
+        portraitCharacterId:
+          type:
+          - string
+          - 'null'
+        sceneId:
+          type:
+          - string
+          - 'null'
+        costumeId:
+          type:
+          - string
+          - 'null'
+        endingId:
+          type: string
+        endingTitle:
+          type:
+          - string
+          - 'null'
+        inheritedFlags:
+          type: array
+          items:
+            type: string
+        choices:
+          type: array
+          items:
+            "$ref": "#/components/schemas/GmContentChoice"
+    GmContentChoice:
+      type: object
+      additionalProperties: false
+      required:
+      - choiceId
+      - label
+      - targetNodeId
+      properties:
+        choiceId:
+          type: string
+        label:
+          type: string
+        targetNodeId:
+          type: string
+    GmContentCharacter:
+      type: object
+      additionalProperties: false
+      required:
+      - characterKey
+      - name
+      - epithet
+      - description
+      - age
+      - defaultCostumeId
+      - costumes
+      - dialogue
+      properties:
+        characterKey:
+          type: string
+        name:
+          type: string
+        epithet:
+          type: string
+        description:
+          type: string
+        age:
+          type: integer
+        defaultCostumeId:
+          type: string
+        costumes:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+        dialogue:
+          "$ref": "#/components/schemas/GmContentDialogue"
+        skill:
+          oneOf:
+          - "$ref": "#/components/schemas/GmContentSkill"
+          - type: 'null'
+    GmContentDialogue:
+      type: object
+      additionalProperties: false
+      required:
+      - welcome
+      - again
+      - rest
+      - training
+      - practice
+      - result
+      properties:
+        welcome:
+          type: string
+        again:
+          type: string
+        rest:
+          type: string
+        training:
+          type: string
+        practice:
+          type: string
+        result:
+          type: string
+    GmContentSkill:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - description
+      - type
+      - amount
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        amount:
+          type: integer
+    GmContentScene:
+      type: object
+      additionalProperties: false
+      required:
+      - sceneId
+      - name
+      - background
+      - battleTheme
+      properties:
+        sceneId:
+          type: string
+        name:
+          type: string
+        background:
+          type: string
+        battleTheme:
+          type: string
+        ambientKey:
+          type:
+          - string
+          - 'null'
+    GmContentAsset:
+      type: object
+      additionalProperties: false
+      required:
+      - path
+      - mime
+      - byteSize
+      - kind
+      - license
+      - url
+      properties:
+        path:
+          type: string
+        mime:
+          type: string
+        byteSize:
+          type: integer
+        kind:
+          type: string
+        license:
+          type: string
+        url:
+          type: string
+    GmContentCatalog:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - namespace
+        - bookId
+        - contentVersion
+        - contentHash
+        - seriesId
+        - entryNodeId
+        - wordCount
+        - chapterCount
+        - nodeCount
+        - characterCount
+        - cardCount
+        - encounterCount
+        - assetCount
+        - publishedAtMs
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        namespace:
+          type: string
+        bookId:
+          type: string
+        contentVersion:
+          type: string
+        contentHash:
+          type: string
+        seriesId:
+          type: string
+        entryNodeId:
+          type: string
+        wordCount:
+          type: integer
+        chapterCount:
+          type: integer
+        nodeCount:
+          type: integer
+        characterCount:
+          type: integer
+        cardCount:
+          type: integer
+        encounterCount:
+          type: integer
+        assetCount:
+          type: integer
+        publishedAtMs:
+          type: integer
     GmAuditEvent:
       type: object
       additionalProperties: false
@@ -3344,6 +3696,58 @@ paths:
           $ref: '#/components/responses/Conflict'
         '413':
           description: 内容包超过 50 MiB
+  /content-packages/catalog:
+    get:
+      summary: 列出 GM 已发布的不可变共享内容
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: 已发布内容目录
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GmContentCatalog'
+  /content-packages/catalog/{contentId}/install:
+    post:
+      summary: 从 GM 已发布内容安装 owner 私有副本
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: contentId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: 已安装共享内容副本
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentPackageInstallResult'
+        '200':
+          description: 相同 owner/内容哈希已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentPackageInstallResult'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /content-packages/{id}:
     get:
       summary: 读取当前 owner 的指定内容安装
@@ -3529,7 +3933,7 @@ paths:
       tags:
       - GM
       summary: 分页查询共享及本人管理的草稿内容；不列出其他用户私有包
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []
@@ -3556,12 +3960,128 @@ paths:
         in: query
         schema:
           type: string
+  "/gm/content/{id}/preview":
+    get:
+      tags:
+      - GM
+      summary: 在管理员沙盒预览草稿或已发布内容的剧情、角色、服装、对白和场景
+      x-implementation-status: implemented
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/EntityId"
+      responses:
+        '200':
+          description: 仅创建草稿的管理员或在发布后访问共享内容的管理员可读取
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmContentPreview"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+  "/gm/content/{id}/assets/{assetPath}":
+    get:
+      tags:
+      - GM
+      summary: 读取预览中登记且哈希匹配的包内媒体
+      x-implementation-status: implemented
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/EntityId"
+      - name: assetPath
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 已登记媒体；响应类型由资产清单决定
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+            audio/ogg:
+              schema:
+                type: string
+                format: binary
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+  "/gm/content/drafts":
+    post:
+      tags:
+      - GM
+      summary: 使用用户导入同一校验器保存 GM 沙盒草稿
+      x-implementation-status: implemented
+      x-required-role: ADMIN
+      security:
+      - cookieAuth: []
+      parameters:
+      - "$ref": "#/components/parameters/CsrfHeader"
+      - "$ref": "#/components/parameters/IdempotencyKey"
+      - name: reason
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 300
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: 草稿已保存；仅 GM 与 catalog 发布后状态可消费
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/GmContentStatus"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
   "/gm/content/{id}/actions":
     post:
       tags:
       - GM
       summary: 校验、发布或归档指定不可变内容版本
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-required-role: ADMIN
       security:
       - cookieAuth: []

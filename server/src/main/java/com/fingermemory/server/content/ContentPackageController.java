@@ -51,6 +51,30 @@ public class ContentPackageController {
                 .body(result);
     }
 
+    @GetMapping("/catalog")
+    public List<GmContentDtos.Catalog> catalog(
+            @RequestParam(defaultValue = "50") int limit) {
+        return contentPackageService.listCatalog(limit);
+    }
+
+    @PostMapping("/catalog/{contentId}/install")
+    public ResponseEntity<ContentPackageDtos.InstallResult> installCatalog(
+            Authentication authentication,
+            @PathVariable String contentId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        FmUserPrincipal principal = CurrentUser.require(authentication);
+        ContentPackageDtos.InstallResult result =
+                contentPackageService.installCatalog(
+                        principal.id(),
+                        idempotencyKey,
+                        contentId);
+        return ResponseEntity
+                .status("installed".equals(result.outcome())
+                        ? HttpStatus.CREATED
+                        : HttpStatus.OK)
+                .body(result);
+    }
+
     @GetMapping
     public List<ContentPackageDtos.Installation> list(
             Authentication authentication,

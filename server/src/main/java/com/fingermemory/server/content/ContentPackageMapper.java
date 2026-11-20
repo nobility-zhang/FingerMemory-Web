@@ -5,11 +5,13 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface ContentPackageMapper {
     @Select("""
-            SELECT owner_id, id, namespace_id, book_id, content_version, content_hash,
+            SELECT owner_id, id, catalog_content_id, namespace_id, book_id,
+                   content_version, content_hash,
                    title, entry_node_id, engine_version, schema_version,
                    manifest_json, storage_relative_path, word_count, chapter_count,
                    node_count, character_count, card_count, encounter_count,
@@ -22,7 +24,8 @@ public interface ContentPackageMapper {
             @Param("contentHash") String contentHash);
 
     @Select("""
-            SELECT owner_id, id, namespace_id, book_id, content_version, content_hash,
+            SELECT owner_id, id, catalog_content_id, namespace_id, book_id,
+                   content_version, content_hash,
                    title, entry_node_id, engine_version, schema_version,
                    manifest_json, storage_relative_path, word_count, chapter_count,
                    node_count, character_count, card_count, encounter_count,
@@ -40,7 +43,8 @@ public interface ContentPackageMapper {
             @Param("contentVersion") String contentVersion);
 
     @Select("""
-            SELECT owner_id, id, namespace_id, book_id, content_version, content_hash,
+            SELECT owner_id, id, catalog_content_id, namespace_id, book_id,
+                   content_version, content_hash,
                    title, entry_node_id, engine_version, schema_version,
                    manifest_json, storage_relative_path, word_count, chapter_count,
                    node_count, character_count, card_count, encounter_count,
@@ -53,7 +57,8 @@ public interface ContentPackageMapper {
             @Param("id") String id);
 
     @Select("""
-            SELECT owner_id, id, namespace_id, book_id, content_version, content_hash,
+            SELECT owner_id, id, catalog_content_id, namespace_id, book_id,
+                   content_version, content_hash,
                    title, entry_node_id, engine_version, schema_version,
                    manifest_json, storage_relative_path, word_count, chapter_count,
                    node_count, character_count, card_count, encounter_count,
@@ -69,14 +74,15 @@ public interface ContentPackageMapper {
 
     @Insert("""
             INSERT INTO fm_content_installation (
-              owner_id, id, namespace_id, book_id, content_version, content_hash,
+              owner_id, id, catalog_content_id, namespace_id, book_id,
+              content_version, content_hash,
               title, entry_node_id, engine_version, schema_version, manifest_json,
               storage_relative_path, word_count, chapter_count, node_count,
               character_count, card_count, encounter_count, asset_count, status,
               installed_at_ms, updated_at_ms
             ) VALUES (
-              #{ownerId}, #{id}, #{namespaceId}, #{bookId}, #{contentVersion},
-              #{contentHash}, #{title}, #{entryNodeId}, #{engineVersion},
+              #{ownerId}, #{id}, #{catalogContentId}, #{namespaceId}, #{bookId},
+              #{contentVersion}, #{contentHash}, #{title}, #{entryNodeId}, #{engineVersion},
               #{schemaVersion}, CAST(#{manifestJson} AS JSON),
               #{storageRelativePath}, #{wordCount}, #{chapterCount}, #{nodeCount},
               #{characterCount}, #{cardCount}, #{encounterCount}, #{assetCount},
@@ -84,6 +90,18 @@ public interface ContentPackageMapper {
             )
             """)
     int insert(ContentInstallationRow row);
+
+    @Update("""
+            UPDATE fm_content_installation
+            SET catalog_content_id = #{catalogContentId}
+            WHERE owner_id = #{ownerId}
+              AND id = #{installationId}
+              AND catalog_content_id IS NULL
+            """)
+    int linkCatalogContent(
+            @Param("ownerId") String ownerId,
+            @Param("installationId") String installationId,
+            @Param("catalogContentId") String catalogContentId);
 
     @Insert("""
             INSERT INTO fm_content_asset (
