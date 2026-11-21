@@ -54,7 +54,7 @@ H5-05 已接入包内角色、场景、服装和伙伴技能动态注册；H5-06
 
 FSRS 到期队列优先，章节配置只约束新词来源。回合开始时可用正式题不足，保持 pending-learning 状态，允许暂停到营地或由用户明确改为仅练习；不得为补题修改敌方生命、判胜负或突破学习上限，不为通关突破日上限。每个任务锁定 wordKey→studyItemId 与内容版本；剧情曝光过的目标不能被同一回合伪装成独立回忆。
 
-每个 explore/encounter 节点提供可读说明、标号选项与动作结果；CLI 和 WebGL 不可用的 Web 使用同一事件/校验协议。CLI `adventure list/start/resume` 消费已提交检查点；跨端不传 DOM、WebGL 状态或动画帧。终端不可复现的纯装饰可跳过，核心分支与学习结果保持一致。
+每个 explore/encounter 节点提供可读说明、标号选项与动作结果；CLI 和 WebGL 不可用的 Web 使用同一事件/校验协议。CLI 已实现 `adventure books/list/show/start/resume`，文字展示对话、选择、奖励与当前节点，并在 encounter 节点复用同一学习会话和战斗命令；跨端只传已提交 `runVersion`、节点和 `battleId`，不传 DOM、WebGL 状态或动画帧。终端不可复现的纯装饰可跳过，核心分支与学习结果保持一致。
 
 ## 游戏引擎选型与 Vue 接入
 

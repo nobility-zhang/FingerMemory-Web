@@ -30,7 +30,7 @@ Vue/DOM（输入、对话、评分、可访问控件）
 | 账号服务 | Java 21、Spring Boot、MyBatis | 认证、资源归属、会话、版本检查与事务 |
 | 数据库 | MySQL、Flyway、Spring Session JDBC | 用户与学习数据、版本化迁移、会话持久化 |
 | 游戏与冒险 | Phaser + Vue + Java | 单一 Game 生命周期、音效桥、`card-battle-v1`、Java 战斗命令、安装 run、奖励/回忆和内容包角色/场景注册 |
-| CLI | Node.js 24、ESM、固定 `ts-fsrs` | PAT 在线学习、编号文字卡牌、非 TTY、独立本地 v5 与备份互通 |
+| CLI | Node.js 24、ESM、固定 `ts-fsrs` | PAT 在线学习、文字剧情/卡牌、非 TTY、独立本地 v5 与备份互通 |
 
 具体依赖版本以 [Web 清单](../../web/package.json)、锁文件与 [Java POM](../../server/pom.xml) 为准；文档不维护另一张容易过期的补丁版本表。新依赖检查维护、许可、真实用途与工具链兼容，避免浮动 latest 或运行时 CDN。
 
