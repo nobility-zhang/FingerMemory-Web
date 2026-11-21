@@ -3,6 +3,7 @@ package com.fingermemory.server.user;
 import com.fingermemory.server.auth.AuthDtos.ChangePasswordRequest;
 import com.fingermemory.server.auth.AuthDtos.RegisterRequest;
 import com.fingermemory.server.auth.FmUserPrincipal;
+import com.fingermemory.server.auth.PersonalAccessTokenMapper;
 import com.fingermemory.server.common.ApiException;
 import com.fingermemory.server.learning.UserDataStore;
 import java.nio.charset.StandardCharsets;
@@ -25,13 +26,16 @@ public class UserService {
     private final UserPreferencesMapper preferencesMapper;
     private final PasswordEncoder passwordEncoder;
     private final UserDataStore userDataStore;
+    private final PersonalAccessTokenMapper tokenMapper;
 
     public UserService(UserMapper userMapper, UserPreferencesMapper preferencesMapper,
-                       PasswordEncoder passwordEncoder, UserDataStore userDataStore) {
+                       PasswordEncoder passwordEncoder, UserDataStore userDataStore,
+                       PersonalAccessTokenMapper tokenMapper) {
         this.userMapper = userMapper;
         this.preferencesMapper = preferencesMapper;
         this.passwordEncoder = passwordEncoder;
         this.userDataStore = userDataStore;
+        this.tokenMapper = tokenMapper;
     }
 
     @Transactional
@@ -112,6 +116,7 @@ public class UserService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "AUTH_CURRENT_PASSWORD_INVALID", "当前密码不正确");
         }
         replacePassword(user.getId(), request.newPassword());
+        tokenMapper.revokeAll(user.getId(), Instant.now().toEpochMilli());
     }
 
     @Transactional

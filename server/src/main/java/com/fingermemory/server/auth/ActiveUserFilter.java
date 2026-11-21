@@ -51,7 +51,7 @@ public class ActiveUserFilter extends OncePerRequestFilter {
             Authentication refreshedAuthentication = UsernamePasswordAuthenticationToken.authenticated(
                     refreshed,
                     authentication.getCredentials(),
-                    refreshed.getAuthorities());
+                    authentication.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(refreshedAuthentication);
 
             if (access.mustChangePassword() && !isPasswordChangeAllowed(request)) {

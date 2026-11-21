@@ -234,7 +234,8 @@ class AdminGmIT {
                         .header("Authorization", "Bearer fake-personal-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
     }
 
     private AdminBootstrapProperties bootstrapProperties() {

@@ -367,7 +367,8 @@ class GmSandboxIT {
                                 sandbox.epoch(),
                                 "must be rejected",
                                 commandArgs().put("nodeId", "camp")))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_REQUIRED"));
 
         userService.createAccount(
                 new RegisterRequest(

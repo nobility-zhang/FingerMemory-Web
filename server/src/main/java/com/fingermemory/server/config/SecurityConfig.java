@@ -4,6 +4,8 @@ import com.fingermemory.server.auth.AuthRateLimitFilter;
 import com.fingermemory.server.auth.AuthRateLimiter;
 import com.fingermemory.server.auth.ActiveUserFilter;
 import com.fingermemory.server.auth.JsonAuthenticationHandlers;
+import com.fingermemory.server.auth.PersonalAccessTokenAuthenticationFilter;
+import com.fingermemory.server.auth.PersonalAccessTokenService;
 import com.fingermemory.server.common.ApiError;
 import com.fingermemory.server.common.ApiErrorWriter;
 import com.fingermemory.server.user.UserMapper;
@@ -18,6 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.CsrfFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -32,10 +35,14 @@ public class SecurityConfig {
             AuthRateLimiter rateLimiter,
             UserMapper userMapper,
             ApiErrorWriter errorWriter,
+            PersonalAccessTokenService tokenService,
             JsonAuthenticationHandlers authenticationHandlers) throws Exception {
         http
                 .csrf(csrf -> csrf
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .ignoringRequestMatchers(request -> Boolean.TRUE.equals(
+                                request.getAttribute(
+                                        PersonalAccessTokenAuthenticationFilter.AUTHENTICATED_ATTRIBUTE))))
                 .requestCache(cache -> cache.disable())
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
@@ -68,6 +75,8 @@ public class SecurityConfig {
                                         new ApiError("ACCESS_DENIED", "没有权限执行此操作"))))
                 .addFilterAfter(new ActiveUserFilter(userMapper, errorWriter),
                         SecurityContextHolderFilter.class)
+                .addFilterBefore(new PersonalAccessTokenAuthenticationFilter(tokenService, errorWriter),
+                        CsrfFilter.class)
                 .addFilterBefore(new AuthRateLimitFilter(rateLimiter, errorWriter),
                         UsernamePasswordAuthenticationFilter.class);
 
