@@ -94,6 +94,11 @@ class BattleApiIT {
         JsonNode createdTree = objectMapper.readTree(firstResponse);
         String firstCardId = createdTree.path("battle").path("hand").get(0)
                 .path("instanceId").asText();
+        mockMvc.perform(get("/api/v1/battles")
+                        .cookie(user.session().cookie()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].battle.battleId").value("battle-owner-1"))
+                .andExpect(jsonPath("$[0].battle.phase").value("learning"));
 
         createBattle(user.session(), "battle-create-1", createBody, 201);
         ObjectNode changedCreate = createBody.deepCopy();

@@ -161,6 +161,19 @@ public class BattleService {
                 row.getStateVersion());
     }
 
+    public List<BattleEnvelope> listActive(String ownerId, int limit) {
+        if (limit < 1 || limit > 50) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
+                    "limit must be between 1 and 50");
+        }
+        return battleMapper.listActiveBattles(ownerId, limit).stream()
+                .map(row -> new BattleEnvelope(
+                        readStateNode(row),
+                        readEvents(ownerId, row.getBattleId()),
+                        row.getStateVersion()))
+                .toList();
+    }
+
     @Transactional
     public BattleEnvelope claimLearning(
             String ownerId,

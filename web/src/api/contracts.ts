@@ -16,6 +16,31 @@ export interface UserView {
   preferences: UserPreferencesView;
 }
 
+export interface PersonalAccessTokenView {
+  id: string;
+  name: string;
+  prefix: string;
+  scope: 'account';
+  createdAtMs: number;
+  expiresAtMs: number;
+  lastUsedAtMs: number | null;
+  revokedAtMs: number | null;
+}
+
+export interface CreatedPersonalAccessTokenView {
+  token: PersonalAccessTokenView;
+  plaintextToken: string;
+}
+
+export interface AccessTokenApi {
+  listPersonalAccessTokens(): Promise<PersonalAccessTokenView[]>;
+  createPersonalAccessToken(input: {
+    name: string;
+    expiresAtMs?: number;
+  }): Promise<CreatedPersonalAccessTokenView>;
+  revokePersonalAccessToken(tokenId: string): Promise<void>;
+}
+
 export interface LexiconView {
   id: string;
   name: string;
@@ -255,6 +280,10 @@ export interface BattleEnvelopeView {
   battle: BattleStateView;
   events: Array<Record<string, unknown>>;
   stateVersion: number;
+}
+
+export interface BattleDiscoveryApi {
+  listActiveBattles(limit?: number): Promise<BattleEnvelopeView[]>;
 }
 
 export interface AdventureChoiceView {

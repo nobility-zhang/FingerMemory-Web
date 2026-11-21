@@ -1,6 +1,7 @@
 import type {
   AccountBackup,
   AccountClient,
+  CreatedPersonalAccessTokenView,
   AdventureActionResult,
   AdventureCharacterView,
   AdventureCompletionView,
@@ -33,6 +34,7 @@ import type {
   LexiconView,
   MigrationPreview,
   MigrationResult,
+  PersonalAccessTokenView,
   PracticeCompletionResult,
   PracticeResponseResult,
   QueuePlanView,
@@ -103,6 +105,31 @@ export class AccountApi implements AccountClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPassword, newPassword }),
     });
+  }
+
+  async listPersonalAccessTokens(): Promise<PersonalAccessTokenView[]> {
+    return this.transport.request<PersonalAccessTokenView[]>('/auth/tokens');
+  }
+
+  async createPersonalAccessToken(input: {
+    name: string;
+    expiresAtMs?: number;
+  }): Promise<CreatedPersonalAccessTokenView> {
+    return this.transport.request<CreatedPersonalAccessTokenView>(
+      '/auth/tokens',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    );
+  }
+
+  async revokePersonalAccessToken(tokenId: string): Promise<void> {
+    await this.transport.request<void>(
+      `/auth/tokens/${encodeURIComponent(tokenId)}`,
+      { method: 'DELETE' },
+    );
   }
 
   async listLexicons(): Promise<LexiconView[]> {
@@ -366,6 +393,12 @@ export class AccountApi implements AccountClient {
   async getBattle(battleId: string): Promise<BattleEnvelopeView> {
     return this.transport.request<BattleEnvelopeView>(
       `/battles/${encodeURIComponent(battleId)}`,
+    );
+  }
+
+  async listActiveBattles(limit = 20): Promise<BattleEnvelopeView[]> {
+    return this.transport.request<BattleEnvelopeView[]>(
+      `/battles?limit=${encodeURIComponent(String(limit))}`,
     );
   }
 

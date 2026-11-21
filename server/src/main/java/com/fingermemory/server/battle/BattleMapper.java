@@ -51,6 +51,22 @@ public interface BattleMapper {
                    next_event_sequence AS nextEventSequence, state_json AS stateJson,
                    created_at_ms AS createdAtMs, updated_at_ms AS updatedAtMs
             FROM fm_battle
+            WHERE owner_id = #{ownerId}
+              AND phase IN ('learning', 'player-action')
+            ORDER BY updated_at_ms DESC, battle_id DESC
+            LIMIT #{limit}
+            """)
+    List<BattleRow> listActiveBattles(
+            @Param("ownerId") String ownerId,
+            @Param("limit") int limit);
+
+    @Select("""
+            SELECT owner_id AS ownerId, battle_id AS battleId, data_epoch AS dataEpoch,
+                   rules_version AS rulesVersion,
+                   state_version AS stateVersion, phase, turn_id AS turnId,
+                   next_event_sequence AS nextEventSequence, state_json AS stateJson,
+                   created_at_ms AS createdAtMs, updated_at_ms AS updatedAtMs
+            FROM fm_battle
             WHERE owner_id = #{ownerId} AND battle_id = #{battleId}
             FOR UPDATE
             """)

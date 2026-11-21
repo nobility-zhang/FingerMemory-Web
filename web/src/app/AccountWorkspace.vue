@@ -11,6 +11,8 @@ import {
   ApiClientError,
   type AccountBackup,
   type AccountClient,
+  type BattleDiscoveryApi,
+  type BattleEnvelopeView,
   type BackupPreview,
   type LexiconView,
   type MigrationPreview,
@@ -22,6 +24,7 @@ import {
 } from '../api/client';
 import FlashcardPanel from '../flashcards/FlashcardPanel.vue';
 import BridgeBattlePanel from '../battle/BridgeBattlePanel.vue';
+import CliTokenPanel from '../account/CliTokenPanel.vue';
 import ContentLibraryPanel from '../content/ContentLibraryPanel.vue';
 import PhaserGameHost from '../game-runtime/PhaserGameHost.vue';
 import { usePhaserAudio } from '../game-runtime/usePhaserAudio';
@@ -52,6 +55,8 @@ const onlinePlan = ref<QueuePlanView>();
 const onlineSessions = ref<SessionEnvelope[]>([]);
 const onlineSession = ref<SessionEnvelope>();
 const battleSession = ref<SessionEnvelope>();
+const onlineBattle = ref<BattleEnvelopeView>();
+const onlineBattleResumeId = ref<string>();
 const onlineAnswer = ref('');
 const pendingAnswer = ref<PendingAnswerView>();
 const reviewPreviews = ref<ReviewPreviewView>();
@@ -111,6 +116,20 @@ const isOnlineFlashcardMode = computed(
 const isOnlineTypingMode = computed(
   () => onlineSession.value?.session.modeId === 'keyboard-recall',
 );
+const canOpenOnlineBattle = computed(() => {
+  if (onlineSession.value === undefined) {
+    return false;
+  }
+  if (onlineBattleResumeId.value !== undefined) {
+    return true;
+  }
+  return (
+    currentSessionItem.value !== undefined
+    && pendingAnswer.value === undefined
+    && onlineSession.value.session.status === 'active'
+    && isOnlineTypingMode.value
+  );
+});
 const accountBackupCountRows = computed<Array<[string, number]>>(() => {
   const preview = accountBackupPreview.value;
   if (preview === undefined) {
@@ -203,9 +222,13 @@ async function refreshOnline(): Promise<void> {
     return;
   }
   const generation = ++onlineGeneration;
-  const [plan, sessions] = await Promise.all([
+  const battleApi = props.api as AccountClient & Partial<BattleDiscoveryApi>;
+  const [plan, sessions, battles] = await Promise.all([
     props.api.loadQueuePlan({ timeZone: currentTimeZone() }),
     props.api.listActiveSessions(),
+    battleApi.listActiveBattles === undefined
+      ? Promise.resolve([])
+      : battleApi.listActiveBattles(20),
   ]);
   if (generation !== onlineGeneration) {
     return;
@@ -213,10 +236,29 @@ async function refreshOnline(): Promise<void> {
   onlinePlan.value = plan;
   onlineSessions.value = sessions.sessions;
   const currentId = onlineSession.value?.session.id;
-  const selected =
+  const preferredBattle =
+    battles.find(
+      (battle) => battle.battle.learningTask?.sessionId === currentId,
+    ) ?? battles[0];
+  const preferredBattleSessionId =
+    preferredBattle?.battle.learningTask?.sessionId;
+  let selected =
     sessions.sessions.find((item) => item.session.id === currentId) ??
+    sessions.sessions.find(
+      (item) => item.session.id === preferredBattleSessionId,
+    ) ??
     sessions.sessions[0];
+  if (selected === undefined && preferredBattleSessionId !== undefined) {
+    selected = await props.api.getSession(preferredBattleSessionId);
+  }
   onlineSession.value = selected;
+  onlineBattle.value = selected === undefined
+    ? undefined
+    : battles.find(
+        (battle) =>
+          battle.battle.learningTask?.sessionId === selected.session.id,
+      );
+  onlineBattleResumeId.value = onlineBattle.value?.battle.battleId;
   if (onlineSession.value === undefined) {
     pendingAnswer.value = undefined;
     reviewPreviews.value = undefined;
@@ -348,12 +390,18 @@ async function startOnlineFlashcardSession(): Promise<void> {
 }
 
 function startBridgeBattle(): void {
+  const resumingBattle = onlineBattleResumeId.value !== undefined;
   if (
     onlineBusy.value
     || onlineSession.value === undefined
-    || currentSessionItem.value === undefined
-    || pendingAnswer.value !== undefined
-    || onlineSession.value.session.status !== 'active'
+    || (
+      !resumingBattle
+        && (
+          currentSessionItem.value === undefined
+          || pendingAnswer.value !== undefined
+          || onlineSession.value.session.status !== 'active'
+        )
+    )
   ) {
     return;
   }
@@ -372,6 +420,8 @@ function handleBattleSessionChanged(session: SessionEnvelope): void {
 
 function finishBridgeBattle(): void {
   battleSession.value = undefined;
+  onlineBattle.value = undefined;
+  onlineBattleResumeId.value = undefined;
   onlineNotice.value = '已返回在线学习空间。';
   void refreshOnline();
 }
@@ -910,6 +960,7 @@ onBeforeUnmount(() => {
       </div>
 
       <ContentLibraryPanel :api="props.api" />
+      <CliTokenPanel :api="props.api" />
 
       <section class="online-training" aria-labelledby="online-training-title">
         <div class="cloud-heading">
@@ -950,18 +1001,10 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="secondary-action"
-            :disabled="
-              onlineBusy ||
-                onlineSession === undefined ||
-                currentSessionItem === undefined ||
-                pendingAnswer !== undefined ||
-                onlineSession.session.status !== 'active'
-                ||
-                !isOnlineTypingMode
-            "
+            :disabled="onlineBusy || !canOpenOnlineBattle"
             @click="startBridgeBattle"
           >
-            开始溪桥教学战
+            {{ onlineBattleResumeId ? '继续文字卡牌' : '开始溪桥教学战' }}
           </button>
           <span v-if="onlineSessions.length > 0">
             可恢复会话 {{ onlineSessions.length }} 个
@@ -990,6 +1033,7 @@ onBeforeUnmount(() => {
             companion-key="lia"
             :enable-audio="enableAudio"
             :reduce-motion="battleSession.session.reduceMotion"
+            :initial-battle-id="onlineBattleResumeId"
             @session-changed="handleBattleSessionChanged"
             @finished="finishBridgeBattle"
           />
