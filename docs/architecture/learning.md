@@ -68,7 +68,9 @@ Flyway V14 为 `fm_user_data`、战斗/冒险 run 和关键命令回执增加 `d
 
 - 唯一 API 契约是 `docs/api/openapi.yaml`；当前 P2 实现 auth、lexicons、words、queue、sessions、formal reviews、migration 和 account backup，其余路径明确标记 planned。
 - Web 同源使用 HttpOnly `FM_SESSION`、SameSite=Lax、CSRF header；不得把会话令牌存 localStorage。
-- CLI 后续使用 Bearer 个人访问令牌；服务端只保存摘要，CSRF 只对 Bearer 请求豁免，Cookie 请求不被全局关闭保护。
+- CLI 使用 Bearer 个人访问令牌；V15 只保存 SHA-256 摘要，支持过期、撤销和最后使用时间。
+  仅已验证 PAT 请求豁免 CSRF；带伪 Bearer 的 Cookie 请求不会回退到浏览器会话。
+- PAT 使用独立 `ROLE_PAT`，不能访问 `/gm/**` 或浏览器令牌管理。改密会在同一用户事务中撤销全部 PAT。
 - 所有资源归属来自认证 principal；路径中的 userId 不被接受。跨用户读取返回 404，避免泄漏对象存在性。
 - 登录/注册由 Bucket4j 按 IP 和用户名限流；日志不得输出密码、token、Cookie 或完整凭据对象。
 - BCrypt 密码按 UTF-8 字节限制为最多 72 字节，避免算法静默截断；停用账号的既有会话在下一次 API 请求时被拒绝并失效。

@@ -65,10 +65,17 @@ docker compose up --build -d
 备份包含学习快照、战斗、冒险、结局回执、内容安装和私有媒体；恢复会校验并从
 Base64 重建资源，同时切换用户 dataEpoch。它仍不能替代 MySQL 数据库级备份。
 
+CLI 先通过 Cookie + CSRF 在 `GET/POST /api/v1/auth/tokens` 管理一次性 PAT，
+再用 `Authorization: Bearer fm_pat_...` 调用账号接口。V15 仅保存摘要；PAT
+可过期、可撤销，使用独立 `ROLE_PAT`，不能进入 GM 或浏览器令牌管理。
+
 ## 在线学习 API
 
 - `GET/POST /api/v1/lexicons/{id}/words`
 - `GET /api/v1/queue/plan`
+- `GET /api/v1/auth/tokens`
+- `POST /api/v1/auth/tokens`
+- `DELETE /api/v1/auth/tokens/{id}`
 - `GET/POST /api/v1/sessions`
 - `GET/PATCH /api/v1/sessions/{id}`
 - `POST /api/v1/sessions/{id}/responses`
@@ -95,6 +102,13 @@ Base64 重建资源，同时切换用户 dataEpoch。它仍不能替代 MySQL �
 - `GET /api/v1/adventures/companions/definitions`
 - `GET /api/v1/adventures/recollections`
 - `GET /api/v1/adventures/completions`
+- `GET /api/v1/battles`
+- `GET /api/v1/battles/{battleId}`
+- `POST /api/v1/battles`
+- `POST /api/v1/battles/{battleId}/learning-claims`
+- `POST /api/v1/battles/{battleId}/cards`
+- `POST /api/v1/battles/{battleId}/companion-skill`
+- `POST /api/v1/battles/{battleId}/end-turn`
 
 正式复习以 `Idempotency-Key` 作为 submissionId；先查回执，再校验用户数据、会话和复习状态版本。请求只提交评分和证据，afterCard、reviewedAt 和奖励事件由服务端确定。
 新在线会话只接受 `flashcard` 与 `keyboard-recall`；旧

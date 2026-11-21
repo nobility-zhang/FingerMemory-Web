@@ -13,6 +13,7 @@ info:
     H5-03 已实现三章旅程、三选一牌组奖励、Fina 剧情解锁/营地切换和账号级回忆去重。
     H5-07 已实现 GM 草稿只读预览、不可变版本发布、共享安装和归档保护。
     H6-01 已停止新建歌词/弹幕/卡片雨会话；旧 modeId 继续用于历史、备份和显式迁移。
+    H6-02 已实现 CLI 个人访问令牌、Bearer 认证和账号学习/卡牌文字客户端。
     H7-01 已实现账号备份 v2、战斗/冒险/内容资源恢复和恢复后 dataEpoch 切换。
     标为 implemented 的路径由当前服务提供；planned 路径在对应阶段实现前不得由客户端假定可用。
 servers:
@@ -120,6 +121,53 @@ components:
           minLength: 12
           maxLength: 128
           writeOnly: true
+    CreatePersonalAccessToken:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        expiresAtMs:
+          type: integer
+          description: 可选到期时间；缺省 90 天，可设置范围为 5 分钟到 365 天。
+    PersonalAccessToken:
+      type: object
+      additionalProperties: false
+      required:
+        [id, name, prefix, scope, createdAtMs, expiresAtMs, lastUsedAtMs, revokedAtMs]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          maxLength: 80
+        prefix:
+          type: string
+          description: 供用户识别令牌的短前缀，不是可认证凭据。
+        scope:
+          type: string
+          enum: [account]
+        createdAtMs:
+          type: integer
+        expiresAtMs:
+          type: integer
+        lastUsedAtMs:
+          type: [integer, 'null']
+        revokedAtMs:
+          type: [integer, 'null']
+    CreatedPersonalAccessToken:
+      type: object
+      additionalProperties: false
+      required: [token, plaintextToken]
+      properties:
+        token:
+          $ref: '#/components/schemas/PersonalAccessToken'
+        plaintextToken:
+          type: string
+          description: 只在创建响应中出现一次；服务端仅保存 SHA-256 摘要。
     ArchiveLexiconRequest:
       type: object
       additionalProperties: false
@@ -2574,6 +2622,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       responses:
         '200':
           description: 当前用户
@@ -2605,7 +2654,7 @@ paths:
   /auth/tokens:
     get:
       summary: 列出当前用户的 CLI 访问令牌元数据
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security:
         - cookieAuth: []
       responses:
@@ -2616,21 +2665,31 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
+                  $ref: '#/components/schemas/PersonalAccessToken'
     post:
       summary: 创建可过期、可撤销的 CLI 访问令牌
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security:
         - cookieAuth: []
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePersonalAccessToken'
       responses:
         '201':
           description: 只在该响应返回一次令牌明文
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedPersonalAccessToken'
   /auth/tokens/{id}:
     delete:
       summary: 撤销当前用户的 CLI 访问令牌
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security:
         - cookieAuth: []
       parameters:
@@ -2676,6 +2735,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - name: includeArchived
           in: query
@@ -2705,6 +2765,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
       requestBody:
@@ -2728,6 +2789,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -2744,6 +2806,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -2764,6 +2827,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -2782,6 +2846,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -2800,6 +2865,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -2878,6 +2944,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - name: timeZone
           in: query
@@ -2910,6 +2977,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       responses:
         '200':
           description: 按更新时间倒序的未完成会话
@@ -2930,6 +2998,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
       requestBody:
@@ -2951,6 +3020,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
       responses:
@@ -2965,6 +3035,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -2989,6 +3060,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -3025,6 +3097,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -3058,6 +3131,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -3091,6 +3165,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntityId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3107,11 +3182,35 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
   /battles:
+    get:
+      summary: 列出当前用户仍在学习或玩家行动的卡牌检查点
+      x-implementation-status: implemented
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: 最近更新的活动战斗
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BattleEnvelope'
     post:
       summary: 创建 card-battle-v1 并绑定唯一学习任务
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/CsrfHeader'
@@ -3136,6 +3235,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/BattleId'
       responses:
@@ -3153,6 +3253,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/BattleId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3180,6 +3281,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/BattleId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3207,6 +3309,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/BattleId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -3234,6 +3337,7 @@ paths:
       x-implementation-status: implemented
       security:
         - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/BattleId'
         - $ref: '#/components/parameters/IdempotencyKey'
